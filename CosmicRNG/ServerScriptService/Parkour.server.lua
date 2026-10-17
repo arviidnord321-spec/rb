@@ -1,11 +1,16 @@
 -- Parkour (Script in ServerScriptService)
 -- Builds two obby courses next to the main island and runs them:
---   STARSTEP TRAIL (easy)  - a curving staircase of floating platforms
---   VOID TOWER (hard)      - a spiral around a tall tower, with beams,
---                            vanishing platforms, kill pads and a jump pad
+--   STARSTEP TRAIL (medium) - a long curving trail of small platforms with
+--                             moving platforms, spinning laser bars,
+--                             vanishing platforms and a jump pad
+--   VOID TOWER (hard)       - a 42-step spiral around a tall tower: thin
+--                             beams, blinking platforms, spinners, movers,
+--                             half-deadly platforms and a jump pad
 -- Step on the start pad to begin. Checkpoints save your spot (falling puts
 -- you back there). Reaching the finish gives a luck boost (with a cooldown).
--- Vanishing platforms and jump pads are animated by the ParkourClient script.
+-- Vanishing/moving platforms, spinners and jump pads are animated by the
+-- ParkourClient script. Spinners are timed by the server clock, so the
+-- server knows exactly where every laser bar is.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -111,6 +116,7 @@ local function newCourse(key, model)
 		Model = model,
 		Checkpoints = {},
 		Kills = {},
+		Spinners = {},
 	}
 	courses[key] = course
 	return course
@@ -191,6 +197,56 @@ local function killPad(course, model, cf, size)
 		Parent = model,
 	})
 	table.insert(course.Kills, p)
+	return p
+end
+
+
+-- A platform with a spinning red laser bar on top: jump over it!
+local function spinnerPlatform(course, model, cf, topColor, rimColor, speed, offset)
+	platform(model, cf, Vector3.new(6, 1, 6), topColor, rimColor)
+	local center = (cf * CFrame.new(0, 0.5 + 1.2, 0)).Position
+	local length = 6.6
+	local bar = part({
+		Name = "SpinnerBar",
+		Size = Vector3.new(0.7, 0.7, length),
+		CFrame = CFrame.new(center),
+		Color = Color3.fromRGB(255, 40, 70),
+		Material = Enum.Material.Neon,
+		CanCollide = false,
+		CanQuery = false,
+		Parent = model,
+	})
+	bar:SetAttribute("Spinner", true)
+	bar:SetAttribute("SpinSpeed", speed)
+	bar:SetAttribute("SpinOffset", offset)
+	bar:SetAttribute("SpinCenter", center)
+	part({
+		Name = "SpinnerHub",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.one * 1.2,
+		CFrame = CFrame.new(center),
+		Color = Color3.fromRGB(255, 120, 140),
+		Material = Enum.Material.Neon,
+		CanCollide = false,
+		Parent = model,
+	})
+	table.insert(course.Spinners, { Center = center, Length = length, Speed = speed, Offset = offset })
+end
+
+-- A platform that slides back and forth (it carries you, see ParkourClient)
+local function movingPlatform(model, cf, size, amplitude, period, offset)
+	local p = part({
+		Name = "MovingPlatform",
+		Size = size,
+		CFrame = cf,
+		Color = Color3.fromRGB(90, 200, 255),
+		Material = Enum.Material.Neon,
+		Transparency = 0.1,
+		Parent = model,
+	})
+	p:SetAttribute("MoveAmplitude", amplitude)
+	p:SetAttribute("MovePeriod", period)
+	p:SetAttribute("MoveOffset", offset)
 	return p
 end
 
@@ -290,7 +346,7 @@ local function finishPad(course, model, cf, color3)
 end
 
 ---------------------------------------------------------------------
--- STARSTEP TRAIL (easy): curves out west then north, rising gently
+-- STARSTEP TRAIL (medium): a long curve of small platforms
 ---------------------------------------------------------------------
 do
 	local model = Instance.new("Model")
@@ -303,40 +359,43 @@ do
 	local start = P.StarstepStart
 	startPad(course, model, start, RIM)
 
+	local STEPS = 26
 	local position = Vector3.new(start.X, 1, start.Z)
-	local heading = math.pi -- west
 	local checkpointNumber = 0
-	for i = 1, 19 do
-		heading = math.pi + i * math.rad(5)
+	for i = 1, STEPS do
+		local heading = math.pi + i * math.rad(4.5)
 		local direction = Vector3.new(math.cos(heading), 0, math.sin(heading))
-		local gap, rise = 8, 1.4
-		if i == 16 then
-			gap, rise = 6.5, 9 -- high up past the jump pad (not over it, so you don't bonk your head)
+		local across = Vector3.new(-direction.Z, 0, direction.X)
+		local gap, rise = 10, 1.3
+		if i == 21 then
+			gap, rise = 6.5, 10 -- high up past the jump pad
 		end
 		position += direction * gap + Vector3.new(0, rise, 0)
 		local cf = CFrame.lookAt(position, position + direction) * CFrame.new(0, -0.5, 0)
 
-		if i == 19 then
+		if i == STEPS then
 			finishPad(course, model, cf * CFrame.new(0, 0, -3), RIM)
-		elseif i == 6 or i == 12 then
+		elseif i == 9 or i == 18 then
 			checkpointNumber += 1
 			checkpointPad(course, model, cf, checkpointNumber, RIM)
-		elseif i == 9 or i == 10 then
-			vanishPlatform(model, cf, Vector3.new(5, 1, 5), 4, 3, i * 0.9)
-		elseif i == 15 then
-			jumpPad(model, cf, Vector3.new(5, 1, 5), Vector3.new(0, 75, 0))
+		elseif i == 20 then
+			jumpPad(model, cf, Vector3.new(4, 1, 4), Vector3.new(0, 75, 0))
+		elseif i == 5 or i == 14 or i == 24 then
+			spinnerPlatform(course, model, cf, TOP, RIM, 2.2, i * 0.7)
+		elseif i % 5 == 2 then
+			movingPlatform(model, cf, Vector3.new(3.6, 1, 3.6), across * 5, 3.2, i * 0.4)
+		elseif i == 10 or i == 11 or i == 19 then
+			vanishPlatform(model, cf, Vector3.new(3.6, 1, 3.6), 2.6, 1.6, i * 0.9)
 		else
-			local size = (i < 8) and 5 or 4.5
-			platform(model, cf, Vector3.new(size, 1, size), TOP, RIM)
+			platform(model, cf, Vector3.new(3.2, 1, 3.2), TOP, RIM)
 		end
 
-		-- a few stars floating along the trail
 		if i % 3 == 0 then
 			local star = part({
 				Name = "TrailStar",
 				Shape = Enum.PartType.Ball,
 				Size = Vector3.one * 0.8,
-				CFrame = CFrame.new(position + Vector3.new(rand:NextNumber(-4, 4), rand:NextNumber(3, 6), rand:NextNumber(-4, 4))),
+				CFrame = CFrame.new(position + Vector3.new(rand:NextNumber(-5, 5), rand:NextNumber(4, 7), rand:NextNumber(-5, 5))),
 				Color = RIM,
 				Material = Enum.Material.Neon,
 				CanCollide = false,
@@ -348,7 +407,7 @@ do
 end
 
 ---------------------------------------------------------------------
--- VOID TOWER (hard): a spiral climb around a dark tower
+-- VOID TOWER (hard): a 42-step spiral climb around a dark tower
 ---------------------------------------------------------------------
 do
 	local model = Instance.new("Model")
@@ -362,50 +421,58 @@ do
 	startPad(course, model, start, RIM)
 
 	local outward = Vector3.new(start.X, 0, start.Z).Unit
-	local towerCenter = Vector3.new(start.X, 0, start.Z) + outward * 20
-	local RADIUS = 12
-	local STEPS = 32
+	local towerCenter = Vector3.new(start.X, 0, start.Z) + outward * 21
+	local RADIUS = 13
+	local STEPS = 42
 	local toStart = Vector3.new(start.X, 0, start.Z) - towerCenter
 	local angle0 = math.atan2(toStart.Z, toStart.X)
+
+	local BEAMS = { [7] = true, [16] = true, [25] = true, [34] = true, [39] = true }
+	local SPINNERS = { [11] = true, [23] = true, [31] = true, [37] = true }
+	local MOVERS = { [13] = true, [26] = true, [35] = true }
+	local HALF_DEADLY = { [5] = true, [17] = true, [29] = true, [40] = true }
 
 	local height = 3
 	local checkpointNumber = 0
 	local finishY
 	for i = 1, STEPS do
-		local angle = angle0 + (i - 1) * 0.5
-		if i == 17 then
-			height += 9 -- above the jump pad
-		else
-			height += (i == 1) and 0 or 2.4
+		local angle = angle0 + (i - 1) * 0.6
+		if i == 21 then
+			height += 10 -- above the jump pad
+		elseif i > 1 then
+			height += 2.6
 		end
-		local position = towerCenter + Vector3.new(math.cos(angle) * RADIUS, height, math.sin(angle) * RADIUS)
+		local radial = Vector3.new(math.cos(angle), 0, math.sin(angle))
+		local position = towerCenter + radial * RADIUS + Vector3.new(0, height, 0)
 		local tangent = Vector3.new(-math.sin(angle), 0, math.cos(angle))
 		local cf = CFrame.lookAt(position, position + tangent)
 
 		if i == STEPS then
 			finishY = height
 			finishPad(course, model, CFrame.new(towerCenter + Vector3.new(0, height, 0)) * CFrame.lookAt(Vector3.zero, -tangent).Rotation, RIM)
-		elseif i == 10 or i == 22 then
+		elseif i == 14 or i == 28 then
 			checkpointNumber += 1
 			checkpointPad(course, model, cf, checkpointNumber, RIM)
-		elseif i == 16 then
-			jumpPad(model, cf, Vector3.new(4, 1, 4), Vector3.new(0, 78, 0))
-		elseif i == 7 or i == 19 or i == 27 then
-			-- thin beam
-			platform(model, cf, Vector3.new(1.2, 0.6, 6.5), TOP, RIM)
-		elseif i % 4 == 0 then
-			vanishPlatform(model, cf, Vector3.new(4, 1, 4), 2.6, 1.7, i * 0.37)
-		elseif i == 5 or i == 13 or i == 25 then
+		elseif i == 20 then
+			jumpPad(model, cf, Vector3.new(3.5, 1, 3.5), Vector3.new(0, 80, 0))
+		elseif BEAMS[i] then
+			platform(model, cf, Vector3.new(1, 0.5, 7.5), TOP, RIM)
+		elseif SPINNERS[i] then
+			spinnerPlatform(course, model, cf, TOP, RIM, 2.8, i * 0.53)
+		elseif MOVERS[i] then
+			movingPlatform(model, cf, Vector3.new(3, 1, 3), radial * 3.5, 2.4, i * 0.31)
+		elseif HALF_DEADLY[i] then
 			-- half safe, half deadly: land on the inner side
-			local inward = (towerCenter + Vector3.new(0, height, 0) - position).Unit
-			platform(model, CFrame.new(position + inward * 1.1) * cf.Rotation, Vector3.new(2.2, 1, 4), TOP, RIM)
-			killPad(course, model, CFrame.new(position - inward * 1.1) * cf.Rotation, Vector3.new(2.2, 1, 4))
+			local inward = -radial
+			platform(model, CFrame.new(position + inward * 1.1) * cf.Rotation, Vector3.new(2.2, 1, 3.4), TOP, RIM)
+			killPad(course, model, CFrame.new(position - inward * 1.1) * cf.Rotation, Vector3.new(2.2, 1, 3.4))
+		elseif i % 3 == 0 then
+			vanishPlatform(model, cf, Vector3.new(3, 1, 3), 2.2, 1.2, i * 0.37)
 		else
-			platform(model, cf, Vector3.new(3.6, 1, 3.6), TOP, RIM)
+			platform(model, cf, Vector3.new(3, 1, 3), TOP, RIM)
 		end
 	end
-	-- the last platform before the finish leads to the tower top: make the
-	-- finish reachable by putting it on top of the tower itself
+
 	local towerHeight = finishY + 22
 	part({
 		Name = "Tower",
@@ -456,6 +523,22 @@ local function onPad(pad, position, extraHeight)
 		and math.abs(localPos.Z) <= half.Z + 0.6
 		and localPos.Y >= -half.Y - 1
 		and localPos.Y <= half.Y + (extraHeight or 4)
+end
+
+-- Is this player being hit by a spinning laser bar right now?
+local function hitBySpinner(spinner, position)
+	local feet, head = position.Y - 3.1, position.Y + 1.6
+	if spinner.Center.Y < feet or spinner.Center.Y > head then
+		return false
+	end
+	local angle = Luck.Now() * spinner.Speed + spinner.Offset
+	local direction = Vector3.new(math.sin(angle), 0, math.cos(angle))
+	local a = spinner.Center - direction * (spinner.Length / 2)
+	local b = spinner.Center + direction * (spinner.Length / 2)
+	local point = Vector3.new(position.X, spinner.Center.Y, position.Z)
+	local ab = b - a
+	local t = math.clamp((point - a):Dot(ab) / ab:Dot(ab), 0, 1)
+	return (point - (a + ab * t)).Magnitude < 1.1
 end
 
 local function spotAbove(pad)
@@ -549,14 +632,26 @@ task.spawn(function()
 						ParkourEvent:FireClient(player, { Type = "Checkpoint", Number = number, Total = #course.Checkpoints })
 					end
 				end
-				-- kill pads send you back
+				-- kill pads and spinning lasers send you back
+				local ouch = false
 				for _, kill in ipairs(course.Kills) do
 					if onPad(kill, position, 3.5) then
-						hrp.AssemblyLinearVelocity = Vector3.zero
-						character:PivotTo(player:GetAttribute("Checkpoint") or spotAbove(course.Start))
-						ParkourEvent:FireClient(player, { Type = "Ouch" })
+						ouch = true
 						break
 					end
+				end
+				if not ouch then
+					for _, spinner in ipairs(course.Spinners) do
+						if hitBySpinner(spinner, position) then
+							ouch = true
+							break
+						end
+					end
+				end
+				if ouch then
+					hrp.AssemblyLinearVelocity = Vector3.zero
+					character:PivotTo(player:GetAttribute("Checkpoint") or spotAbove(course.Start))
+					ParkourEvent:FireClient(player, { Type = "Ouch" })
 				end
 				-- finish
 				if onPad(course.Finish, position, 6) then

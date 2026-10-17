@@ -535,3 +535,463 @@ DuelFX.OnClientEvent:Connect(function(info)
 		end
 	end
 end)
+
+---------------------------------------------------------------------
+-- Extra power effects: burning, dodging, reflected hits
+---------------------------------------------------------------------
+local Lighting = game:GetService("Lighting")
+
+local function burnPuff(model)
+	local root = rootOf(model)
+	if not root then
+		return
+	end
+	local holder = fxPart({ Size = Vector3.new(2, 4, 2), Transparency = 1, CFrame = root.CFrame })
+	local fire = Instance.new("ParticleEmitter")
+	fire.Texture = Config.Textures.Fire
+	fire.Lifetime = NumberRange.new(0.3, 0.6)
+	fire.Speed = NumberRange.new(2, 4)
+	fire.Acceleration = Vector3.new(0, 8, 0)
+	fire.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.4), NumberSequenceKeypoint.new(1, 0) })
+	fire.LightEmission = 1
+	fire.LightInfluence = 0
+	fire.Color = ColorSequence.new(Color3.fromRGB(255, 220, 100), Color3.fromRGB(255, 70, 30))
+	fire.Enabled = false
+	fire.Parent = holder
+	fire:Emit(18)
+	Debris:AddItem(holder, 1)
+end
+
+local function afterimage(info)
+	local root = rootOf(info.Target)
+	if not root then
+		return
+	end
+	local c1, c2 = colorsOf(info)
+	for i = 1, 4 do
+		task.delay(i * 0.08, function()
+			if root.Parent then
+				local ghost = fxPart({
+					Size = Vector3.new(2, 5, 1),
+					CFrame = root.CFrame,
+					Color = (i % 2 == 0) and c1 or c2,
+					Transparency = 0.45,
+					Material = Enum.Material.ForceField,
+				})
+				tween(ghost, 0.5, { Transparency = 1, Size = Vector3.new(3, 6, 1.5) })
+				Debris:AddItem(ghost, 0.55)
+			end
+		end)
+	end
+end
+
+---------------------------------------------------------------------
+-- THE FINISHER: a sky beam obliterates the loser
+---------------------------------------------------------------------
+-- builds a flat ring of neon pieces that we spin each frame
+local function buildRing(center, radius, segments, thickness, color)
+	local pieces = {}
+	for i = 1, segments do
+		local piece = fxPart({
+			Size = Vector3.new(thickness, thickness, (2 * math.pi * radius / segments) * 0.8),
+			Color = color,
+			Transparency = 1,
+		})
+		table.insert(pieces, { Part = piece, Angle = (i / segments) * math.pi * 2 })
+	end
+	return { Pieces = pieces, Center = center, Radius = radius }
+end
+
+local function placeRing(ring, spin, tilt, transparency)
+	for _, piece in ipairs(ring.Pieces) do
+		local a = piece.Angle + spin
+		local p = ring.Center + Vector3.new(math.cos(a) * ring.Radius, math.sin(a + tilt) * tilt * 2, math.sin(a) * ring.Radius)
+		piece.Part.CFrame = CFrame.lookAt(p, ring.Center) * CFrame.Angles(0, math.pi / 2, 0)
+		piece.Part.Transparency = transparency
+	end
+end
+
+local function destroyRing(ring)
+	for _, piece in ipairs(ring.Pieces) do
+		piece.Part:Destroy()
+	end
+end
+
+local function cylinder(top, bottom, width, color, transparency, material)
+	local length = (top - bottom).Magnitude
+	return fxPart({
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(length, width, width),
+		CFrame = CFrame.new((top + bottom) / 2) * CFrame.Angles(0, 0, math.pi / 2),
+		Color = color,
+		Transparency = transparency,
+		Material = material or Enum.Material.Neon,
+	})
+end
+
+local function playFinisher(info)
+	local loserRoot = rootOf(info.Loser)
+	if not loserRoot then
+		return
+	end
+	local c1, c2 = colorsOf(info)
+	local bright1 = c1:Lerp(Color3.new(1, 1, 1), 0.25)
+	local order = info.Order or 3
+	local duration = info.Duration or 4.6
+	local special = info.Special
+	local ground = loserRoot.Position - Vector3.new(0, 2.9, 0)
+	local sky = ground + Vector3.new(0, 58, 0)
+	local cleanup = {}
+	local function keep(inst)
+		table.insert(cleanup, inst)
+		return inst
+	end
+
+	local localRoot = rootOf(localPlayer.Character)
+	local nearby = localRoot and (localRoot.Position - ground).Magnitude < 260
+
+	-- 1) the world darkens and takes the winner's color
+	local grade
+	if nearby then
+		grade = Instance.new("ColorCorrectionEffect")
+		grade.Name = "FinisherGrade"
+		grade.Parent = Lighting
+		tween(grade, 0.5, { Brightness = -0.12, Saturation = -0.35, Contrast = 0.25, TintColor = Color3.new(1, 1, 1):Lerp(c1, 0.35) })
+	end
+
+	-- glow on both fighters
+	local loserGlow = Instance.new("Highlight")
+	loserGlow.FillColor = Color3.fromRGB(255, 60, 70)
+	loserGlow.OutlineColor = Color3.new(1, 1, 1)
+	loserGlow.FillTransparency = 0.6
+	loserGlow.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+	loserGlow.Parent = info.Loser
+	keep(loserGlow)
+	if info.Winner and info.Winner.Parent then
+		local winnerGlow = Instance.new("Highlight")
+		winnerGlow.FillColor = c1
+		winnerGlow.OutlineColor = c2
+		winnerGlow.FillTransparency = 0.75
+		winnerGlow.Parent = info.Winner
+		keep(winnerGlow)
+	end
+
+	-- 2) a magic circle forms in the sky
+	local rings = {}
+	local ringCount = math.clamp(math.ceil(order / 2), 1, 3) + 1
+	for i = 1, ringCount do
+		table.insert(rings, buildRing(sky, 6 + i * 4.5, 18 + i * 8, 0.6, (i % 2 == 0) and c2 or bright1))
+	end
+	local orb = keep(fxPart({ Shape = Enum.PartType.Ball, Size = Vector3.one, CFrame = CFrame.new(sky), Color = Color3.new(1, 1, 1), Transparency = 0 }))
+	local orbLight = Instance.new("PointLight")
+	orbLight.Color = c1
+	orbLight.Range = 40
+	orbLight.Brightness = 3
+	orbLight.Parent = orb
+	tween(orb, 1.3, { Size = Vector3.one * (6 + order) }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+
+	-- sparkles getting sucked into the orb
+	local gather = keep(fxPart({ Size = Vector3.one * 40, CFrame = CFrame.new(sky), Transparency = 1 }))
+	local gatherEmitter = Instance.new("ParticleEmitter")
+	gatherEmitter.Texture = Config.Textures.Sparkle
+	gatherEmitter.Shape = Enum.ParticleEmitterShape.Sphere
+	gatherEmitter.ShapeInOut = Enum.ParticleEmitterShapeInOut.Inward
+	gatherEmitter.ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface
+	gatherEmitter.Rate = 120
+	gatherEmitter.Lifetime = NumberRange.new(0.6, 0.9)
+	gatherEmitter.Speed = NumberRange.new(25, 35)
+	gatherEmitter.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.9), NumberSequenceKeypoint.new(1, 0) })
+	gatherEmitter.LightEmission = 1
+	gatherEmitter.LightInfluence = 0
+	gatherEmitter.Color = ColorSequence.new(c1, c2)
+	gatherEmitter.Parent = gather
+
+	-- rune circle on the ground under the loser
+	local rune = buildRing(ground + Vector3.new(0, 0.3, 0), 7, 28, 0.35, c2)
+	local runeGems = {}
+	for i = 1, 6 do
+		table.insert(runeGems, { Part = keep(fxPart({ Size = Vector3.one * 0.9, Color = bright1, Transparency = 1 })), Angle = (i / 6) * math.pi * 2 })
+	end
+
+	-- black holes implode before they strike
+	if special == "Inward" then
+		local implode = keep(fxPart({ Shape = Enum.PartType.Ball, Size = Vector3.one * 26, CFrame = CFrame.new(loserRoot.Position), Color = Color3.new(0, 0, 0), Transparency = 0.6, Material = Enum.Material.ForceField }))
+		tween(implode, 1.3, { Size = Vector3.one * 1, Transparency = 0.1 }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+	end
+
+	-- sounds: rumble + heartbeats while charging
+	local rumbleHolder = keep(fxPart({ Size = Vector3.one * 0.2, Transparency = 1, CFrame = CFrame.new(ground) }))
+	local rumble = SoundFX.Loop("Rumble", 0.5, { Parent = rumbleHolder, MaxDistance = 300, Volume = 1.4 })
+	soundAt(ground, "Heartbeat", { Volume = 1, MaxDistance = 260 })
+	task.delay(0.6, function()
+		soundAt(ground, "Heartbeat", { Volume = 1.2, Speed = 1.1, MaxDistance = 260 })
+	end)
+
+	local start = os.clock()
+	local strikeAt = 1.3
+	local fadeAt = 2.8
+	local struck = false
+	local beams = {}
+	local laser
+	local connection
+	connection = RunService.RenderStepped:Connect(function()
+		local t = os.clock() - start
+		if t > duration then
+			connection:Disconnect()
+			return
+		end
+		-- spin the sky rings (fade in, then out after the strike)
+		local ringAlpha = (t < 0.5) and (1 - t / 0.5 * 0.85) or ((t < fadeAt) and 0.15 or math.min(1, 0.15 + (t - fadeAt) / 0.6))
+		for i, ring in ipairs(rings) do
+			placeRing(ring, t * (i % 2 == 0 and -1.4 or 1.1) * (1 + (struck and 1.5 or 0)), 0, ringAlpha)
+		end
+		placeRing(rune, -t * 0.8, 0, ringAlpha)
+		for _, gem in ipairs(runeGems) do
+			local a = gem.Angle + t * 1.6
+			gem.Part.CFrame = CFrame.new(rune.Center + Vector3.new(math.cos(a) * 9, 0.6 + math.sin(t * 4 + gem.Angle) * 0.3, math.sin(a) * 9)) * CFrame.Angles(math.rad(45), a, math.rad(45))
+			gem.Part.Transparency = ringAlpha
+		end
+		-- flickering targeting laser before the strike
+		if not struck then
+			if not laser then
+				laser = keep(fxPart({ Size = Vector3.new(0.3, 0.3, 58), Color = Color3.fromRGB(255, 60, 70), Transparency = 0.5 }))
+			end
+			laser.CFrame = CFrame.lookAt((sky + ground) / 2, ground)
+			laser.Transparency = (math.floor(t * 20) % 2 == 0) and 0.2 or 0.7
+		end
+		-- rainbow auras: the beam cycles through colors
+		if struck and special == "Rainbow" and beams[2] then
+			beams[2].Color = Color3.fromHSV((t * 0.8) % 1, 0.8, 1)
+		end
+		-- the beam pulses while it burns
+		if struck and t < fadeAt and beams[1] then
+			local pulse = 1 + math.sin(t * 30) * 0.08
+			for i, beam in ipairs(beams) do
+				local width = ({ 5, 11, 17 })[i] * pulse * (0.8 + order * 0.05)
+				beam.Size = Vector3.new(beam.Size.X, width, width)
+			end
+		end
+	end)
+
+	-- 3) STRIKE
+	task.delay(strikeAt, function()
+		struck = true
+		if laser then
+			laser:Destroy()
+		end
+		gatherEmitter.Enabled = false
+		tween(orb, 0.15, { Size = Vector3.one * 2, Transparency = 0.3 })
+
+		-- three layers of beam from the sky to the ground
+		local layers = {
+			{ Color = Color3.new(1, 1, 1), Transparency = 0, Material = Enum.Material.Neon },
+			{ Color = c1, Transparency = 0.2, Material = Enum.Material.Neon },
+			{ Color = c2, Transparency = 0.35, Material = Enum.Material.ForceField },
+		}
+		for _, layer in ipairs(layers) do
+			local beam = keep(cylinder(sky + Vector3.new(0, 60, 0), ground, 0.5, layer.Color, layer.Transparency, layer.Material))
+			table.insert(beams, beam)
+		end
+		local beamLight = Instance.new("PointLight")
+		beamLight.Color = c1
+		beamLight.Range = 60
+		beamLight.Brightness = 12
+		beamLight.Parent = beams[1]
+		tween(beamLight, fadeAt - strikeAt + 0.5, { Brightness = 0 })
+
+		-- impact: bursts, shockwaves, sparks, smoke
+		AuraEffects.Burst(ground + Vector3.new(0, 2, 0), { c1, c2 }, 2.5 + order * 0.3)
+		task.delay(0.15, function()
+			AuraEffects.Burst(ground + Vector3.new(0, 4, 0), { Color3.new(1, 1, 1), c1 }, 2)
+		end)
+		for i = 1, 3 do
+			task.delay((i - 1) * 0.18, function()
+				ring(ground + Vector3.new(0, 0.3, 0), (i == 2) and c2 or c1, 4, 40 + order * 6 + i * 8, 0.9)
+			end)
+		end
+		sphere(ground + Vector3.new(0, 3, 0), Color3.new(1, 1, 1), 4, 22 + order * 2, 0.45)
+
+		local impact = keep(fxPart({ Size = Vector3.one, CFrame = CFrame.new(ground + Vector3.new(0, 1, 0)), Transparency = 1 }))
+		local sparks = Instance.new("ParticleEmitter")
+		sparks.Texture = Config.Textures.Spark
+		sparks.Enabled = false
+		sparks.Lifetime = NumberRange.new(0.6, 1.4)
+		sparks.Speed = NumberRange.new(30, 70)
+		sparks.SpreadAngle = Vector2.new(80, 80)
+		sparks.Acceleration = Vector3.new(0, -40, 0)
+		sparks.Drag = 1.5
+		sparks.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.6), NumberSequenceKeypoint.new(1, 0) })
+		sparks.LightEmission = 1
+		sparks.LightInfluence = 0
+		sparks.Color = ColorSequence.new(Color3.new(1, 1, 1), c1)
+		sparks.Parent = impact
+		sparks:Emit(140 + order * 20)
+		local smoke = Instance.new("ParticleEmitter")
+		smoke.Texture = Config.Textures.Smoke
+		smoke.Enabled = false
+		smoke.Lifetime = NumberRange.new(1.2, 2)
+		smoke.Speed = NumberRange.new(12, 20)
+		smoke.SpreadAngle = Vector2.new(90, 5)
+		smoke.EmissionDirection = Enum.NormalId.Top
+		smoke.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 3), NumberSequenceKeypoint.new(1, 9) })
+		smoke.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.4), NumberSequenceKeypoint.new(1, 1) })
+		smoke.Color = ColorSequence.new((special == "Dark") and Color3.fromRGB(20, 10, 25) or c2:Lerp(Color3.new(1, 1, 1), 0.4))
+		smoke.Parent = impact
+		smoke:Emit(50)
+
+		-- fire auras get roaring flames around the beam
+		if special == "Fire" then
+			local flames = Instance.new("ParticleEmitter")
+			flames.Texture = Config.Textures.Fire
+			flames.Rate = 90
+			flames.Lifetime = NumberRange.new(0.5, 1)
+			flames.Speed = NumberRange.new(8, 16)
+			flames.Acceleration = Vector3.new(0, 20, 0)
+			flames.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 4), NumberSequenceKeypoint.new(1, 0) })
+			flames.LightEmission = 1
+			flames.LightInfluence = 0
+			flames.Color = ColorSequence.new(Color3.fromRGB(255, 220, 100), Color3.fromRGB(255, 60, 20))
+			flames.Parent = impact
+			task.delay(fadeAt - strikeAt, function()
+				flames.Enabled = false
+			end)
+		end
+
+		-- debris flies out in every direction (real physics, only on this screen)
+		local debrisColor = (special == "Snow") and Color3.fromRGB(200, 240, 255) or c1
+		for _ = 1, 12 + order * 4 do
+			local shard = Instance.new("Part")
+			shard.Size = Vector3.new(rand:NextNumber(0.6, 1.6), rand:NextNumber(0.6, 1.6), rand:NextNumber(0.6, 1.6))
+			shard.Material = Enum.Material.Neon
+			shard.Color = (rand:NextNumber() < 0.5) and debrisColor or c2
+			shard.CanQuery = false
+			shard.CanTouch = false
+			shard.CFrame = CFrame.new(ground + Vector3.new(rand:NextNumber(-2, 2), 1.5, rand:NextNumber(-2, 2)))
+				* CFrame.Angles(rand:NextNumber(0, 6), rand:NextNumber(0, 6), rand:NextNumber(0, 6))
+			shard.Parent = folder
+			local angle = rand:NextNumber(0, math.pi * 2)
+			shard.AssemblyLinearVelocity = Vector3.new(math.cos(angle), 0, math.sin(angle)) * rand:NextNumber(25, 55) + Vector3.new(0, rand:NextNumber(35, 70), 0)
+			shard.AssemblyAngularVelocity = Vector3.new(rand:NextNumber(-12, 12), rand:NextNumber(-12, 12), rand:NextNumber(-12, 12))
+			task.delay(1.8, function()
+				if shard.Parent then
+					tween(shard, 0.6, { Transparency = 1, Size = Vector3.one * 0.1 })
+				end
+			end)
+			Debris:AddItem(shard, 2.5)
+		end
+
+		-- the big sound
+		soundAt(ground, "RevealMythic", { Volume = 1.6, MaxDistance = 400 })
+		soundAt(ground, "Heartbeat", { Speed = 0.6, Volume = 1.6, MaxDistance = 400 })
+		soundAt(ground, "Zap", { Speed = 0.6, Volume = 1.2, MaxDistance = 400 })
+		SoundFX.FadeOut(rumble, 1.5)
+
+		-- the loser glows white and dissolves into rising sparkles
+		tween(loserGlow, 0.5, { FillColor = Color3.new(1, 1, 1), FillTransparency = 0 })
+		task.delay(0.7, function()
+			if info.Loser and info.Loser.Parent then
+				for _, item in ipairs(info.Loser:GetDescendants()) do
+					if item:IsA("BasePart") then
+						item.LocalTransparencyModifier = 1
+					end
+				end
+			end
+			loserGlow.Enabled = false
+			local soul = keep(fxPart({ Size = Vector3.new(2, 5, 2), CFrame = CFrame.new(ground + Vector3.new(0, 3, 0)), Transparency = 1 }))
+			local rise = Instance.new("ParticleEmitter")
+			rise.Texture = Config.Textures.Sparkle
+			rise.Rate = 80
+			rise.Lifetime = NumberRange.new(1, 1.6)
+			rise.Speed = NumberRange.new(4, 8)
+			rise.EmissionDirection = Enum.NormalId.Top
+			rise.SpreadAngle = Vector2.new(25, 25)
+			rise.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.6), NumberSequenceKeypoint.new(1, 0) })
+			rise.LightEmission = 1
+			rise.LightInfluence = 0
+			rise.Color = ColorSequence.new(Color3.new(1, 1, 1), c1)
+			rise.Parent = soul
+			task.delay(1, function()
+				rise.Enabled = false
+			end)
+		end)
+	end)
+
+	-- 4) the beam fades, "ELIMINATED" appears
+	task.delay(fadeAt, function()
+		for _, beam in ipairs(beams) do
+			tween(beam, 0.5, { Size = Vector3.new(beam.Size.X, 0.1, 0.1), Transparency = 1 })
+		end
+		tween(orb, 0.5, { Transparency = 1, Size = Vector3.one * 12 })
+		local tag = keep(fxPart({ Size = Vector3.one * 0.2, Transparency = 1, CFrame = CFrame.new(ground + Vector3.new(0, 7, 0)) }))
+		local gui = Instance.new("BillboardGui")
+		gui.Size = UDim2.fromOffset(420, 110)
+		gui.AlwaysOnTop = true
+		gui.LightInfluence = 0
+		gui.MaxDistance = 260
+		gui.Parent = tag
+		local title = Instance.new("TextLabel")
+		title.BackgroundTransparency = 1
+		title.Size = UDim2.fromScale(1, 0.62)
+		title.Font = Enum.Font.FredokaOne
+		title.TextScaled = true
+		title.Text = "ELIMINATED"
+		title.TextColor3 = Color3.fromRGB(255, 70, 80)
+		title.Parent = gui
+		local outline = Instance.new("UIStroke")
+		outline.Thickness = 3
+		outline.Parent = title
+		local sub = Instance.new("TextLabel")
+		sub.BackgroundTransparency = 1
+		sub.Position = UDim2.fromScale(0, 0.62)
+		sub.Size = UDim2.fromScale(1, 0.38)
+		sub.Font = Enum.Font.FredokaOne
+		sub.TextScaled = true
+		sub.Text = ("by %s%s"):format(info.WinnerName or "?", info.AuraName and (" • " .. info.AuraName) or "")
+		sub.TextColor3 = bright1
+		sub.Parent = gui
+		local subOutline = Instance.new("UIStroke")
+		subOutline.Thickness = 2
+		subOutline.Parent = sub
+		local pop = Instance.new("UIScale")
+		pop.Scale = 2
+		pop.Parent = title
+		tween(pop, 0.4, { Scale = 1 }, Enum.EasingStyle.Back)
+	end)
+
+	-- 5) clean up and give the loser their body back
+	task.delay(duration + 0.1, function()
+		for _, ringItem in ipairs(rings) do
+			destroyRing(ringItem)
+		end
+		destroyRing(rune)
+		for _, inst in ipairs(cleanup) do
+			if inst.Parent then
+				inst:Destroy()
+			end
+		end
+		if grade then
+			tween(grade, 0.6, { Brightness = 0, Saturation = 0, Contrast = 0, TintColor = Color3.new(1, 1, 1) })
+			Debris:AddItem(grade, 0.7)
+		end
+		if info.Loser and info.Loser.Parent then
+			for _, item in ipairs(info.Loser:GetDescendants()) do
+				if item:IsA("BasePart") then
+					item.LocalTransparencyModifier = 0
+				end
+			end
+		end
+	end)
+end
+
+DuelFX.OnClientEvent:Connect(function(info)
+	local kind = info.Type
+	if kind == "Burn" then
+		burnPuff(info.Target)
+	elseif kind == "Dodge" then
+		floatingText(info.Target, "DODGE!", Color3.fromRGB(200, 180, 255))
+	elseif kind == "Afterimage" then
+		afterimage(info)
+	elseif kind == "Finisher" then
+		playFinisher(info)
+	end
+end)

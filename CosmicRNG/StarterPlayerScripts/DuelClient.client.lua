@@ -32,6 +32,7 @@ local TITLE_FONT = UIKit.TitleFont
 local new, corner, stroke, textStroke, tween, label =
 	UIKit.new, UIKit.corner, UIKit.stroke, UIKit.textStroke, UIKit.tween, UIKit.label
 local RED = Color3.fromRGB(255, 80, 100)
+local rand = Random.new()
 
 local gui = UIKit.screen("CosmicDuel", 3)
 
@@ -617,5 +618,173 @@ DuelEvent.OnClientEvent:Connect(function(info)
 			hud.Visible = false
 			me, opponent = nil, nil
 		end)
+	end
+end)
+
+---------------------------------------------------------------------
+-- "FINISH THEM!" when the opponent is on their last hits,
+-- and a red screen edge when YOU are low
+---------------------------------------------------------------------
+local finishLabel = label({
+	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 112), Size = UDim2.fromOffset(500, 44),
+	Text = "💀 FINISH THEM! 💀", Font = TITLE_FONT, TextSize = 34, TextColor3 = RED, Visible = false, Parent = hud,
+})
+textStroke(2.5).Parent = finishLabel
+local finishScale = new("UIScale", { Parent = finishLabel })
+
+local vignette = {}
+for i, spec in ipairs({
+	{ Vector2.new(0, 0), UDim2.fromScale(1, 0.18), 90 }, -- top
+	{ Vector2.new(0, 1), UDim2.fromScale(1, 0.18), -90 }, -- bottom
+	{ Vector2.new(0, 0), UDim2.fromScale(0.12, 1), 0 }, -- left
+	{ Vector2.new(1, 0), UDim2.fromScale(0.12, 1), 180 }, -- right
+}) do
+	local edge = new("Frame", {
+		AnchorPoint = spec[1],
+		Position = UDim2.fromScale(spec[1].X, spec[1].Y),
+		Size = spec[2],
+		BackgroundColor3 = Color3.fromRGB(255, 0, 30),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Parent = hud,
+	}, {
+		new("UIGradient", {
+			Rotation = spec[3],
+			Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1) }),
+		}),
+	})
+	vignette[i] = edge
+end
+
+local function fractionOf(info)
+	local model = info and info.Model
+	if not model then
+		return 1
+	end
+	return (model:GetAttribute("DuelHP") or 0) / math.max(model:GetAttribute("DuelMaxHP") or 1, 1)
+end
+
+RunService.RenderStepped:Connect(function()
+	if not inDuel or not fighting then
+		finishLabel.Visible = false
+		for _, edge in ipairs(vignette) do
+			edge.BackgroundTransparency = 1
+		end
+		return
+	end
+	local theirs, mine = fractionOf(opponent), fractionOf(me)
+	finishLabel.Visible = theirs > 0 and theirs <= 0.2
+	if finishLabel.Visible then
+		finishScale.Scale = 1 + math.sin(os.clock() * 10) * 0.08
+	end
+	local danger = (mine <= 0.25) and (0.55 + math.sin(os.clock() * 6) * 0.2) or 1
+	for _, edge in ipairs(vignette) do
+		edge.BackgroundTransparency = danger
+	end
+end)
+
+---------------------------------------------------------------------
+-- FINISHER CUTSCENE (camera + cinema bars for the two fighters)
+---------------------------------------------------------------------
+local barTop = new("Frame", {
+	AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 0), Size = UDim2.fromScale(1, 0.13),
+	BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0, ZIndex = 20, Parent = gui,
+})
+local barBottom = new("Frame", {
+	AnchorPoint = Vector2.new(0, 0), Position = UDim2.fromScale(0, 1), Size = UDim2.fromScale(1, 0.13),
+	BackgroundColor3 = Color3.new(0, 0, 0), BorderSizePixel = 0, ZIndex = 20, Parent = gui,
+})
+local caption = label({
+	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.935), Size = UDim2.fromOffset(700, 40),
+	Text = "", Font = TITLE_FONT, TextSize = 30, ZIndex = 21, TextTransparency = 1, RichText = true, Parent = gui,
+})
+local captionStroke = textStroke(2)
+captionStroke.Transparency = 1
+captionStroke.Parent = caption
+
+local function cinemaBars(show)
+	tween(barTop, 0.4, { Position = UDim2.fromScale(0, show and 0.13 or 0) })
+	tween(barBottom, 0.4, { Position = UDim2.fromScale(0, show and 0.87 or 1) })
+end
+
+local function playFinisherCamera(info)
+	local loserRoot = info.Loser and info.Loser:FindFirstChild("HumanoidRootPart")
+	local winnerRoot = info.Winner and info.Winner:FindFirstChild("HumanoidRootPart")
+	if not loserRoot then
+		return
+	end
+	local iWon = info.Winner == player.Character
+	local c1 = (info.Colors and info.Colors[1]) or Color3.new(1, 1, 1)
+	local duration = info.Duration or 4.6
+	actions.Visible = false
+	forfeitButton.Visible = false
+	cinemaBars(true)
+
+	local loserPos = loserRoot.Position
+	local side = winnerRoot and (loserPos - winnerRoot.Position) or Vector3.new(1, 0, 0)
+	side = Vector3.new(side.X, 0, side.Z)
+	side = (side.Magnitude > 0.1) and side.Unit or Vector3.new(1, 0, 0)
+	local across = Vector3.new(-side.Z, 0, side.X)
+
+	camera.CameraType = Enum.CameraType.Scriptable
+	local start = os.clock()
+	local shake = 0
+	local connection
+	connection = RunService.RenderStepped:Connect(function()
+		local t = os.clock() - start
+		local shot
+		if t < 1.3 then
+			-- low angle beside the loser, looking up at the magic circle
+			local a = t * 0.25
+			local offset = (across * math.cos(a) + side * math.sin(a)) * 14 + Vector3.new(0, 2.5, 0)
+			shot = CFrame.lookAt(loserPos + offset, loserPos + Vector3.new(0, 14 + t * 6, 0))
+		elseif t < 2.9 then
+			-- pull back to see the whole beam
+			local k = math.clamp((t - 1.3) / 0.6, 0, 1)
+			local offset = across * (14 + k * 16) + side * 6 + Vector3.new(0, 4 + k * 8, 0)
+			shot = CFrame.lookAt(loserPos + offset, loserPos + Vector3.new(0, 10, 0))
+		elseif winnerRoot and winnerRoot.Parent then
+			-- hero shot of the winner
+			local k = math.clamp((t - 2.9) / 1.5, 0, 1)
+			local look = winnerRoot.CFrame.LookVector
+			local eye = winnerRoot.Position + look * (10 - k * 3) + Vector3.new(0, 2.2 - k * 0.6, 0) + across * 2
+			shot = CFrame.lookAt(eye, winnerRoot.Position + Vector3.new(0, 1.5, 0))
+		else
+			shot = camera.CFrame
+		end
+		if shake > 0.01 then
+			shot *= CFrame.Angles(rand:NextNumber(-shake, shake) * 0.03, rand:NextNumber(-shake, shake) * 0.03, 0)
+			shake *= 0.9
+		end
+		camera.CFrame = shot
+	end)
+
+	-- the strike moment
+	task.delay(1.3, function()
+		shake = 3
+		flashBig(iWon and "💀 FINISHED!" or "ELIMINATED", iWon and THEME.Gold or RED)
+		hideBig(1.2)
+	end)
+	task.delay(2.9, function()
+		caption.Text = ("⚡ FINISHED BY <font color='#%s'>%s</font>%s"):format(
+			c1:Lerp(Color3.new(1, 1, 1), 0.3):ToHex(), info.WinnerName or "?", info.AuraName and (" • " .. info.AuraName) or "")
+		tween(caption, 0.3, { TextTransparency = 0 })
+		tween(captionStroke, 0.3, { Transparency = 0.2 })
+	end)
+	task.delay(duration, function()
+		connection:Disconnect()
+		camera.CameraType = Enum.CameraType.Custom
+		cinemaBars(false)
+		tween(caption, 0.3, { TextTransparency = 1 })
+		tween(captionStroke, 0.3, { Transparency = 1 })
+		actions.Visible = true
+		forfeitButton.Visible = true
+	end)
+end
+
+DuelEvent.OnClientEvent:Connect(function(info)
+	if info.Type == "Finisher" then
+		fighting = false
+		playFinisherCamera(info)
 	end
 end)

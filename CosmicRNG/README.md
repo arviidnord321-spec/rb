@@ -64,10 +64,17 @@ Side menu with **STORE** and **SOUND** (mute) buttons.
 - **Lucky Isle portal**: walk into the portal (or press **E**) to travel to **Lucky Isle**. It's white marble, gold, rose and teal, and gives **x2 luck** while you stand on it. The sky turns pink and gold while you're there, and a return portal takes you back.
   - Open to everyone. Set `Config.LuckyIsland.RequireVIP = true` to make it VIP-only.
 - **Parkour** (step on the start pad to begin; the timer shows at the top):
-  - **Starstep Trail** (easy): a curving staircase of floating platforms with 2 checkpoints, vanishing platforms and a jump pad. Finishing gives **x1.5 luck for 5 min**.
-  - **Void Tower** (hard): a spiral around a dark tower with thin beams, blinking platforms, half-deadly platforms (red = back to checkpoint) and a jump pad. Finishing gives **x2 luck for 5 min**.
-  - Each reward has a 10-minute cooldown. Falling puts you back at your last checkpoint.
+  - **Starstep Trail** (medium): 26 small platforms with moving platforms (they carry you), spinning laser bars to jump over, vanishing platforms, a jump pad and 2 checkpoints. Finishing gives **x1.75 luck for 5 min**.
+  - **Void Tower** (hard): a 42-step spiral with thin beams, fast-blinking platforms, spinning lasers, moving platforms, half-deadly platforms, a jump pad and 2 checkpoints. Finishing gives **x2.5 luck for 6 min**.
+  - Each reward has a 10-minute cooldown. Lasers and red pads send you back to your checkpoint, and so does falling.
 - **Duel Island** (over the bridge south of the spawn): 2 arenas with force-field walls, spectator stands, braziers and live scoreboards.
+
+### Sprinting
+Hold **Shift** to sprint, or tap the **RUN** button on phones.
+- Sprinting uses stamina; the bar is in the bottom-left. If you run it empty, you have to wait a moment before sprinting again.
+- While sprinting, your view widens and speed lines and dust appear.
+- Roblox's Shift Lock option is turned off, because Shift is the sprint key.
+- In duels, sprinting is a little slower (x1.4).
 
 ### 1v1 Duels
 - Open the **⚔ DUEL** menu (left side) and **challenge** any player (they get Accept/Decline), or fight a **bot**:
@@ -92,7 +99,26 @@ Side menu with **STORE** and **SOUND** (mute) buttons.
   | Secret | 260 | 17 |
 
   Rarer auras also have much stronger powers. Stardust's Star Toss does 8 damage; Void Sovereign's Void Collapse does 100 and freezes the opponent.
+- **Every aura has its own power with its own twist:**
+
+  | Effect | Auras |
+  |---|---|
+  | Burns over time | Comet, Meteor, Solar Flare, Big Bang |
+  | Heals over time | Aurora, Celestial |
+  | Pierces shields | Quasar |
+  | Reflects 40% of hits | Moonbeam |
+  | Brief untouchable dodge after a dash | Twilight |
+  | Stuns after a teleport | Cosmic Rift |
+
+  The remaining auras have powers like pulls, freezes, life drain and multi-meteors.
 - **Controls:** click or **F** to attack, **Q** for your aura power, or use the on-screen ATTACK and POWER buttons on mobile.
+- **"💀 FINISH THEM!"** appears when your opponent is low, and the screen edges glow red when you are.
+- **Finisher cutscene:** the knockout hit triggers a cinematic both fighters see, with cinema bars and a moving camera:
+  1. The world darkens and a spinning magic circle forms in the sky.
+  2. A huge three-layer beam in the winner's aura colors strikes down, with shockwaves, flying debris, sparks, smoke and a deep boom.
+  3. The loser dissolves into sparkles under an "ELIMINATED" sign, and the camera ends on the winner.
+
+  Fire, rainbow, black-hole and dark auras each add their own touch to the cutscene. Spectators see the 3D effects too.
 - 3-2-1 countdown, a 90-second limit (the higher HP % wins), and a forfeit button.
 - Player-vs-player wins go on the leaderboard (**Wins**) and are announced to the server.
 - You can't roll or switch auras during a fight.
@@ -114,8 +140,8 @@ All sounds are made from Roblox's built-in sound files, so they always work:
 | Where in Studio | Type | Name |
 |---|---|---|
 | ReplicatedStorage | ModuleScript | `CosmicConfig`, `AuraData`, `AuraImages`, `AuraEffects`, `Luck`, `SoundFX`, `UIKit` |
-| ServerScriptService | Script | `RollService`, `WorldSetup`, `LuckyIsland`, `Parkour`, `DuelService`, `Leaderboard` |
-| StarterPlayer > StarterPlayerScripts | LocalScript | `AuraRenderer`, `RollUI`, `StoreUI`, `WorldFX`, `ParkourClient`, `DuelClient`, `DuelFX` |
+| ServerScriptService | Script | `RollService`, `WorldSetup`, `LuckyIsland`, `Parkour`, `DuelService`, `Movement`, `Leaderboard` |
+| StarterPlayer > StarterPlayerScripts | LocalScript | `AuraRenderer`, `RollUI`, `StoreUI`, `WorldFX`, `ParkourClient`, `DuelClient`, `DuelFX`, `Sprint` |
 
 ## Adding the aura pictures
 Roblox can only show pictures that are uploaded to Roblox, so this is a one-time step:

@@ -106,11 +106,24 @@ Config.LuckyIsland = {
 }
 
 ---------------------------------------------------------------------
+-- MOVEMENT (hold Shift to sprint)
+---------------------------------------------------------------------
+Config.Movement = {
+	WalkSpeed = 16,
+	SprintSpeed = 26,
+	DuelSprintMultiplier = 1.4, -- in duels sprint is a bit weaker
+	MaxStamina = 100,
+	StaminaDrain = 20, -- per second while sprinting
+	StaminaRegen = 16, -- per second while not sprinting
+	RegenDelay = 0.8, -- seconds before stamina starts coming back
+}
+
+---------------------------------------------------------------------
 -- PARKOUR (finish a course = temporary luck boost)
 ---------------------------------------------------------------------
 Config.Parkour = {
-	Starstep = { Name = "Starstep Trail", LuckMultiplier = 1.5, BoostMinutes = 5, CooldownMinutes = 10 },
-	VoidTower = { Name = "Void Tower", LuckMultiplier = 2, BoostMinutes = 5, CooldownMinutes = 10 },
+	Starstep = { Name = "Starstep Trail", LuckMultiplier = 1.75, BoostMinutes = 5, CooldownMinutes = 10 },
+	VoidTower = { Name = "Void Tower", LuckMultiplier = 2.5, BoostMinutes = 6, CooldownMinutes = 10 },
 }
 
 ---------------------------------------------------------------------
@@ -122,6 +135,7 @@ Config.Duel = {
 	ChallengeTimeout = 15, -- seconds to accept a challenge
 	AttackCooldown = 0.55, -- basic attack
 	AttackRange = 8, -- studs
+	FinisherSeconds = 4.6, -- length of the knockout cutscene
 	NoAuraTier = "Common", -- stats used if you have no aura equipped
 	-- Bots: which aura they use and how sharp they are
 	Bots = {

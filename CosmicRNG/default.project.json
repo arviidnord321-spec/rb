@@ -18,6 +18,9 @@
       "StarterPlayerScripts": {
         "$className": "StarterPlayerScripts",
         "$path": "StarterPlayerScripts"
+      },
+      "$properties": {
+        "EnableMouseLockOption": false
       }
     }
   }

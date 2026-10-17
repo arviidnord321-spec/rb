@@ -1,6 +1,7 @@
 -- ParkourClient (LocalScript in StarterPlayer > StarterPlayerScripts)
 -- Runs the parkour bits that must be smooth on your own screen:
 --   * vanishing platforms blink and disappear on a shared timer
+--   * spinning laser bars turn and moving platforms slide (and carry you)
 --   * jump pads launch you into the air
 --   * a run timer + checkpoint counter while you're on a course
 --   * messages for start / checkpoint / finish (from the Parkour script)
@@ -27,10 +28,25 @@ end
 ---------------------------------------------------------------------
 -- Collect vanishing platforms, jump pads and trophies
 ---------------------------------------------------------------------
-local vanishers, pads, trophies = {}, {}, {}
+local vanishers, pads, trophies, spinners, movers = {}, {}, {}, {}, {}
 for _, item in ipairs(courses:GetDescendants()) do
 	if item:IsA("BasePart") then
-		if item:GetAttribute("Vanish") then
+		if item:GetAttribute("Spinner") then
+			table.insert(spinners, {
+				Part = item,
+				Center = item:GetAttribute("SpinCenter"),
+				Speed = item:GetAttribute("SpinSpeed") or 2,
+				Offset = item:GetAttribute("SpinOffset") or 0,
+			})
+		elseif item:GetAttribute("MoveAmplitude") then
+			table.insert(movers, {
+				Part = item,
+				Base = item.CFrame,
+				Amplitude = item:GetAttribute("MoveAmplitude"),
+				Period = item:GetAttribute("MovePeriod") or 3,
+				Offset = item:GetAttribute("MoveOffset") or 0,
+			})
+		elseif item:GetAttribute("Vanish") then
 			table.insert(vanishers, {
 				Part = item,
 				Period = item:GetAttribute("VanishPeriod") or 3,
@@ -57,6 +73,26 @@ local t = 0
 RunService.RenderStepped:Connect(function(dt)
 	t += dt
 	local now = workspace:GetServerTimeNow()
+	local myCharacter = player.Character
+	local myRoot = myCharacter and myCharacter:FindFirstChild("HumanoidRootPart")
+
+	-- spinning laser bars (same clock as the server, so hits are fair)
+	for _, spinner in ipairs(spinners) do
+		if spinner.Center then
+			spinner.Part.CFrame = CFrame.new(spinner.Center) * CFrame.Angles(0, now * spinner.Speed + spinner.Offset, 0)
+		end
+	end
+
+	-- moving platforms; if you're standing on one it carries you along
+	for _, mover in ipairs(movers) do
+		local offset = mover.Amplitude * math.sin((now + mover.Offset) / mover.Period * math.pi * 2)
+		local newCFrame = mover.Base + offset
+		if myRoot and standingOn(mover.Part, myRoot.Position) then
+			local delta = newCFrame.Position - mover.Part.Position
+			myRoot.CFrame += delta
+		end
+		mover.Part.CFrame = newCFrame
+	end
 
 	-- vanishing platforms: solid, then blink, then gone
 	for _, v in ipairs(vanishers) do

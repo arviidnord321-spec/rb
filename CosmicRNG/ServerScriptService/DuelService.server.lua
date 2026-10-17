@@ -633,6 +633,47 @@ endDuel = function(duel, winner, reason)
 end
 
 ---------------------------------------------------------------------
+-- FINISHER: the knockout cutscene both fighters (and spectators) see
+---------------------------------------------------------------------
+local function startFinisher(duel, winner)
+	if duel.State ~= "Fight" then
+		return
+	end
+	duel.State = "Finisher"
+	local loser = winner.Opponent
+	for _, fighter in ipairs({ winner, loser }) do
+		freeze(fighter, true)
+		if fighter.Root and fighter.Root.Parent then
+			fighter.Root.AssemblyLinearVelocity = Vector3.zero
+		end
+	end
+	-- the winner turns to face the loser
+	if winner.Root and loser.Root then
+		local from, to = winner.Root.Position, loser.Root.Position
+		winner.Model:PivotTo(CFrame.lookAt(from, Vector3.new(to.X, from.Y, to.Z)))
+	end
+	local aura = winner.Aura
+	local payload = {
+		Type = "Finisher",
+		Winner = winner.Model,
+		Loser = loser.Model,
+		WinnerName = winner.Name,
+		LoserName = loser.Name,
+		AuraName = aura and aura.Name or nil,
+		Colors = aura and aura.Colors or { Color3.new(1, 1, 1), Color3.fromRGB(255, 80, 100) },
+		Special = aura and aura.Special or nil,
+		Order = winner.Tier.Order,
+		Duration = DUEL.FinisherSeconds,
+	}
+	DuelFX:FireAllClients(payload)
+	sendTo(winner, payload)
+	sendTo(loser, payload)
+	task.delay(DUEL.FinisherSeconds, function()
+		endDuel(duel, winner, "KO")
+	end)
+end
+
+---------------------------------------------------------------------
 -- DAMAGE + STATUS EFFECTS
 ---------------------------------------------------------------------
 local function canAct(fighter)
@@ -641,16 +682,30 @@ local function canAct(fighter)
 		and fighter.Root and fighter.Root.Parent ~= nil
 end
 
-local function damage(target, amount, source)
+-- opts: { Pierce = ignore shields, NoReflect = can't be reflected, Kind = "Burn"/... }
+local function damage(target, amount, source, opts)
+	opts = opts or {}
 	local duel = target.Duel
 	if not duel or duel.State ~= "Fight" then
 		return
 	end
+	local now = os.clock()
+	if now < (target.DodgeUntil or 0) then
+		DuelFX:FireAllClients({ Type = "Dodge", Target = target.Model })
+		return
+	end
 	amount = math.max(1, math.floor(amount + 0.5))
 	local absorbed = 0
-	if target.Shield > 0 and os.clock() < target.ShieldEnd then
+	if not opts.Pierce and target.Shield > 0 and now < target.ShieldEnd then
 		absorbed = math.min(target.Shield, amount)
 		target.Shield -= absorbed
+	end
+	-- Moon Shield style reflect: part of the hit bounces back
+	if source and source ~= target and not opts.NoReflect and now < (target.ReflectUntil or 0) then
+		local reflected = math.floor(amount * (target.ReflectAmount or 0) + 0.5)
+		if reflected > 0 then
+			task.defer(damage, source, reflected, target, { NoReflect = true, Kind = "Reflect" })
+		end
 	end
 	local taken = amount - absorbed
 	target.HP = math.max(0, target.HP - taken)
@@ -661,16 +716,51 @@ local function damage(target, amount, source)
 		Amount = taken,
 		Blocked = absorbed,
 		Color = source and source.Aura and source.Aura.Colors[1] or Color3.new(1, 1, 1),
+		Kind = opts.Kind,
 	})
 	if target.HP <= 0 then
-		endDuel(duel, target.Opponent, "KO")
+		startFinisher(duel, target.Opponent)
 	end
+end
+
+-- damage over time (Burn)
+local function burn(target, source, spec)
+	task.spawn(function()
+		for _ = 1, spec.Ticks or 3 do
+			task.wait(spec.Interval or 0.5)
+			if not target.Duel or target.Duel.State ~= "Fight" then
+				return
+			end
+			DuelFX:FireAllClients({ Type = "Burn", Target = target.Model })
+			damage(target, spec.Damage, source, { NoReflect = true, Kind = "Burn" })
+		end
+	end)
 end
 
 local function heal(fighter, amount)
 	fighter.HP = math.min(fighter.MaxHP, fighter.HP + amount)
 	setFighterAttributes(fighter)
 	DuelFX:FireAllClients({ Type = "Heal", Target = fighter.Model, Amount = amount })
+end
+
+-- healing over time (Regen)
+local function regen(fighter, spec)
+	task.spawn(function()
+		for _ = 1, spec.Ticks or 4 do
+			task.wait(spec.Interval or 1)
+			if not fighter.Duel or fighter.Duel.State ~= "Fight" then
+				return
+			end
+			heal(fighter, spec.Amount)
+		end
+	end)
+end
+
+-- every power can carry extra effects that trigger when it hits
+local function onPowerHit(fighter, target, power)
+	if power.Burn then
+		burn(target, fighter, power.Burn)
+	end
 end
 
 local function giveShield(fighter, amount, duration)
@@ -788,6 +878,7 @@ local function fireProjectile(fighter, direction, power)
 			if distanceToSegment(opponent.Root.Position, position, nextPosition) < 3.2 then
 				DuelFX:FireAllClients({ Type = "ProjectileHit", Id = id, Position = opponent.Root.Position })
 				damage(opponent, power.Damage, fighter)
+				onPowerHit(fighter, opponent, power)
 				return
 			end
 			position = nextPosition
@@ -823,14 +914,23 @@ POWERS.Dash = function(fighter, power, aim)
 	local hit = distanceToSegment(opponent.Root.Position, start, finish) < 4.5
 	fighter.Model:PivotTo(CFrame.lookAt(finish, finish + aim))
 	DuelFX:FireAllClients({ Type = "Dash", From = start, To = finish, Colors = fighter.Aura.Colors })
+	if power.Dodge then
+		fighter.DodgeUntil = os.clock() + power.Dodge
+		DuelFX:FireAllClients({ Type = "Afterimage", Target = fighter.Model, Duration = power.Dodge, Colors = fighter.Aura.Colors })
+	end
 	if hit then
 		damage(opponent, power.Damage, fighter)
+		onPowerHit(fighter, opponent, power)
 	end
 	return true
 end
 
 POWERS.Shield = function(fighter, power)
 	giveShield(fighter, power.Amount, power.Duration or 4)
+	if power.Reflect then
+		fighter.ReflectUntil = os.clock() + (power.Duration or 4)
+		fighter.ReflectAmount = power.Reflect
+	end
 	return true
 end
 
@@ -838,6 +938,9 @@ POWERS.Heal = function(fighter, power)
 	heal(fighter, power.Amount)
 	if power.Shield then
 		giveShield(fighter, power.Shield, power.Duration or 5)
+	end
+	if power.Regen then
+		regen(fighter, power.Regen)
 	end
 	return true
 end
@@ -848,6 +951,7 @@ POWERS.Burst = function(fighter, power)
 	DuelFX:FireAllClients({ Type = "Burst", Position = fighter.Root.Position, Radius = power.Radius, Colors = fighter.Aura.Colors })
 	if distance <= power.Radius then
 		damage(opponent, power.Damage, fighter)
+		onPowerHit(fighter, opponent, power)
 		if power.Slow then
 			slow(opponent, power.Slow, power.SlowDuration or 3)
 		end
@@ -873,6 +977,7 @@ POWERS.Meteor = function(fighter, power)
 				local flat = Vector3.new(opponent.Root.Position.X - target.X, 0, opponent.Root.Position.Z - target.Z)
 				if flat.Magnitude <= power.Radius then
 					damage(opponent, power.Damage, fighter)
+					onPowerHit(fighter, opponent, power)
 				end
 			end
 		end)
@@ -912,7 +1017,8 @@ POWERS.Beam = function(fighter, power, aim)
 	local finish = start + aim * (power.Range or 60)
 	DuelFX:FireAllClients({ Type = "Beam", From = start, To = finish, Colors = fighter.Aura.Colors })
 	if distanceToSegment(fighter.Opponent.Root.Position, start, finish) < 3.5 then
-		damage(fighter.Opponent, power.Damage, fighter)
+		damage(fighter.Opponent, power.Damage, fighter, { Pierce = power.Pierce })
+		onPowerHit(fighter, fighter.Opponent, power)
 	end
 	return true
 end
@@ -944,6 +1050,9 @@ POWERS.Teleport = function(fighter, power)
 	fighter.Model:PivotTo(CFrame.lookAt(behind, opponent.Root.Position * Vector3.new(1, 0, 1) + Vector3.new(0, behind.Y, 0)))
 	DuelFX:FireAllClients({ Type = "Teleport", From = from, To = behind, Colors = fighter.Aura.Colors })
 	damage(opponent, power.Damage, fighter)
+	if power.Stun and opponent.Duel and opponent.Duel.State == "Fight" then
+		stun(opponent, power.Stun)
+	end
 	return true
 end
 
@@ -1064,6 +1173,9 @@ RunService.Heartbeat:Connect(function()
 					humanoid.JumpHeight = 0
 				else
 					local speed = fighter.BaseSpeed
+					if fighter.Player and fighter.Player:GetAttribute("Sprinting") then
+						speed *= Config.Movement.DuelSprintMultiplier
+					end
 					if now < fighter.SlowUntil then
 						speed *= (1 - fighter.SlowAmount)
 					end
@@ -1124,7 +1236,9 @@ local function playerFighter(player)
 		return nil
 	end
 	local auraName = player:GetAttribute("EquippedAura")
-	return newFighter("Player", player, character, auraName, player.DisplayName)
+	local fighter = newFighter("Player", player, character, auraName, player.DisplayName)
+	fighter.BaseSpeed = Config.Movement.WalkSpeed
+	return fighter
 end
 
 local lastRequest = {}

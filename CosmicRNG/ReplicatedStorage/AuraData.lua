@@ -30,7 +30,14 @@ AuraData.Tiers = {
 --  Drain      : damages and heals you for Lifesteal (0-1) of the damage
 --  Beam       : instant laser of Range studs
 --  Pull       : drags the enemy toward you, then damages (+ optional Stun)
---  Teleport   : blinks behind the enemy and strikes
+--  Teleport   : blinks behind the enemy and strikes (+ optional Stun)
+--
+-- Extra effects any power can have:
+--  Burn    = { Damage, Ticks, Interval }  damage over time
+--  Regen   = { Amount, Ticks, Interval }  healing over time
+--  Pierce  = true    ignores shields
+--  Reflect = 0-1     (Shield) sends that part of each hit back
+--  Dodge   = seconds (Dash) untouchable after dashing
 ---------------------------------------------------------------------
 
 local function rgb(r, g, b)
@@ -43,20 +50,20 @@ AuraData.List = {
 	{
 		Name = "Stardust", Chance = 2, Tier = "Common",
 		Colors = { rgb(235, 235, 255), rgb(170, 180, 255) },
-		Power = { Name = "Star Toss", Type = "Projectile", Damage = 8, Count = 1, Speed = 70, Cooldown = 3,
-			Description = "Throws a small star at your opponent." },
+		Power = { Name = "Star Toss", Type = "Projectile", Damage = 9, Count = 1, Speed = 75, Cooldown = 2.5,
+			Description = "Throws a quick little star. Short cooldown." },
 	},
 	{
 		Name = "Moonbeam", Chance = 4, Tier = "Common",
 		Colors = { rgb(210, 230, 255), rgb(140, 170, 230) },
-		Power = { Name = "Moon Shield", Type = "Shield", Amount = 15, Duration = 4, Cooldown = 8,
-			Description = "A pale moon barrier blocks 15 damage." },
+		Power = { Name = "Moon Shield", Type = "Shield", Amount = 18, Duration = 4, Reflect = 0.4, Cooldown = 8,
+			Description = "Blocks 18 damage and reflects 40% of hits back." },
 	},
 	{
 		Name = "Twilight", Chance = 8, Tier = "Common",
 		Colors = { rgb(255, 150, 120), rgb(120, 80, 170) },
-		Power = { Name = "Dusk Dash", Type = "Dash", Damage = 10, Distance = 22, Cooldown = 5,
-			Description = "Dashes forward, hurting anyone in the way." },
+		Power = { Name = "Dusk Dash", Type = "Dash", Damage = 12, Distance = 22, Dodge = 0.7, Cooldown = 5,
+			Description = "Dash through enemies and become untouchable for 0.7s." },
 	},
 
 	-- UNCOMMON -------------------------------------------------------
@@ -64,19 +71,22 @@ AuraData.List = {
 		Name = "Comet", Chance = 16, Tier = "Uncommon",
 		Colors = { rgb(120, 220, 255), rgb(255, 255, 255) },
 		Power = { Name = "Comet Strike", Type = "Projectile", Damage = 14, Count = 1, Speed = 120, Cooldown = 4,
-			Description = "A very fast comet that is hard to dodge." },
+			Burn = { Damage = 2, Ticks = 4, Interval = 0.5 },
+			Description = "A very fast comet that sets your opponent on fire." },
 	},
 	{
 		Name = "Aurora", Chance = 32, Tier = "Uncommon",
 		Colors = { rgb(90, 255, 170), rgb(150, 110, 255) },
-		Power = { Name = "Aurora Mend", Type = "Heal", Amount = 22, Cooldown = 9,
-			Description = "Northern lights heal you for 22 HP." },
+		Power = { Name = "Aurora Mend", Type = "Heal", Amount = 16, Cooldown = 9,
+			Regen = { Amount = 3, Ticks = 5, Interval = 1 },
+			Description = "Heals 16 HP, then 3 HP every second for 5s." },
 	},
 	{
 		Name = "Meteor", Chance = 64, Tier = "Uncommon",
 		Colors = { rgb(255, 130, 50), rgb(120, 60, 40) },
 		Power = { Name = "Meteor Drop", Type = "Meteor", Damage = 22, Count = 1, Radius = 8, Delay = 0.8, Cooldown = 7,
-			Description = "Calls a meteor down on your opponent." },
+			Burn = { Damage = 3, Ticks = 3, Interval = 0.6 },
+			Description = "A flaming meteor that leaves your opponent burning." },
 	},
 
 	-- RARE -----------------------------------------------------------
@@ -103,8 +113,9 @@ AuraData.List = {
 	{
 		Name = "Solar Flare", Chance = 1000, Tier = "Epic", Special = "Fire",
 		Colors = { rgb(255, 210, 60), rgb(255, 90, 20) },
-		Power = { Name = "Flare Beam", Type = "Beam", Damage = 35, Range = 60, Cooldown = 8,
-			Description = "A searing beam of sunlight." },
+		Power = { Name = "Flare Beam", Type = "Beam", Damage = 32, Range = 60, Cooldown = 8,
+			Burn = { Damage = 4, Ticks = 4, Interval = 0.5 },
+			Description = "A searing sun beam that burns for 16 more damage." },
 	},
 	{
 		Name = "Eclipse", Chance = 2500, Tier = "Epic", Special = "Dark",
@@ -129,14 +140,15 @@ AuraData.List = {
 	{
 		Name = "Quasar", Chance = 25000, Tier = "Legendary",
 		Colors = { rgb(120, 255, 255), rgb(200, 80, 255) },
-		Power = { Name = "Quasar Lance", Type = "Beam", Damage = 50, Range = 90, Cooldown = 8,
-			Description = "A long-range lance of pure energy." },
+		Power = { Name = "Quasar Lance", Type = "Beam", Damage = 50, Range = 90, Pierce = true, Cooldown = 8,
+			Description = "A long-range lance that goes straight through shields." },
 	},
 	{
 		Name = "Celestial", Chance = 50000, Tier = "Legendary",
 		Colors = { rgb(255, 245, 210), rgb(255, 215, 120) },
 		Power = { Name = "Divine Light", Type = "Heal", Amount = 40, Shield = 30, Duration = 5, Cooldown = 12,
-			Description = "Heals 40 HP and grants a 30 HP shield." },
+			Regen = { Amount = 4, Ticks = 5, Interval = 1 },
+			Description = "Heals 40 HP + 4/s, and grants a 30 HP shield." },
 	},
 
 	-- MYTHIC ---------------------------------------------------------
@@ -155,8 +167,8 @@ AuraData.List = {
 	{
 		Name = "Cosmic Rift", Chance = 500000, Tier = "Mythic",
 		Colors = { rgb(255, 40, 120), rgb(40, 255, 220) },
-		Power = { Name = "Rift Step", Type = "Teleport", Damage = 60, Range = 60, Cooldown = 9,
-			Description = "Tears through space and strikes from behind." },
+		Power = { Name = "Rift Step", Type = "Teleport", Damage = 60, Range = 60, Stun = 0.8, Cooldown = 9,
+			Description = "Strikes from behind and stuns for 0.8s." },
 	},
 
 	-- SECRET ---------------------------------------------------------
@@ -164,7 +176,8 @@ AuraData.List = {
 		Name = "Big Bang", Chance = 1000000, Tier = "Secret", Special = "Rainbow",
 		Colors = { rgb(255, 255, 255), rgb(255, 200, 80) },
 		Power = { Name = "Big Bang", Type = "Burst", Damage = 90, Radius = 30, Knockback = 120, Cooldown = 14,
-			Description = "Recreates the birth of the universe." },
+			Burn = { Damage = 5, Ticks = 4, Interval = 0.5 },
+			Description = "The birth of the universe: 90 damage + cosmic fire." },
 	},
 	{
 		Name = "Void Sovereign", Chance = 5000000, Tier = "Secret", Special = "Inward",
