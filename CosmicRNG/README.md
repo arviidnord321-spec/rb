@@ -111,7 +111,24 @@ Hold **Shift** to sprint, or tap the **RUN** button on phones.
   | Stuns after a teleport | Cosmic Rift |
 
   The remaining auras have powers like pulls, freezes, life drain and multi-meteors.
-- **Controls:** click or **F** to attack, **Q** for your aura power, or use the on-screen ATTACK and POWER buttons on mobile.
+- **Controls** (on mobile, use the on-screen buttons instead):
+
+  | Key | Action |
+  |---|---|
+  | Click or **F** | Attack |
+  | **Q** | Aura power |
+  | Hold **G** | Block |
+  | **E** | Dodge roll |
+  | **Shift** | Sprint |
+
+- **Combos:** attack quickly to chain jab → jab → **spinning kick** (x1.8 damage plus knockback). A combo counter shows on screen.
+- **Block:** basic hits do only 20% damage and powers 50%, but blocking drains a guard meter (the blue line under your HP). A kick or an empty guard causes a **GUARD BREAK**, which stuns you.
+- **Dodge roll:** dash in the direction you're moving (backwards if you're standing still), untouchable for 0.35s, with a 2.2s cooldown.
+- **Powers** have a short casting wind-up with a glowing charge in your hands.
+- **Bots** now block and dodge too; harder bots do it more often.
+- **Animations** are made in code, with no uploaded assets: fighting stance, left/right jabs, roundhouse kick, a casting pose for each power type, hit recoils, block stance, dodge, stun wobble and a victory pose. Fists and feet leave trails in your aura colors, and bots get a proper walk cycle.
+- **Sounds** come from a layered sound designer, so hits never sound copy-pasted: punches, heavy smashes, whooshes, metal block clangs, guard-break shatters, dodges, hurt grunts, beams, explosions, ice shatters, heal shimmers, teleports, burn crackles, a countdown beep, a fight gong and victory/defeat tunes. A **battle drum beat** plays during fights and gets faster when someone is low or time is running out.
+- **Feel:** screen shake and a red flash when you get hit, a zoom punch when you land a heavy hit, and sparks and flashes at the point of impact.
 - **"💀 FINISH THEM!"** appears when your opponent is low, and the screen edges glow red when you are.
 - **Finisher cutscene:** the knockout hit triggers a cinematic both fighters see, with cinema bars and a moving camera:
   1. The world darkens and a spinning magic circle forms in the sky.
@@ -139,7 +156,7 @@ All sounds are made from Roblox's built-in sound files, so they always work:
 
 | Where in Studio | Type | Name |
 |---|---|---|
-| ReplicatedStorage | ModuleScript | `CosmicConfig`, `AuraData`, `AuraImages`, `AuraEffects`, `Luck`, `SoundFX`, `UIKit` |
+| ReplicatedStorage | ModuleScript | `CosmicConfig`, `AuraData`, `AuraImages`, `AuraEffects`, `CombatAnim`, `Luck`, `SoundFX`, `UIKit` |
 | ServerScriptService | Script | `RollService`, `WorldSetup`, `LuckyIsland`, `Parkour`, `DuelService`, `Movement`, `Leaderboard` |
 | StarterPlayer > StarterPlayerScripts | LocalScript | `AuraRenderer`, `RollUI`, `StoreUI`, `WorldFX`, `ParkourClient`, `DuelClient`, `DuelFX`, `Sprint` |
 

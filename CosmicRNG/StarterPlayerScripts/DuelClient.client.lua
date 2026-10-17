@@ -15,10 +15,12 @@ local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
 local AuraData = require(ReplicatedStorage:WaitForChild("AuraData"))
 local SoundFX = require(ReplicatedStorage:WaitForChild("SoundFX"))
 local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
+local CombatAnim = require(ReplicatedStorage:WaitForChild("CombatAnim"))
 
 local remotes = ReplicatedStorage:WaitForChild("CosmicRemotes")
 local DuelRequest = remotes:WaitForChild("DuelRequest", 60)
 local DuelEvent = remotes:WaitForChild("DuelEvent", 60)
+local DuelFX = remotes:WaitForChild("DuelFX", 60)
 if not DuelRequest or not DuelEvent then
 	warn("[DuelClient] duel remotes not found")
 	return
@@ -43,6 +45,9 @@ local fightEndsAt = 0
 local fighting = false
 local powerReadyAt = 0
 local nextAttackAt = 0
+local dodgeReadyAt = 0
+local blocking = false
+local localCombo, lastLocalAttack = 0, 0
 
 local function statsForAura(auraName)
 	local aura = AuraData.Get(auraName or "")
@@ -352,7 +357,16 @@ local function healthSide(anchorX, xScale, fillColor)
 	})
 	local hpText = label({ Size = UDim2.fromScale(1, 1), Text = "", Font = TITLE_FONT, TextSize = 18, ZIndex = 3, Parent = barBack })
 	textStroke(1.5).Parent = hpText
-	return { Name = name, Aura = aura, Fill = fill, Trail = trail, Shield = shield, Text = hpText, LastFraction = 1 }
+	-- guard meter (thin blue line under the health bar)
+	local guardBack = new("Frame", {
+		Position = UDim2.fromOffset(12, 82), Size = UDim2.new(1, -24, 0, 5), BackgroundColor3 = Color3.fromRGB(30, 25, 45),
+		BorderSizePixel = 0, Parent = side,
+	}, { corner(UDim.new(1, 0)) })
+	local guardFill = new("Frame", {
+		AnchorPoint = Vector2.new(anchorX, 0), Position = UDim2.fromScale(anchorX, 0), Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.fromRGB(120, 200, 255), BorderSizePixel = 0, Parent = guardBack,
+	}, { corner(UDim.new(1, 0)) })
+	return { Name = name, Aura = aura, Fill = fill, Trail = trail, Shield = shield, Text = hpText, Guard = guardFill, LastFraction = 1 }
 end
 
 local mySide = healthSide(0, 0, Color3.fromRGB(90, 220, 130))
@@ -400,7 +414,7 @@ end
 
 -- action buttons (bottom right)
 local actions = new("Frame", {
-	AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -20, 1, -24), Size = UDim2.fromOffset(300, 240),
+	AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -20, 1, -24), Size = UDim2.fromOffset(300, 290),
 	BackgroundTransparency = 1, Parent = hud,
 })
 UIKit.addAutoScale(actions)
@@ -424,9 +438,25 @@ local powerCooldown = new("Frame", {
 	AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.fromScale(1, 0),
 	BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.45, BorderSizePixel = 0, ZIndex = 2, Parent = powerButton,
 })
+local function smallButton(text, color, x, y)
+	local b = new("TextButton", {
+		AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, x, 1, y), Size = UDim2.fromOffset(88, 88),
+		BackgroundColor3 = color, AutoButtonColor = false, Text = text, Font = TITLE_FONT, TextSize = 16,
+		TextColor3 = THEME.Text, ClipsDescendants = true, Parent = actions,
+	}, { corner(UDim.new(1, 0)), stroke(Color3.new(1, 1, 1), 2.5, 0.3), textStroke(1.4) })
+	UIKit.addButtonFeel(b, true)
+	return b
+end
+local dodgeButton = smallButton("💨\nDODGE", Color3.fromRGB(90, 110, 200), -26, -150)
+local blockButton = smallButton("🛡\nBLOCK", Color3.fromRGB(60, 140, 200), -166, -150)
+local dodgeCooldown = new("Frame", {
+	AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.fromScale(1, 0),
+	BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.45, BorderSizePixel = 0, Parent = dodgeButton,
+})
 local keyHint = label({
-	AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, 0, 1, -146), Size = UDim2.fromOffset(300, 22),
-	Text = "Click / F = attack   •   Q = power", TextSize = 14, TextColor3 = THEME.SubText, Parent = actions,
+	AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, 0, 1, -244), Size = UDim2.fromOffset(300, 40),
+	Text = "Click/F attack (3 = combo)  •  Q power\nhold G block  •  E dodge  •  Shift sprint", TextSize = 13,
+	TextColor3 = THEME.SubText, Parent = actions,
 })
 textStroke(1.2).Parent = keyHint
 local forfeitButton = new("TextButton", {
@@ -435,6 +465,41 @@ local forfeitButton = new("TextButton", {
 	TextSize = 16, TextColor3 = THEME.Text, Parent = hud,
 }, { corner(UDim.new(0, 10)) })
 UIKit.addButtonFeel(forfeitButton)
+
+local comboLabel = label({
+	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.62), Size = UDim2.fromOffset(300, 50),
+	Text = "", Font = TITLE_FONT, TextSize = 36, TextTransparency = 1, Parent = hud,
+})
+local comboStroke = textStroke(2.5)
+comboStroke.Transparency = 1
+comboStroke.Parent = comboLabel
+local comboScale = new("UIScale", { Parent = comboLabel })
+local comboToken = 0
+local function showCombo(combo)
+	if combo < 2 then
+		return
+	end
+	comboToken += 1
+	local token = comboToken
+	comboLabel.Text = (combo == 3) and "x3  SMASH!" or ("x" .. combo)
+	comboLabel.TextColor3 = (combo == 3) and Color3.fromRGB(255, 150, 50) or THEME.Gold
+	comboLabel.TextTransparency = 0
+	comboStroke.Transparency = 0.2
+	comboScale.Scale = (combo == 3) and 1.8 or 1.4
+	tween(comboScale, 0.25, { Scale = 1 }, Enum.EasingStyle.Back)
+	task.delay(0.7, function()
+		if token == comboToken then
+			tween(comboLabel, 0.3, { TextTransparency = 1 })
+			tween(comboStroke, 0.3, { Transparency = 1 })
+		end
+	end)
+end
+
+-- red flash when you get hit
+local hurtFlash = new("Frame", {
+	Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(255, 30, 50), BackgroundTransparency = 1,
+	BorderSizePixel = 0, ZIndex = 0, Parent = hud,
+})
 
 ---------------------------------------------------------------------
 -- ACTIONS
@@ -461,16 +526,83 @@ local function aimDirection()
 	return camera.CFrame.LookVector
 end
 
-local function attack()
-	if not fighting or os.clock() < nextAttackAt then
+-- push your own character (knockback, dodge rolls)
+local function push(velocity, duration)
+	local root = myRoot()
+	if not root then
 		return
 	end
-	nextAttackAt = os.clock() + DUEL.AttackCooldown
+	local attachment = Instance.new("Attachment")
+	attachment.Name = "PushAttachment"
+	attachment.Parent = root
+	local mover = Instance.new("LinearVelocity")
+	mover.Attachment0 = attachment
+	mover.VectorVelocity = velocity
+	mover.MaxForce = 1e6
+	mover.RelativeTo = Enum.ActuatorRelativeTo.World
+	mover.Parent = root
+	task.delay(duration, function()
+		mover:Destroy()
+		attachment:Destroy()
+	end)
+end
+
+local function attack()
+	local now = os.clock()
+	if not fighting or blocking or now < nextAttackAt then
+		return
+	end
+	-- predict the combo so the animation starts instantly
+	if now - lastLocalAttack <= DUEL.ComboWindow then
+		localCombo = (localCombo % 3) + 1
+	else
+		localCombo = 1
+	end
+	lastLocalAttack = now
+	local heavy = localCombo == 3
+	nextAttackAt = now + (heavy and DUEL.HeavyRecovery or DUEL.AttackCooldown)
 	faceOpponent(DUEL.AttackRange + 4)
 	DuelRequest:FireServer({ Action = "Attack", Aim = aimDirection() })
-	SoundFX.Play("Swoosh")
+	local clip = heavy and "Roundhouse" or ((localCombo == 2) and "JabLeft" or "JabRight")
+	CombatAnim.Play(player.Character, clip)
+	SoundFX.Play(heavy and "SwingHeavy" or "SwingLight")
 	attackButton:FindFirstChild("FeelScale").Scale = 0.88
 	tween(attackButton:FindFirstChild("FeelScale"), 0.2, { Scale = 1 }, Enum.EasingStyle.Back)
+end
+
+local function setBlock(on)
+	if on and (not fighting) then
+		return
+	end
+	if blocking == on then
+		return
+	end
+	blocking = on
+	DuelRequest:FireServer({ Action = "Block", On = on })
+	blockButton.BackgroundColor3 = on and Color3.fromRGB(150, 220, 255) or Color3.fromRGB(60, 140, 200)
+end
+
+local function dodge()
+	local now = os.clock()
+	if not fighting or blocking or now < dodgeReadyAt then
+		return
+	end
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local root = myRoot()
+	if not humanoid or not root or humanoid.WalkSpeed <= 0 then
+		return -- stunned
+	end
+	dodgeReadyAt = now + DUEL.DodgeCooldown
+	local direction = humanoid.MoveDirection
+	if direction.Magnitude < 0.1 then
+		direction = -root.CFrame.LookVector -- standing still: hop backwards
+	end
+	direction = Vector3.new(direction.X, 0, direction.Z).Unit
+	push(direction * DUEL.DodgeSpeed + Vector3.new(0, 4, 0), 0.2)
+	DuelRequest:FireServer({ Action = "Dodge", Direction = direction })
+	CombatAnim.Play(character, "Dodge")
+	SoundFX.Play("Dodge")
 end
 
 local function usePower()
@@ -483,6 +615,17 @@ end
 
 attackButton.Activated:Connect(attack)
 powerButton.Activated:Connect(usePower)
+dodgeButton.Activated:Connect(dodge)
+blockButton.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+		setBlock(true)
+	end
+end)
+blockButton.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+		setBlock(false)
+	end
+end)
 forfeitButton.Activated:Connect(function()
 	if inDuel then
 		DuelRequest:FireServer({ Action = "Forfeit" })
@@ -497,6 +640,15 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		attack()
 	elseif input.KeyCode == Enum.KeyCode.Q then
 		usePower()
+	elseif input.KeyCode == Enum.KeyCode.G then
+		setBlock(true)
+	elseif input.KeyCode == Enum.KeyCode.E then
+		dodge()
+	end
+end)
+UserInputService.InputEnded:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.G then
+		setBlock(false)
 	end
 end)
 
@@ -517,6 +669,9 @@ local function updateSide(side, model)
 		side.LastFraction = fraction
 	end
 	side.Shield.Size = UDim2.fromScale(math.clamp(shieldAmount / maxHp, 0, 1), 0.35)
+	local guard = (model:GetAttribute("DuelGuard") or DUEL.GuardMax) / DUEL.GuardMax
+	side.Guard.Size = UDim2.fromScale(math.clamp(guard, 0, 1), 1)
+	side.Guard.BackgroundColor3 = model:GetAttribute("DuelBlocking") and Color3.fromRGB(200, 240, 255) or Color3.fromRGB(120, 200, 255)
 	side.Text.Text = ("%d / %d%s"):format(hp, maxHp, shieldAmount > 0 and ("  🛡" .. shieldAmount) or "")
 end
 
@@ -531,6 +686,8 @@ RunService.RenderStepped:Connect(function()
 		timerLabel.Text = ("%d:%02d"):format(left // 60, left % 60)
 		timerLabel.TextColor3 = (left < 10) and RED or THEME.Text
 	end
+	local dodgeLeft = dodgeReadyAt - os.clock()
+	dodgeCooldown.Size = UDim2.fromScale(1, math.clamp(dodgeLeft / DUEL.DodgeCooldown, 0, 1))
 	local cooldownLeft = powerReadyAt - os.clock()
 	local total = (me and me.Power and me.Power.Cooldown) or 1
 	if cooldownLeft > 0 then
@@ -541,6 +698,64 @@ RunService.RenderStepped:Connect(function()
 		powerLabel.Text = me and me.Power and ("⚡\n" .. me.Power.Name) or "⚡\nNo power"
 	end
 end)
+
+---------------------------------------------------------------------
+-- BATTLE BEAT: a drum loop made from the sound designer's drum kit.
+-- It gets more intense when someone is low on HP or time is running out.
+---------------------------------------------------------------------
+local beatOn = false
+local BPM = 132
+-- 16 steps per bar: K = kick, S = snare, h = closed hat, o = open hat
+local PATTERN_CALM = { "Kh", "h", "h", "Kh", "Sh", "h", "Kh", "h", "Kh", "h", "Kh", "h", "Sh", "h", "h", "o" }
+local PATTERN_HYPE = { "Kh", "h", "Kh", "h", "Sh", "h", "Kh", "Kh", "Kh", "h", "Kh", "h", "Sh", "Kh", "Sh", "So" }
+local DRUMS = { K = "Kick", S = "Snare", h = "HatClosed", o = "HatOpen" }
+
+local function intense()
+	if not me or not opponent then
+		return false
+	end
+	local function low(info)
+		local model = info.Model
+		return model and (model:GetAttribute("DuelHP") or 1) / math.max(model:GetAttribute("DuelMaxHP") or 1, 1) <= 0.3
+	end
+	return low(me) or low(opponent) or (fightEndsAt - os.clock() <= 15)
+end
+
+local function startBeat()
+	if beatOn then
+		return
+	end
+	beatOn = true
+	SoundFX.SetAmbientVolume(0.15, 1)
+	task.spawn(function()
+		local stepLength = 60 / BPM / 4
+		local nextTime = os.clock()
+		local step = 0
+		while beatOn do
+			local pattern = intense() and PATTERN_HYPE or PATTERN_CALM
+			local hits = pattern[(step % 16) + 1]
+			for letter in hits:gmatch(".") do
+				local drum = DRUMS[letter]
+				if drum then
+					SoundFX.Play(drum, { Music = true, Volume = (letter == "h") and 0.8 or 1 })
+				end
+			end
+			step += 1
+			nextTime += stepLength
+			local waitTime = nextTime - os.clock()
+			if waitTime > 0 then
+				task.wait(waitTime)
+			else
+				nextTime = os.clock() -- fell behind (lag): don't machine-gun to catch up
+			end
+		end
+	end)
+end
+
+local function stopBeat()
+	beatOn = false
+	SoundFX.SetAmbientVolume(1, 2)
+end
 
 ---------------------------------------------------------------------
 -- SERVER MESSAGES
@@ -579,7 +794,7 @@ DuelEvent.OnClientEvent:Connect(function(info)
 					return
 				end
 				flashBig(tostring(n), THEME.Text, (n == info.Countdown) and ("vs " .. opponent.Name) or nil)
-				SoundFX.Play("Tick", { Speed = 0.8, Volume = 1.2 })
+				SoundFX.Play("Beep", { Speed = (n == 1) and 1.25 or 1 })
 				task.wait(1)
 			end
 		end)
@@ -588,27 +803,30 @@ DuelEvent.OnClientEvent:Connect(function(info)
 		fightEndsAt = os.clock() + info.EndsIn
 		flashBig("FIGHT!", RED)
 		hideBig(0.9)
-		SoundFX.Play("RevealLegendary", { Volume = 0.7 })
+		SoundFX.Play("Gong")
+		startBeat()
 	elseif kind == "PowerUsed" then
 		powerReadyAt = os.clock() + info.Cooldown
 	elseif kind == "OutOfRange" then
 		UIKit.toast("Too far away for your power!", THEME.Bad)
 	elseif kind == "Knockback" then
-		local root = myRoot()
-		if root then
-			root.AssemblyLinearVelocity = info.Velocity
-		end
+		push(info.Velocity, 0.15)
+	elseif kind == "Combo" then
+		showCombo(info.Combo)
+	elseif kind == "DodgeUsed" then
+		dodgeReadyAt = os.clock() + info.Cooldown
 	elseif kind == "End" then
 		fighting = false
+		stopBeat()
+		setBlock(false)
 		local reasonText = ({ KO = "Knockout!", Time = "Time's up!", Forfeit = "Forfeit", Left = "Opponent left" })[info.Reason] or ""
 		if info.Result == "Win" then
 			flashBig("VICTORY!", THEME.Gold, reasonText)
 			UIKit.confetti({ THEME.Gold, Color3.fromRGB(120, 255, 170), THEME.Accent2 }, 110)
-			SoundFX.Chime(1, 5)
-			SoundFX.Play("RevealMythic", { Volume = 0.7 })
+			SoundFX.Jingle("Victory")
 		elseif info.Result == "Lose" then
 			flashBig("DEFEAT", RED, reasonText)
-			SoundFX.Play("Heartbeat")
+			SoundFX.Jingle("Defeat")
 		else
 			flashBig("DRAW", THEME.SubText, reasonText)
 		end
@@ -785,6 +1003,61 @@ end
 DuelEvent.OnClientEvent:Connect(function(info)
 	if info.Type == "Finisher" then
 		fighting = false
+		stopBeat()
+		setBlock(false)
 		playFinisherCamera(info)
 	end
 end)
+
+
+---------------------------------------------------------------------
+-- FEEL THE HITS: screen shake, red flash, zoom punch
+---------------------------------------------------------------------
+local shakeAmount = 0
+local shaking = false
+RunService.RenderStepped:Connect(function(dt)
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if shakeAmount > 0.01 then
+		shaking = true
+		local m = shakeAmount * 0.3
+		if humanoid then
+			humanoid.CameraOffset = Vector3.new(rand:NextNumber(-m, m), rand:NextNumber(-m, m), rand:NextNumber(-m, m))
+		end
+		shakeAmount = math.max(0, shakeAmount - dt * 4)
+	elseif shaking then
+		shaking = false
+		if humanoid then
+			humanoid.CameraOffset = Vector3.zero
+		end
+	end
+end)
+
+local baseFov = camera.FieldOfView
+if DuelFX then
+	DuelFX.OnClientEvent:Connect(function(info)
+		if not inDuel then
+			return
+		end
+		local character = player.Character
+		if info.Type == "Damage" and (info.Amount or 0) > 0 and info.Kind ~= "Burn" then
+			local big = info.Heavy or info.Amount >= 30
+			if info.Target == character then
+				shakeAmount = math.max(shakeAmount, big and 1.6 or 0.7)
+				hurtFlash.BackgroundTransparency = big and 0.55 or 0.75
+				tween(hurtFlash, 0.35, { BackgroundTransparency = 1 })
+			elseif info.Attacker == character then
+				shakeAmount = math.max(shakeAmount, big and 1 or 0.3)
+				if big then
+					camera.FieldOfView = baseFov - 6
+					tween(camera, 0.35, { FieldOfView = baseFov }, Enum.EasingStyle.Quint)
+				end
+			end
+		elseif info.Type == "GuardBreak" and info.Target == character then
+			shakeAmount = math.max(shakeAmount, 1.2)
+			setBlock(false)
+		elseif info.Type == "Block" and info.Target == character then
+			shakeAmount = math.max(shakeAmount, 0.35)
+		end
+	end)
+end

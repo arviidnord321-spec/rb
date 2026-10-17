@@ -11,6 +11,7 @@ local Debris = game:GetService("Debris")
 
 local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
 local AuraEffects = require(ReplicatedStorage:WaitForChild("AuraEffects"))
+local CombatAnim = require(ReplicatedStorage:WaitForChild("CombatAnim"))
 local SoundFX = require(ReplicatedStorage:WaitForChild("SoundFX"))
 
 local remotes = ReplicatedStorage:WaitForChild("CosmicRemotes")
@@ -248,11 +249,23 @@ task.spawn(function()
 			alive[model] = true
 			if not bars[model] then
 				makeBar(model)
+				CombatAnim.SetLoop(model, "Stance", true)
 			end
+			CombatAnim.SetLoop(model, "Block", model:GetAttribute("DuelBlocking") == true)
 		end
 		for model in pairs(bars) do
 			if not alive[model] or not model.Parent then
 				removeBar(model)
+				if model.Parent then
+					CombatAnim.SetLoop(model, "Stance", false)
+					CombatAnim.SetLoop(model, "Block", false)
+					CombatAnim.SetLoop(model, "Stun", false)
+					task.delay(1.6, function()
+						if not model:GetAttribute("InDuel") then
+							CombatAnim.Release(model)
+						end
+					end)
+				end
 			end
 		end
 	end
@@ -260,6 +273,7 @@ end)
 
 RunService.RenderStepped:Connect(function()
 	for model, bar in pairs(bars) do
+		CombatAnim.SetLoop(model, "Block", model:GetAttribute("DuelBlocking") == true)
 		local hp = model:GetAttribute("DuelHP") or 0
 		local maxHp = math.max(model:GetAttribute("DuelMaxHP") or 1, 1)
 		local fraction = math.clamp(hp / maxHp, 0, 1)
@@ -305,7 +319,7 @@ local function spawnProjectile(info)
 	local duration = info.Range / info.Speed
 	tween(orb, duration, { CFrame = CFrame.new(info.Origin + info.Direction * info.Range) }, Enum.EasingStyle.Linear)
 	Debris:AddItem(orb, duration + 0.2)
-	soundAt(info.Origin, "Zap", { Speed = 1.6, Volume = 0.6 })
+	soundAt(info.Origin, "Shoot")
 end
 
 local function projectileHit(info)
@@ -355,7 +369,7 @@ local function meteor(info)
 		rock:Destroy()
 		AuraEffects.Burst(target + Vector3.new(0, 1, 0), { c1, c2 }, 1.2)
 		ring(target + Vector3.new(0, 0.2, 0), c1, 2, info.Radius * 2.4, 0.6)
-		soundAt(target, "RevealRare", { Volume = 0.8 })
+		soundAt(target, "Explosion", { Volume = 0.9 })
 	end)
 end
 
@@ -392,7 +406,7 @@ local function shieldBubble(info)
 	followFor(info.Target, bubble, info.Duration or 4)
 	local root = rootOf(info.Target)
 	if root then
-		soundAt(root.Position, "Freeze", { Speed = 1.8, Volume = 0.6 })
+		soundAt(root.Position, "ShieldUp")
 	end
 end
 
@@ -425,24 +439,67 @@ DuelFX.OnClientEvent:Connect(function(info)
 	local kind = info.Type
 	if kind == "Swing" then
 		local root = rootOf(info.Attacker)
+		local clip = (info.Combo == 3) and "Roundhouse" or ((info.Combo == 2) and "JabLeft" or "JabRight")
+		local mine = info.Attacker == localPlayer.Character -- your own swing already played instantly
+		if not mine then
+			CombatAnim.Play(info.Attacker, clip)
+		end
 		if root then
-			local from = root.Position + Vector3.new(0, 0.5, 0)
-			local to = from + info.Direction * 6
-			line(from, to, info.Color or Color3.new(1, 1, 1), info.Hit and 1 or 0.5, 0.2)
-			if info.Hit then
-				soundAt(to, "Punch")
-			else
-				soundAt(from, "Swoosh", { Volume = 0.7 })
+			if not mine then
+				soundAt(root.Position, info.Heavy and "SwingHeavy" or "SwingLight", { Volume = 0.9 })
+			end
+			if info.Heavy then
+				task.delay(0.22, function()
+					if root.Parent then
+						ring(root.Position - Vector3.new(0, 2.8, 0), info.Color or Color3.new(1, 1, 1), 2, 11, 0.35)
+					end
+				end)
 			end
 		end
 	elseif kind == "Damage" then
-		if info.Amount > 0 then
-			floatingText(info.Target, "-" .. info.Amount, Color3.fromRGB(255, 90, 90), info.Amount >= 30)
-			hitFlash(info.Target, Color3.fromRGB(255, 60, 60))
-			local root = rootOf(info.Target)
+		local root = rootOf(info.Target)
+		local attackerRoot = rootOf(info.Attacker)
+		local big = info.Heavy or (info.Amount or 0) >= 30
+		if info.Kind == "Burn" then
+			if info.Amount > 0 then
+				floatingText(info.Target, "-" .. info.Amount, Color3.fromRGB(255, 150, 60))
+			end
 			if root then
-				soundAt(root.Position, "Hit")
-				sphere(root.Position, info.Color or Color3.new(1, 1, 1), 1, 5, 0.3)
+				soundAt(root.Position, "BurnCrackle", { Volume = 0.8 })
+			end
+		elseif info.Amount > 0 then
+			-- the body reacts
+			if info.WasBlocked then
+				CombatAnim.Play(info.Target, "BlockHit")
+			else
+				CombatAnim.Play(info.Target, big and "HitHeavy" or "HitLight")
+				hitFlash(info.Target, Color3.fromRGB(255, 60, 60))
+			end
+			-- numbers: bigger and angrier for big hits
+			local text = "-" .. info.Amount .. (info.Heavy and "!" or "")
+			local color = info.WasBlocked and Color3.fromRGB(160, 180, 210)
+				or (info.Heavy and Color3.fromRGB(255, 140, 40) or Color3.fromRGB(255, 90, 90))
+			floatingText(info.Target, text, color, big)
+			if root then
+				-- sparks where the hit landed (between the two fighters)
+				local contact = root.Position + Vector3.new(0, 0.6, 0)
+				if attackerRoot then
+					contact = root.Position:Lerp(attackerRoot.Position, 0.3) + Vector3.new(0, 0.8, 0)
+				end
+				local c = info.Color or Color3.new(1, 1, 1)
+				AuraEffects.Burst(contact, { c, Color3.new(1, 1, 1) }, big and 0.9 or 0.45)
+				sphere(contact, Color3.new(1, 1, 1), 0.6, big and 6 or 3.5, big and 0.25 or 0.15)
+				if not info.WasBlocked then
+					soundAt(contact, big and "HeavyHit" or "Jab", { Volume = 1 })
+					if big and rand:NextNumber() < 0.6 then
+						soundAt(root.Position, "HurtHeavy", { Volume = 0.9 })
+					elseif rand:NextNumber() < 0.25 then
+						soundAt(root.Position, "HurtLight", { Volume = 0.8 })
+					end
+				end
+				if info.Heavy then
+					ring(root.Position - Vector3.new(0, 2.6, 0), c, 3, 16, 0.45)
+				end
 			end
 		end
 		if info.Blocked and info.Blocked > 0 then
@@ -454,7 +511,7 @@ DuelFX.OnClientEvent:Connect(function(info)
 		local root = rootOf(info.Target)
 		if root then
 			AuraEffects.Burst(root.Position, { Color3.fromRGB(110, 255, 150), Color3.new(1, 1, 1) }, 0.6)
-			soundAt(root.Position, "Purchase", { Speed = 1.2 })
+			soundAt(root.Position, "HealShimmer")
 		end
 	elseif kind == "Shield" then
 		shieldBubble(info)
@@ -471,13 +528,13 @@ DuelFX.OnClientEvent:Connect(function(info)
 		line(info.From, info.To, c1, 2.5, 0.4)
 		line(info.From, info.To, c2, 1, 0.6)
 		AuraEffects.Burst(info.To, { c1, c2 }, 0.6)
-		soundAt(info.To, "Swoosh", { Speed = 0.8 })
+		soundAt(info.To, "Dodge", { Speed = 0.8 })
 	elseif kind == "Burst" then
 		local c1, c2 = colorsOf(info)
 		sphere(info.Position, c1, 2, info.Radius * 2, 0.5)
 		ring(info.Position - Vector3.new(0, 2.6, 0), c2, 2, info.Radius * 2.2, 0.6)
 		AuraEffects.Burst(info.Position, { c1, c2 }, 1.2 + info.Radius / 15)
-		soundAt(info.Position, "RevealLegendary", { Volume = 0.8 })
+		soundAt(info.Position, "Explosion")
 	elseif kind == "Meteor" then
 		meteor(info)
 	elseif kind == "Freeze" then
@@ -485,7 +542,7 @@ DuelFX.OnClientEvent:Connect(function(info)
 		local root = rootOf(info.Target)
 		if root then
 			line(info.From, root.Position, c1, 1.6, 0.5)
-			soundAt(root.Position, "Freeze")
+			soundAt(root.Position, "IceShatter")
 		end
 	elseif kind == "Drain" then
 		local c1, c2 = colorsOf(info)
@@ -496,25 +553,25 @@ DuelFX.OnClientEvent:Connect(function(info)
 					line(info.From, root.Position, (i % 2 == 0) and c1 or c2, 1.2, 0.5)
 				end)
 			end
-			soundAt(info.From, "Zap", { Speed = 0.7 })
+			soundAt(info.From, "Vacuum", { Speed = 1.3 })
 		end
 	elseif kind == "Beam" then
 		local c1, c2 = colorsOf(info)
 		line(info.From, info.To, c1, 3, 0.5)
 		line(info.From, info.To, Color3.new(1, 1, 1), 1, 0.35)
 		line(info.From, info.To, c2, 5, 0.25)
-		soundAt(info.From, "Zap")
+		soundAt(info.From, "BeamFire")
 	elseif kind == "Pull" then
 		local c1, c2 = colorsOf(info)
 		line(info.From, info.To, c1, 2, 0.5)
 		sphere(info.To, c2, 8, 1, 0.5, Enum.Material.ForceField)
-		soundAt(info.To, "RevealMythic", { Volume = 0.6 })
+		soundAt(info.To, "Vacuum")
 	elseif kind == "Teleport" then
 		local c1, c2 = colorsOf(info)
 		sphere(info.From, c1, 4, 0.5, 0.4)
 		sphere(info.To, c2, 0.5, 6, 0.4)
 		AuraEffects.Burst(info.To, { c1, c2 }, 0.8)
-		soundAt(info.To, "Zap", { Speed = 1.3 })
+		soundAt(info.To, "TeleportZap")
 	elseif kind == "DuelStart" then
 		if info.Center then
 			ring(info.Center + Vector3.new(0, 0.3, 0), Color3.fromRGB(255, 80, 100), 4, 34, 1)
@@ -993,5 +1050,143 @@ DuelFX.OnClientEvent:Connect(function(info)
 		afterimage(info)
 	elseif kind == "Finisher" then
 		playFinisher(info)
+	end
+end)
+
+
+---------------------------------------------------------------------
+-- Blocks, guard breaks, dodges, casting poses, stuns, victory poses
+---------------------------------------------------------------------
+local function shieldFlash(model, attackerModel)
+	local root = rootOf(model)
+	if not root then
+		return
+	end
+	local facing = root.CFrame.LookVector
+	local attackerRoot = rootOf(attackerModel)
+	if attackerRoot then
+		local d = attackerRoot.Position - root.Position
+		d = Vector3.new(d.X, 0, d.Z)
+		if d.Magnitude > 0.1 then
+			facing = d.Unit
+		end
+	end
+	local center = root.Position + facing * 2 + Vector3.new(0, 0.5, 0)
+	local shield = fxPart({
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.2, 5, 5),
+		CFrame = CFrame.lookAt(center, center + facing) * CFrame.Angles(0, math.pi / 2, 0),
+		Color = Color3.fromRGB(120, 200, 255),
+		Material = Enum.Material.ForceField,
+		Transparency = 0,
+	})
+	tween(shield, 0.3, { Size = Vector3.new(0.1, 6.5, 6.5), Transparency = 1 })
+	Debris:AddItem(shield, 0.35)
+	AuraEffects.Burst(center, { Color3.fromRGB(150, 220, 255), Color3.new(1, 1, 1) }, 0.35)
+	soundAt(center, "Block")
+end
+
+local function guardBreak(model)
+	local root = rootOf(model)
+	if not root then
+		return
+	end
+	floatingText(model, "GUARD BREAK!", Color3.fromRGB(120, 200, 255), true)
+	for _ = 1, 10 do
+		local shard = Instance.new("Part")
+		shard.Size = Vector3.new(0.5, 0.8, 0.1)
+		shard.Material = Enum.Material.Glass
+		shard.Color = Color3.fromRGB(150, 210, 255)
+		shard.Transparency = 0.2
+		shard.CanQuery = false
+		shard.CanTouch = false
+		shard.CFrame = root.CFrame * CFrame.new(rand:NextNumber(-1.5, 1.5), rand:NextNumber(-0.5, 1.5), -1.5)
+		shard.Parent = folder
+		shard.AssemblyLinearVelocity = Vector3.new(rand:NextNumber(-20, 20), rand:NextNumber(10, 25), rand:NextNumber(-20, 20))
+		Debris:AddItem(shard, 1.5)
+	end
+	soundAt(root.Position, "GuardBreak")
+	CombatAnim.Play(model, "HitHeavy")
+end
+
+local function dodgeRoll(info)
+	local mine = info.Target == localPlayer.Character -- already played on your screen
+	if not mine then
+		CombatAnim.Play(info.Target, "Dodge")
+	end
+	local root = rootOf(info.Target)
+	if root then
+		if not mine then
+			soundAt(root.Position, "Dodge")
+		end
+		afterimage({ Target = info.Target, Colors = info.Colors or { Color3.fromRGB(200, 200, 255), Color3.fromRGB(140, 140, 255) } })
+		ring(root.Position - Vector3.new(0, 2.8, 0), Color3.fromRGB(200, 200, 255), 2, 7, 0.3)
+	end
+end
+
+local function castPose(info)
+	local pose = CombatAnim.PowerPose[info.PowerType] or "CastForward"
+	CombatAnim.Play(info.Caster, pose)
+	local c1 = colorsOf(info)
+	-- energy gathers in the hands while winding up
+	for _, handName in ipairs({ "RightHand", "LeftHand" }) do
+		local hand = info.Caster and info.Caster:FindFirstChild(handName)
+		if hand then
+			local orb = fxPart({ Shape = Enum.PartType.Ball, Size = Vector3.one * 0.4, CFrame = hand.CFrame, Color = c1, Transparency = 0.1 })
+			local light = Instance.new("PointLight")
+			light.Color = c1
+			light.Range = 8
+			light.Brightness = 3
+			light.Parent = orb
+			local start = os.clock()
+			local windup = info.Windup or 0.2
+			local connection
+			connection = RunService.RenderStepped:Connect(function()
+				local t = os.clock() - start
+				if t > windup + 0.15 or not hand.Parent then
+					connection:Disconnect()
+					orb:Destroy()
+					return
+				end
+				orb.CFrame = hand.CFrame
+				orb.Size = Vector3.one * (0.4 + math.min(t / windup, 1) * 1.4)
+			end)
+		end
+	end
+	local root = rootOf(info.Caster)
+	if root then
+		soundAt(root.Position, "Zap", { Speed = 2.2, Volume = 0.6 })
+	end
+end
+
+DuelFX.OnClientEvent:Connect(function(info)
+	local kind = info.Type
+	if kind == "Block" then
+		shieldFlash(info.Target, info.Attacker)
+	elseif kind == "GuardBreak" then
+		guardBreak(info.Target)
+		CombatAnim.SetLoop(info.Target, "Stun", true)
+		task.delay(1, function()
+			if info.Target then
+				CombatAnim.SetLoop(info.Target, "Stun", false)
+			end
+		end)
+	elseif kind == "DodgeRoll" then
+		dodgeRoll(info)
+	elseif kind == "PowerCast" then
+		castPose(info)
+	elseif kind == "Stun" then
+		CombatAnim.SetLoop(info.Target, "Stun", true)
+		task.delay(info.Duration or 1, function()
+			if info.Target then
+				CombatAnim.SetLoop(info.Target, "Stun", false)
+			end
+		end)
+	elseif kind == "Dash" then
+		-- the caster leans into the dash (DashLean comes from the cast pose)
+	elseif kind == "DuelEnd" then
+		if info.Winner then
+			CombatAnim.Play(info.Winner, "Victory")
+		end
 	end
 end)

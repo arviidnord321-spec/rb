@@ -339,6 +339,8 @@ local function setFighterAttributes(fighter)
 	model:SetAttribute("DuelHP", math.max(0, math.floor(fighter.HP + 0.5)))
 	model:SetAttribute("DuelMaxHP", fighter.MaxHP)
 	model:SetAttribute("DuelShield", math.floor(fighter.Shield + 0.5))
+	model:SetAttribute("DuelGuard", math.floor((fighter.Guard or 0) + 0.5))
+	model:SetAttribute("DuelBlocking", fighter.Blocking == true)
 end
 
 local function newFighter(kind, player, model, auraName, displayName)
@@ -365,6 +367,11 @@ local function newFighter(kind, player, model, auraName, displayName)
 		BaseSpeed = humanoid and humanoid.WalkSpeed or 16,
 		BaseJumpPower = humanoid and humanoid.JumpPower or 50,
 		BaseJumpHeight = humanoid and humanoid.JumpHeight or 7.2,
+		Combo = 0,
+		LastAttack = 0,
+		Blocking = false,
+		Guard = DUEL.GuardMax,
+		NextDodge = 0,
 	}
 	return fighter
 end
@@ -694,6 +701,21 @@ local function damage(target, amount, source, opts)
 		DuelFX:FireAllClients({ Type = "Dodge", Target = target.Model })
 		return
 	end
+	-- blocking soaks up most of the hit (but uses guard). Heavy hits break it.
+	if target.Blocking and opts.Kind ~= "Burn" and opts.Kind ~= "Reflect" then
+		if opts.Kind == "Heavy" or target.Guard <= DUEL.GuardHitCost then
+			target.Blocking = false
+			target.Guard = 0
+			target.StunnedUntil = math.max(target.StunnedUntil, now + DUEL.GuardBreakStun)
+			DuelFX:FireAllClients({ Type = "GuardBreak", Target = target.Model })
+			amount *= 0.6
+		else
+			target.Guard -= DUEL.GuardHitCost
+			amount *= (opts.Kind == "Basic") and DUEL.BlockBasic or DUEL.BlockPower
+			opts.Blocked = true
+			DuelFX:FireAllClients({ Type = "Block", Target = target.Model, Attacker = source and source.Model or nil })
+		end
+	end
 	amount = math.max(1, math.floor(amount + 0.5))
 	local absorbed = 0
 	if not opts.Pierce and target.Shield > 0 and now < target.ShieldEnd then
@@ -717,6 +739,9 @@ local function damage(target, amount, source, opts)
 		Blocked = absorbed,
 		Color = source and source.Aura and source.Aura.Colors[1] or Color3.new(1, 1, 1),
 		Kind = opts.Kind,
+		Heavy = opts.Kind == "Heavy",
+		WasBlocked = opts.Blocked == true,
+		Attacker = source and source.Model or nil,
 	})
 	if target.HP <= 0 then
 		startFinisher(duel, target.Opponent)
@@ -825,25 +850,80 @@ local function resolveAim(fighter, aim)
 end
 
 local function basicAttack(fighter, aim)
-	if not canAct(fighter) or os.clock() < fighter.NextAttack then
+	local now = os.clock()
+	if not canAct(fighter) or fighter.Blocking or now < fighter.NextAttack then
 		return
 	end
-	fighter.NextAttack = os.clock() + DUEL.AttackCooldown
-	local opponent = fighter.Opponent
+	-- combo: jab, jab, KICK (if you keep attacking quickly)
+	if now - fighter.LastAttack <= DUEL.ComboWindow then
+		fighter.Combo = (fighter.Combo % 3) + 1
+	else
+		fighter.Combo = 1
+	end
+	fighter.LastAttack = now
+	local combo = fighter.Combo
+	local heavy = combo == 3
+	fighter.NextAttack = now + (heavy and DUEL.HeavyRecovery or DUEL.AttackCooldown)
 	local direction = resolveAim(fighter, aim)
-	local toOpponent = opponent.Root.Position - fighter.Root.Position
-	local inRange = toOpponent.Magnitude <= DUEL.AttackRange
-	local inFront = direction:Dot(flatDirection(fighter.Root.Position, opponent.Root.Position)) > math.cos(math.rad(70))
-	local hit = inRange and inFront
 	DuelFX:FireAllClients({
 		Type = "Swing",
 		Attacker = fighter.Model,
 		Direction = direction,
-		Hit = hit,
+		Combo = combo,
+		Heavy = heavy,
 		Color = fighter.Aura and fighter.Aura.Colors[1] or Color3.new(1, 1, 1),
 	})
-	if hit then
-		damage(opponent, fighter.Tier.AttackDamage * rng:NextNumber(0.9, 1.1), fighter)
+	sendTo(fighter, { Type = "Combo", Combo = combo })
+
+	-- the hit lands when the fist/foot connects in the animation
+	task.delay(heavy and 0.27 or 0.12, function()
+		if not canAct(fighter) then
+			return
+		end
+		local opponent = fighter.Opponent
+		local toOpponent = opponent.Root.Position - fighter.Root.Position
+		local reach = DUEL.AttackRange + (heavy and 1.5 or 0)
+		local facing = flatDirection(fighter.Root.Position, opponent.Root.Position)
+		if toOpponent.Magnitude <= reach and direction:Dot(facing) > math.cos(math.rad(75)) then
+			local multiplier = DUEL.ComboDamage[combo] or 1
+			damage(opponent, fighter.Tier.AttackDamage * multiplier * rng:NextNumber(0.92, 1.08), fighter, {
+				Kind = heavy and "Heavy" or "Basic",
+			})
+			if heavy and opponent.Duel and opponent.Duel.State == "Fight" then
+				knockback(opponent, facing, DUEL.HeavyKnockback)
+			end
+		end
+	end)
+end
+
+-- Blocking on/off
+local function setBlocking(fighter, on)
+	if on and (not canAct(fighter) or fighter.Guard < DUEL.GuardHitCost) then
+		return
+	end
+	if fighter.Blocking ~= on then
+		fighter.Blocking = on
+		setFighterAttributes(fighter)
+	end
+end
+
+-- Dodge roll: a quick dash with a moment of invincibility
+local function dodge(fighter, direction)
+	local now = os.clock()
+	if not canAct(fighter) or fighter.Blocking or now < fighter.NextDodge then
+		return
+	end
+	fighter.NextDodge = now + DUEL.DodgeCooldown
+	fighter.DodgeUntil = now + DUEL.DodgeInvincible
+	if typeof(direction) ~= "Vector3" or direction.Magnitude < 0.1 then
+		direction = fighter.Root.CFrame.LookVector
+	end
+	direction = Vector3.new(direction.X, 0, direction.Z)
+	direction = (direction.Magnitude > 0.01) and direction.Unit or Vector3.new(0, 0, -1)
+	DuelFX:FireAllClients({ Type = "DodgeRoll", Target = fighter.Model, Direction = direction, Colors = fighter.Aura and fighter.Aura.Colors or nil })
+	sendTo(fighter, { Type = "DodgeUsed", Cooldown = DUEL.DodgeCooldown })
+	if fighter.Kind == "Bot" then
+		fighter.Root.AssemblyLinearVelocity = direction * DUEL.DodgeSpeed + Vector3.new(0, 6, 0)
 	end
 end
 
@@ -1056,8 +1136,10 @@ POWERS.Teleport = function(fighter, power)
 	return true
 end
 
+local TARGETED = { Freeze = true, Drain = true, Pull = true, Teleport = true }
+
 local function usePower(fighter, aim)
-	if not canAct(fighter) or not fighter.Aura then
+	if not canAct(fighter) or not fighter.Aura or fighter.Blocking then
 		return
 	end
 	local now = os.clock()
@@ -1069,14 +1151,28 @@ local function usePower(fighter, aim)
 	if not handler then
 		return
 	end
-	local used = handler(fighter, power, resolveAim(fighter, aim))
-	if used then
-		fighter.PowerReady = now + power.Cooldown
-		DuelFX:FireAllClients({ Type = "PowerCast", Caster = fighter.Model, Name = power.Name, Colors = fighter.Aura.Colors })
-		sendTo(fighter, { Type = "PowerUsed", Cooldown = power.Cooldown })
-	else
+	if TARGETED[power.Type] and not inRange(fighter, power.Range or 40) then
 		sendTo(fighter, { Type = "OutOfRange" })
+		return
 	end
+	local direction = resolveAim(fighter, aim)
+	fighter.PowerReady = now + power.Cooldown
+	DuelFX:FireAllClients({
+		Type = "PowerCast",
+		Caster = fighter.Model,
+		Name = power.Name,
+		PowerType = power.Type,
+		Windup = DUEL.PowerWindup,
+		Colors = fighter.Aura.Colors,
+	})
+	sendTo(fighter, { Type = "PowerUsed", Cooldown = power.Cooldown })
+	-- the power fires when the casting animation reaches its peak
+	task.delay(DUEL.PowerWindup, function()
+		if fighter.Duel and fighter.Duel.State == "Fight" and fighter.Root and fighter.Root.Parent then
+			-- re-aim at the moment of release (aim assist still applies)
+			handler(fighter, power, resolveAim(fighter, direction))
+		end
+	end)
 end
 
 ---------------------------------------------------------------------
@@ -1098,6 +1194,25 @@ local function botThink(bot)
 
 	local function faceThem()
 		bot.Root.CFrame = CFrame.lookAt(myPosition, Vector3.new(theirPosition.X, myPosition.Y, theirPosition.Z))
+	end
+
+	-- react to the opponent's attacks: harder bots block or dodge more often
+	local theirSwing = opponent.LastAttack or 0
+	if now - theirSwing < 0.12 and bot.LastReactedTo ~= theirSwing and distance < DUEL.AttackRange + 2 then
+		bot.LastReactedTo = theirSwing
+		local roll = rng:NextNumber()
+		local skill = settings.Accuracy
+		if roll < skill * 0.25 then
+			dodge(bot, rotateY(toThem, (rng:NextNumber() < 0.5) and 90 or -90))
+		elseif roll < skill * 0.55 then
+			setBlocking(bot, true)
+			task.delay(rng:NextNumber(0.5, 0.9), function()
+				setBlocking(bot, false)
+			end)
+		end
+	end
+	if bot.Blocking then
+		return
 	end
 
 	-- decide every "Reaction" seconds
@@ -1160,6 +1275,19 @@ RunService.Heartbeat:Connect(function()
 					endDuel(duel, fighter.Opponent, "Left")
 					break
 				end
+				-- guard meter: drains while blocking, refills otherwise
+				local guardBefore = math.floor(fighter.Guard)
+				if fighter.Blocking then
+					fighter.Guard = math.max(0, fighter.Guard - DUEL.GuardDrain * (1 / 60))
+					if fighter.Guard <= 0 or now < fighter.StunnedUntil then
+						fighter.Blocking = false
+					end
+				else
+					fighter.Guard = math.min(DUEL.GuardMax, fighter.Guard + DUEL.GuardRegen * (1 / 60))
+				end
+				if math.floor(fighter.Guard) ~= guardBefore then
+					setFighterAttributes(fighter)
+				end
 				-- shield runs out
 				if fighter.Shield > 0 and now >= fighter.ShieldEnd then
 					fighter.Shield = 0
@@ -1173,7 +1301,9 @@ RunService.Heartbeat:Connect(function()
 					humanoid.JumpHeight = 0
 				else
 					local speed = fighter.BaseSpeed
-					if fighter.Player and fighter.Player:GetAttribute("Sprinting") then
+					if fighter.Blocking then
+						speed *= DUEL.BlockSpeed
+					elseif fighter.Player and fighter.Player:GetAttribute("Sprinting") then
 						speed *= Config.Movement.DuelSprintMultiplier
 					end
 					if now < fighter.SlowUntil then
@@ -1363,6 +1493,16 @@ DuelRequest.OnServerEvent:Connect(function(player, request)
 		local fighter = fighterOf[player]
 		if fighter then
 			usePower(fighter, request.Aim)
+		end
+	elseif action == "Block" then
+		local fighter = fighterOf[player]
+		if fighter then
+			setBlocking(fighter, request.On == true)
+		end
+	elseif action == "Dodge" then
+		local fighter = fighterOf[player]
+		if fighter then
+			dodge(fighter, request.Direction)
 		end
 	elseif action == "Forfeit" then
 		local fighter = fighterOf[player]

@@ -883,6 +883,480 @@ return {
     </Item>
     <Item class="ModuleScript" referent="4">
       <Properties>
+        <string name="Name">CombatAnim</string>
+        <string name="Source"><![CDATA[-- CombatAnim (ModuleScript in ReplicatedStorage) - used by LocalScripts only
+-- Fight animations made purely in code (no uploaded animation assets).
+-- It bends the R15 joints (Motor6D.C0) on top of Roblox's normal walk/idle
+-- animations, so punches, kicks, casting poses, hit reactions, blocking
+-- and a fighting stance all blend smoothly. Every client animates every
+-- fighter itself, so it looks smooth for players AND spectators.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local AuraData = require(ReplicatedStorage:WaitForChild("AuraData"))
+
+local CombatAnim = {}
+
+local I = CFrame.identity
+local rad = math.rad
+
+-- R15 joint name -> the body part it lives in
+local JOINTS = {
+	Root = "LowerTorso",
+	Waist = "UpperTorso",
+	Neck = "Head",
+	RightShoulder = "RightUpperArm",
+	RightElbow = "RightLowerArm",
+	LeftShoulder = "LeftUpperArm",
+	LeftElbow = "LeftLowerArm",
+	RightHip = "RightUpperLeg",
+	RightKnee = "RightLowerLeg",
+	LeftHip = "LeftUpperLeg",
+	LeftKnee = "LeftLowerLeg",
+}
+
+-- a pose offset: rotation in degrees (x = forward/back, y = twist, z = sideways) + optional move
+local function P(rx, ry, rz, px, py, pz)
+	return CFrame.new(px or 0, py or 0, pz or 0) * CFrame.Angles(rad(rx or 0), rad(ry or 0), rad(rz or 0))
+end
+
+---------------------------------------------------------------------
+-- CLIPS: one-shot moves. Keys = { time, { Joint = P(...) } }
+-- Trail = which limb glows while the move plays.
+---------------------------------------------------------------------
+local CLIPS = {
+	JabRight = {
+		Duration = 0.34,
+		Trail = "RightHand",
+		Keys = {
+			{ 0, {} },
+			{ 0.07, { RightShoulder = P(30, 0, 20), RightElbow = P(110), Waist = P(0, 22, 0) } },
+			{ 0.13, { RightShoulder = P(95, 0, 4), RightElbow = P(4), Waist = P(-8, -30, 0), Root = P(-10), LeftShoulder = P(50, 0, -20), LeftElbow = P(90) } },
+			{ 0.2, { RightShoulder = P(92, 0, 4), RightElbow = P(8), Waist = P(-6, -26, 0), Root = P(-8) } },
+			{ 0.34, {} },
+		},
+	},
+	JabLeft = {
+		Duration = 0.34,
+		Trail = "LeftHand",
+		Keys = {
+			{ 0, {} },
+			{ 0.07, { LeftShoulder = P(30, 0, -20), LeftElbow = P(110), Waist = P(0, -22, 0) } },
+			{ 0.13, { LeftShoulder = P(95, 0, -4), LeftElbow = P(4), Waist = P(-8, 30, 0), Root = P(-10), RightShoulder = P(50, 0, 20), RightElbow = P(90) } },
+			{ 0.2, { LeftShoulder = P(92, 0, -4), LeftElbow = P(8), Waist = P(-6, 26, 0), Root = P(-8) } },
+			{ 0.34, {} },
+		},
+	},
+	Roundhouse = { -- 3rd hit of the combo: a spinning kick
+		Duration = 0.62,
+		Trail = "RightFoot",
+		Keys = {
+			{ 0, {} },
+			{ 0.15, { Root = P(0, 25, 0, 0, -0.4, 0), RightHip = P(-20, 0, 20), RightKnee = P(-70), Waist = P(0, 25, 0), RightShoulder = P(20, 0, 45), LeftShoulder = P(20, 0, -45) } },
+			{ 0.27, { Root = P(-6, -55, 0, 0, -0.15, 0), RightHip = P(100, 0, 35), RightKnee = P(-5), LeftKnee = P(-18), Waist = P(0, -30, 0), LeftShoulder = P(40, 0, -75), RightShoulder = P(-20, 0, 60) } },
+			{ 0.42, { Root = P(-4, -50, 0, 0, -0.15, 0), RightHip = P(85, 0, 30), RightKnee = P(-15), LeftKnee = P(-15), Waist = P(0, -25, 0), LeftShoulder = P(35, 0, -70), RightShoulder = P(-15, 0, 55) } },
+			{ 0.62, {} },
+		},
+	},
+	CastForward = { -- beams, projectiles, drains, freezes
+		Duration = 0.55,
+		Trail = "BothHands",
+		Keys = {
+			{ 0, {} },
+			{ 0.13, { RightShoulder = P(40, 0, 35), LeftShoulder = P(40, 0, -35), RightElbow = P(95), LeftElbow = P(95), Root = P(6), Waist = P(0, 10, 0) } },
+			{ 0.23, { RightShoulder = P(96, 0, -12), LeftShoulder = P(96, 0, 12), RightElbow = P(0), LeftElbow = P(0), Root = P(-8), Waist = P(-6, 0, 0) } },
+			{ 0.36, { RightShoulder = P(92, 0, -10), LeftShoulder = P(92, 0, 10), Root = P(6), Neck = P(-6) } },
+			{ 0.55, {} },
+		},
+	},
+	CastUp = { -- meteors, heals, shields
+		Duration = 0.7,
+		Trail = "BothHands",
+		Keys = {
+			{ 0, {} },
+			{ 0.2, { RightShoulder = P(172, 0, -18), LeftShoulder = P(172, 0, 18), RightElbow = P(12), LeftElbow = P(12), Neck = P(22), Root = P(6) } },
+			{ 0.5, { RightShoulder = P(168, 0, -22), LeftShoulder = P(168, 0, 22), RightElbow = P(18), LeftElbow = P(18), Neck = P(18), Root = P(5) } },
+			{ 0.7, {} },
+		},
+	},
+	Slam = { -- bursts / explosions
+		Duration = 0.65,
+		Trail = "BothHands",
+		Keys = {
+			{ 0, {} },
+			{ 0.18, { RightShoulder = P(165, 0, -10), LeftShoulder = P(165, 0, 10), Root = P(8, 0, 0, 0, 0.25, 0), Neck = P(15) } },
+			{ 0.3, { RightShoulder = P(55, 0, 15), LeftShoulder = P(55, 0, -15), Root = P(-25, 0, 0, 0, -0.55, 0), RightKnee = P(-45), LeftKnee = P(-45), RightHip = P(35), LeftHip = P(35), Neck = P(-10) } },
+			{ 0.45, { RightShoulder = P(50, 0, 15), LeftShoulder = P(50, 0, -15), Root = P(-20, 0, 0, 0, -0.5, 0), RightKnee = P(-40), LeftKnee = P(-40), RightHip = P(30), LeftHip = P(30) } },
+			{ 0.65, {} },
+		},
+	},
+	DashLean = {
+		Duration = 0.4,
+		Trail = "BothHands",
+		Keys = {
+			{ 0, {} },
+			{ 0.08, { Root = P(-35), RightShoulder = P(-55, 0, 20), LeftShoulder = P(-55, 0, -20), Neck = P(12), RightHip = P(20), LeftHip = P(-25) } },
+			{ 0.28, { Root = P(-30), RightShoulder = P(-50, 0, 20), LeftShoulder = P(-50, 0, -20), Neck = P(10) } },
+			{ 0.4, {} },
+		},
+	},
+	Dodge = {
+		Duration = 0.4,
+		Keys = {
+			{ 0, {} },
+			{ 0.08, { Root = P(-20, 0, 18, 0, -0.45, 0), RightKnee = P(-50), LeftKnee = P(-50), RightHip = P(40), LeftHip = P(40), RightShoulder = P(60, 0, 10), LeftShoulder = P(60, 0, -10), RightElbow = P(90), LeftElbow = P(90) } },
+			{ 0.28, { Root = P(-15, 0, 12, 0, -0.35, 0), RightKnee = P(-40), LeftKnee = P(-40), RightHip = P(30), LeftHip = P(30) } },
+			{ 0.4, {} },
+		},
+	},
+	HitLight = {
+		Duration = 0.28,
+		Keys = {
+			{ 0, {} },
+			{ 0.05, { Waist = P(16, 0, 6), Neck = P(22, 0, 8), RightShoulder = P(20, 0, 35), LeftShoulder = P(20, 0, -35), Root = P(7) } },
+			{ 0.28, {} },
+		},
+	},
+	HitHeavy = {
+		Duration = 0.55,
+		Keys = {
+			{ 0, {} },
+			{ 0.07, { Root = P(28, 0, 12, 0, -0.35, 0), Waist = P(22, 10, 0), Neck = P(28, 0, -10), RightShoulder = P(70, 0, 75), LeftShoulder = P(-25, 0, -75), RightKnee = P(-25), LeftKnee = P(-25) } },
+			{ 0.25, { Root = P(18, 0, 6, 0, -0.25, 0), Waist = P(14, 5, 0), Neck = P(15), RightShoulder = P(40, 0, 50), LeftShoulder = P(-10, 0, -50) } },
+			{ 0.55, {} },
+		},
+	},
+	BlockHit = {
+		Duration = 0.2,
+		Keys = {
+			{ 0, {} },
+			{ 0.05, { Root = P(10, 0, 0, 0, -0.1, 0), Waist = P(8) } },
+			{ 0.2, {} },
+		},
+	},
+	Victory = {
+		Duration = 1.6,
+		Trail = "BothHands",
+		Keys = {
+			{ 0, {} },
+			{ 0.25, { RightShoulder = P(175, 0, -25), LeftShoulder = P(175, 0, 25), RightElbow = P(10), LeftElbow = P(10), Neck = P(18), Root = P(4, 0, 0, 0, 0.2, 0) } },
+			{ 0.6, { RightShoulder = P(160, 0, -40), LeftShoulder = P(160, 0, 40), Neck = P(12), Root = P(0, 0, 0, 0, 0, 0) } },
+			{ 0.95, { RightShoulder = P(175, 0, -25), LeftShoulder = P(175, 0, 25), Neck = P(18), Root = P(4, 0, 0, 0, 0.2, 0) } },
+			{ 1.6, {} },
+		},
+	},
+}
+CombatAnim.Clips = CLIPS
+
+-- Which casting pose each power type uses
+CombatAnim.PowerPose = {
+	Projectile = "CastForward",
+	Beam = "CastForward",
+	Drain = "CastForward",
+	Freeze = "CastForward",
+	Pull = "CastForward",
+	Meteor = "CastUp",
+	Heal = "CastUp",
+	Shield = "CastUp",
+	Burst = "Slam",
+	Dash = "DashLean",
+	Teleport = "DashLean",
+}
+
+---------------------------------------------------------------------
+-- LOOPS: poses held while something is true (stance, block, stun)
+---------------------------------------------------------------------
+local LOOPS = {
+	Stance = function(t) -- fists up, ready to fight
+		local bob = math.sin(t * 5) * 3
+		return {
+			RightShoulder = P(48 + bob, 0, 14),
+			RightElbow = P(85),
+			LeftShoulder = P(58 - bob, 0, -14),
+			LeftElbow = P(95),
+			Waist = P(-4, 14, 0),
+			Root = P(0, -10, 0, 0, -0.22 + math.sin(t * 5) * 0.05, 0),
+			Neck = P(-4, -10, 0),
+		}
+	end,
+	Block = function()
+		return {
+			RightShoulder = P(88, 0, -42),
+			RightElbow = P(112),
+			LeftShoulder = P(88, 0, 42),
+			LeftElbow = P(112),
+			Waist = P(-12),
+			Root = P(0, 0, 0, 0, -0.35, 0),
+			Neck = P(-10),
+		}
+	end,
+	Stun = function(t)
+		return {
+			Neck = P(math.sin(t * 9) * 16, math.sin(t * 5) * 20, 0),
+			Waist = P(8, math.sin(t * 6) * 10, math.cos(t * 6) * 8),
+			RightShoulder = P(10, 0, 20 + math.sin(t * 7) * 10),
+			LeftShoulder = P(10, 0, -20 - math.sin(t * 7) * 10),
+		}
+	end,
+}
+
+---------------------------------------------------------------------
+-- Rigs we are animating
+---------------------------------------------------------------------
+local rigs = {} -- [model] = rig
+
+local function smooth(a)
+	return a * a * (3 - 2 * a)
+end
+
+local function sampleClip(clip, elapsed)
+	local keys = clip.Keys
+	local previous, nextKey = keys[1], keys[#keys]
+	for i = 1, #keys - 1 do
+		if elapsed >= keys[i][1] and elapsed <= keys[i + 1][1] then
+			previous, nextKey = keys[i], keys[i + 1]
+			break
+		end
+	end
+	local span = nextKey[1] - previous[1]
+	local alpha = (span > 0) and smooth(math.clamp((elapsed - previous[1]) / span, 0, 1)) or 1
+	local pose = {}
+	for joint in pairs(clip.Joints) do
+		local a = previous[2][joint] or I
+		local b = nextKey[2][joint] or I
+		pose[joint] = a:Lerp(b, alpha)
+	end
+	return pose
+end
+
+-- remember every joint each clip touches
+for _, clip in pairs(CLIPS) do
+	clip.Joints = {}
+	for _, key in ipairs(clip.Keys) do
+		for joint in pairs(key[2]) do
+			clip.Joints[joint] = true
+		end
+	end
+end
+
+local function makeTrail(part, color0, color1)
+	local a0 = Instance.new("Attachment")
+	a0.Name = "CombatTrailA"
+	a0.Position = Vector3.new(0, 0.35, 0)
+	a0.Parent = part
+	local a1 = Instance.new("Attachment")
+	a1.Name = "CombatTrailB"
+	a1.Position = Vector3.new(0, -0.35, 0)
+	a1.Parent = part
+	local trail = Instance.new("Trail")
+	trail.Name = "CombatTrail"
+	trail.Attachment0 = a0
+	trail.Attachment1 = a1
+	trail.Lifetime = 0.18
+	trail.LightEmission = 1
+	trail.LightInfluence = 0
+	trail.FaceCamera = true
+	trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.6), NumberSequenceKeypoint.new(1, 0) })
+	trail.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.05), NumberSequenceKeypoint.new(1, 1) })
+	trail.Color = ColorSequence.new(color0, color1)
+	trail.Enabled = false
+	trail.Parent = part
+	return trail
+end
+
+local function getRig(model)
+	local rig = rigs[model]
+	if rig then
+		return rig
+	end
+	local motors, baseC0 = {}, {}
+	for joint, partName in pairs(JOINTS) do
+		local holder = model:FindFirstChild(partName)
+		local motor = holder and holder:FindFirstChild(joint)
+		if motor and motor:IsA("Motor6D") then
+			motors[joint] = motor
+			baseC0[joint] = motor.C0
+		end
+	end
+	if not motors.RightShoulder or not motors.Root then
+		return nil -- not an R15 body; skip
+	end
+	local aura = AuraData.Get(model:GetAttribute("Aura") or "")
+	local c0 = aura and aura.Colors[1] or Color3.fromRGB(220, 220, 255)
+	local c1 = aura and aura.Colors[2] or Color3.fromRGB(150, 150, 255)
+	local trails = {}
+	for _, limb in ipairs({ "RightHand", "LeftHand", "RightFoot" }) do
+		local part = model:FindFirstChild(limb)
+		if part then
+			trails[limb] = makeTrail(part, c0:Lerp(Color3.new(1, 1, 1), 0.2), c1)
+		end
+	end
+	rig = {
+		Model = model,
+		Motors = motors,
+		BaseC0 = baseC0,
+		Clips = {}, -- { Clip, Start, Speed }
+		Loops = {}, -- [name] = target weight (0 or 1)
+		LoopWeights = {},
+		Trails = trails,
+		LastPosition = nil,
+		WalkPhase = 0,
+	}
+	rigs[model] = rig
+	return rig
+end
+
+local function restore(rig)
+	for joint, motor in pairs(rig.Motors) do
+		if motor.Parent then
+			motor.C0 = rig.BaseC0[joint]
+		end
+	end
+	for _, trail in pairs(rig.Trails) do
+		if trail.Parent then
+			trail.Enabled = false
+		end
+	end
+end
+
+---------------------------------------------------------------------
+-- Public API
+---------------------------------------------------------------------
+-- Play a one-shot move on a model. speed = 1 is normal.
+function CombatAnim.Play(model, clipName, speed)
+	local clip = CLIPS[clipName]
+	local rig = model and getRig(model)
+	if not clip or not rig then
+		return
+	end
+	-- a new move of the same kind restarts instead of stacking
+	for i = #rig.Clips, 1, -1 do
+		if rig.Clips[i].Clip == clip then
+			table.remove(rig.Clips, i)
+		end
+	end
+	table.insert(rig.Clips, { Clip = clip, Start = os.clock(), Speed = speed or 1 })
+end
+
+-- Turn a held pose on/off: "Stance", "Block", "Stun"
+function CombatAnim.SetLoop(model, loopName, on)
+	local rig = model and getRig(model)
+	if rig then
+		rig.Loops[loopName] = on and 1 or 0
+	end
+end
+
+-- Stop animating a model and put its joints back
+function CombatAnim.Release(model)
+	local rig = rigs[model]
+	if rig then
+		restore(rig)
+		rigs[model] = nil
+	end
+end
+
+function CombatAnim.IsAnimating(model)
+	return rigs[model] ~= nil
+end
+
+---------------------------------------------------------------------
+-- Every frame
+---------------------------------------------------------------------
+local TRAIL_LIMBS = {
+	RightHand = { "RightHand" },
+	LeftHand = { "LeftHand" },
+	RightFoot = { "RightFoot" },
+	BothHands = { "RightHand", "LeftHand" },
+}
+
+RunService.RenderStepped:Connect(function(dt)
+	local now = os.clock()
+	for model, rig in pairs(rigs) do
+		if not model.Parent or not rig.Motors.Root.Parent then
+			rigs[model] = nil
+			continue
+		end
+		local offsets = {}
+		local driven = {}
+		local trailsOn = {}
+
+		-- one-shot clips (they win over held poses for the joints they use)
+		for i = #rig.Clips, 1, -1 do
+			local playing = rig.Clips[i]
+			local clip = playing.Clip
+			local elapsed = (now - playing.Start) * playing.Speed
+			if elapsed >= clip.Duration then
+				table.remove(rig.Clips, i)
+			else
+				local pose = sampleClip(clip, elapsed)
+				for joint, cf in pairs(pose) do
+					offsets[joint] = (offsets[joint] or I) * cf
+					driven[joint] = true
+				end
+				if clip.Trail and elapsed < clip.Duration * 0.75 then
+					for _, limb in ipairs(TRAIL_LIMBS[clip.Trail] or {}) do
+						trailsOn[limb] = true
+					end
+				end
+			end
+		end
+
+		-- held poses fade in/out smoothly
+		for name, poseFn in pairs(LOOPS) do
+			local target = rig.Loops[name] or 0
+			local weight = rig.LoopWeights[name] or 0
+			weight += math.clamp(target - weight, -dt * 8, dt * 8)
+			rig.LoopWeights[name] = weight
+			if weight > 0.001 then
+				for joint, cf in pairs(poseFn(now)) do
+					if not driven[joint] then
+						offsets[joint] = (offsets[joint] or I) * I:Lerp(cf, weight)
+					end
+				end
+			end
+		end
+
+		-- bots have no walk animation of their own: swing their legs and arms
+		if model:GetAttribute("IsDuelBot") then
+			local root = model:FindFirstChild("HumanoidRootPart")
+			if root then
+				local velocity = root.AssemblyLinearVelocity
+				local speed = Vector3.new(velocity.X, 0, velocity.Z).Magnitude
+				rig.WalkPhase += dt * speed * 0.55
+				local amount = math.clamp(speed / 16, 0, 1)
+				local swing = math.sin(rig.WalkPhase) * 38 * amount
+				local walk = {
+					RightHip = P(swing),
+					LeftHip = P(-swing),
+					RightKnee = P(-math.max(0, -math.sin(rig.WalkPhase)) * 40 * amount),
+					LeftKnee = P(-math.max(0, math.sin(rig.WalkPhase)) * 40 * amount),
+					RightShoulder = P(-swing * 0.6),
+					LeftShoulder = P(swing * 0.6),
+				}
+				for joint, cf in pairs(walk) do
+					if not driven[joint] then
+						offsets[joint] = (offsets[joint] or I) * cf
+					end
+				end
+			end
+		end
+
+		for joint, motor in pairs(rig.Motors) do
+			motor.C0 = rig.BaseC0[joint] * (offsets[joint] or I)
+		end
+		for limb, trail in pairs(rig.Trails) do
+			trail.Enabled = trailsOn[limb] == true
+		end
+	end
+end)
+
+return CombatAnim
+]]></string>
+      </Properties>
+    </Item>
+    <Item class="ModuleScript" referent="5">
+      <Properties>
         <string name="Name">CosmicConfig</string>
         <string name="Source"><![CDATA[-- CosmicConfig (ModuleScript in ReplicatedStorage)
 -- All the numbers you might want to tweak live here.
@@ -1022,6 +1496,25 @@ Config.Duel = {
 	AttackCooldown = 0.55, -- basic attack
 	AttackRange = 8, -- studs
 	FinisherSeconds = 4.6, -- length of the knockout cutscene
+	-- combos: attack again within ComboWindow to chain jab, jab, KICK
+	ComboWindow = 0.9,
+	ComboDamage = { 1, 1.1, 1.8 }, -- damage multiplier for hit 1, 2, 3
+	HeavyRecovery = 0.75, -- pause after the kick
+	HeavyKnockback = 45,
+	-- blocking (hold G): uses up a guard meter
+	BlockBasic = 0.2, -- basic hits do 20% damage into a block
+	BlockPower = 0.5, -- powers do 50%
+	BlockSpeed = 0.45, -- you move slower while blocking
+	GuardMax = 100,
+	GuardDrain = 22, -- per second while blocking
+	GuardHitCost = 18, -- extra per blocked hit
+	GuardRegen = 25, -- per second when not blocking
+	GuardBreakStun = 1, -- seconds stunned when your guard breaks
+	-- dodge roll (E)
+	DodgeCooldown = 2.2,
+	DodgeInvincible = 0.35, -- seconds you can't be hit
+	DodgeSpeed = 58,
+	PowerWindup = 0.2, -- powers fire this long after you press (matches the animation)
 	NoAuraTier = "Common", -- stats used if you have no aura equipped
 	-- Bots: which aura they use and how sharp they are
 	Bots = {
@@ -1079,7 +1572,7 @@ return Config
 ]]></string>
       </Properties>
     </Item>
-    <Item class="ModuleScript" referent="5">
+    <Item class="ModuleScript" referent="6">
       <Properties>
         <string name="Name">Luck</string>
         <string name="Source"><![CDATA[-- Luck (ModuleScript in ReplicatedStorage)
@@ -1172,13 +1665,18 @@ return Luck
 ]]></string>
       </Properties>
     </Item>
-    <Item class="ModuleScript" referent="6">
+    <Item class="ModuleScript" referent="7">
       <Properties>
         <string name="Name">SoundFX</string>
         <string name="Source"><![CDATA[-- SoundFX (ModuleScript in ReplicatedStorage) - used by LocalScripts only
--- Every sound in the game. They are built from Roblox's built-in sound
--- files (always available) and shaped with pitch, echo, reverb and bass.
--- Swap any of them for a Creator Store sound in CosmicConfig.SoundOverrides.
+-- A small sound designer. Roblox only ships a handful of sound files with
+-- every client, so each game sound is a RECIPE that stacks 1-4 layers of
+-- those files, cuts out just the useful part, re-pitches them and runs them
+-- through effects (distortion, compression, reverb, flange...). Every play
+-- gets a tiny random pitch change so hits never sound copy-pasted.
+--
+-- Want a real sound instead? Put a Creator Store ID in
+-- CosmicConfig.SoundOverrides for that name and it replaces the recipe.
 
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local SoundService = game:GetService("SoundService")
@@ -1188,48 +1686,161 @@ local Debris = game:GetService("Debris")
 local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
 
 local SoundFX = {}
+local rand = Random.new()
 
-local BUILT_IN = {
-	Tick = "rbxasset://sounds/volume_slider.ogg",
-	Boom = "rbxasset://sounds/impact_explosion_03.mp3",
-	Wind = "rbxasset://sounds/action_falling.ogg",
-	Thud = "rbxasset://sounds/action_jump_land.mp3",
+-- The sound files every Roblox player has
+local FILES = {
+	Tick = "rbxasset://sounds/volume_slider.ogg", -- short click
+	Boom = "rbxasset://sounds/impact_explosion_03.mp3", -- explosion
+	Wind = "rbxasset://sounds/action_falling.ogg", -- rushing air
+	Thud = "rbxasset://sounds/action_jump_land.mp3", -- body landing
+	Jump = "rbxasset://sounds/action_jump.mp3", -- quick "hup" swoosh
+	Water = "rbxasset://sounds/impact_water.mp3", -- splash (great for ice/shimmer)
+	Steps = "rbxasset://sounds/action_footsteps_plastic.mp3", -- footsteps
+	Ouch = "rbxasset://sounds/ouch.ogg", -- hurt voice
+	Oof = "rbxasset://sounds/oof.ogg", -- hurt voice 2
 }
 
--- Effect recipes
+-- Effect settings
 local EFFECTS = {
-	Reverb = { Class = "ReverbSoundEffect", Props = { DecayTime = 1.8, Density = 1, Diffusion = 1, DryLevel = 0, WetLevel = -4 } },
+	Reverb = { Class = "ReverbSoundEffect", Props = { DecayTime = 1.6, Density = 1, Diffusion = 1, DryLevel = 0, WetLevel = -5 } },
+	BigReverb = { Class = "ReverbSoundEffect", Props = { DecayTime = 4, Density = 1, Diffusion = 1, DryLevel = -2, WetLevel = 0 } },
 	Echo = { Class = "EchoSoundEffect", Props = { Delay = 0.22, Feedback = 0.35, DryLevel = 0, WetLevel = -6 } },
-	Bass = { Class = "EqualizerSoundEffect", Props = { LowGain = 8, MidGain = 0, HighGain = -4 } },
+	ShortEcho = { Class = "EchoSoundEffect", Props = { Delay = 0.06, Feedback = 0.3, DryLevel = 0, WetLevel = -4 } },
+	Bass = { Class = "EqualizerSoundEffect", Props = { LowGain = 9, MidGain = 0, HighGain = -4 } },
 	Muffle = { Class = "EqualizerSoundEffect", Props = { LowGain = 6, MidGain = -16, HighGain = -45 } },
-	Bright = { Class = "EqualizerSoundEffect", Props = { LowGain = -10, MidGain = 0, HighGain = 4 } },
+	Bright = { Class = "EqualizerSoundEffect", Props = { LowGain = -10, MidGain = 0, HighGain = 5 } },
+	Thin = { Class = "EqualizerSoundEffect", Props = { LowGain = -30, MidGain = -2, HighGain = 4 } },
+	Distort = { Class = "DistortionSoundEffect", Props = { Level = 0.55 } },
+	Crunch = { Class = "DistortionSoundEffect", Props = { Level = 0.3 } },
+	Compress = { Class = "CompressorSoundEffect", Props = { Attack = 0.005, Release = 0.15, Ratio = 6, Threshold = -18, GainMakeup = 6 } },
+	Flange = { Class = "FlangeSoundEffect", Props = { Depth = 0.6, Mix = 0.7, Rate = 4 } },
+	Chorus = { Class = "ChorusSoundEffect", Props = { Depth = 0.4, Mix = 0.6, Rate = 1.5 } },
+	Tremolo = { Class = "TremoloSoundEffect", Props = { Depth = 1, Duty = 0.5, Frequency = 22 } },
+	OctaveDown = { Class = "PitchShiftSoundEffect", Props = { Octave = 0.5 } },
 }
 
--- Sound recipes: which file, pitch (Speed), volume and effects
-local PRESETS = {
-	Tick = { Id = BUILT_IN.Tick, Speed = 1, Volume = 0.55 },
-	Click = { Id = BUILT_IN.Tick, Speed = 1.35, Volume = 0.5 },
-	Hover = { Id = BUILT_IN.Tick, Speed = 1.9, Volume = 0.15 },
-	Whoosh = { Id = BUILT_IN.Wind, Speed = 1.8, Volume = 0.35, Duration = 0.45, Effects = { "Bright" } },
-	Pop = { Id = BUILT_IN.Boom, Speed = 2.4, Volume = 0.2, Effects = { "Bright" } },
-	RevealRare = { Id = BUILT_IN.Boom, Speed = 1.6, Volume = 0.32, Effects = { "Reverb" } },
-	RevealEpic = { Id = BUILT_IN.Boom, Speed = 1.2, Volume = 0.42, Effects = { "Reverb" } },
-	RevealLegendary = { Id = BUILT_IN.Boom, Speed = 0.85, Volume = 0.55, Effects = { "Reverb", "Echo" } },
-	RevealMythic = { Id = BUILT_IN.Boom, Speed = 0.62, Volume = 0.7, Effects = { "Reverb", "Echo", "Bass" } },
-	Heartbeat = { Id = BUILT_IN.Boom, Speed = 0.33, Volume = 0.9, Effects = { "Muffle" } },
-	Rumble = { Id = BUILT_IN.Wind, Speed = 0.45, Volume = 0.6, Looped = true, Effects = { "Muffle" } },
-	Equip = { Id = BUILT_IN.Boom, Speed = 2, Volume = 0.18, Effects = { "Bright" } },
-	Purchase = { Id = BUILT_IN.Tick, Speed = 1.5, Volume = 0.5, Effects = { "Reverb" } },
-	Thud = { Id = BUILT_IN.Thud, Speed = 0.8, Volume = 0.5 },
-	-- duels
-	Punch = { Id = BUILT_IN.Thud, Speed = 1.5, Volume = 0.7, Effects = { "Bass" } },
-	Hit = { Id = BUILT_IN.Boom, Speed = 2.8, Volume = 0.3, Effects = { "Bright" } },
-	Swoosh = { Id = BUILT_IN.Wind, Speed = 2.4, Volume = 0.4, Duration = 0.25, Effects = { "Bright" } },
-	Zap = { Id = BUILT_IN.Tick, Speed = 0.5, Volume = 0.8, Effects = { "Echo" } },
-	Freeze = { Id = BUILT_IN.Tick, Speed = 0.35, Volume = 0.9, Effects = { "Reverb", "Bright" } },
-}
+-- Layer fields: S = file, Speed = pitch, Volume, Fx = effects,
+-- From/To = only play that part (seconds), Delay = start later,
+-- Jitter = random pitch range (default 0.06), Loop = loop it
+local RECIPES = {
+	-- UI + rolling ----------------------------------------------------
+	Tick = { { S = "Tick", Speed = 1, Volume = 0.55, Jitter = 0 } },
+	Click = { { S = "Tick", Speed = 1.35, Volume = 0.5 }, { S = "Thud", Speed = 2.6, Volume = 0.15, From = 0, To = 0.1 } },
+	Hover = { { S = "Tick", Speed = 1.9, Volume = 0.15 } },
+	Whoosh = { { S = "Wind", Speed = 1.8, Volume = 0.35, From = 0, To = 0.45, Fx = { "Bright" } } },
+	Pop = { { S = "Boom", Speed = 2.4, Volume = 0.2, From = 0, To = 0.5, Fx = { "Bright" } }, { S = "Tick", Speed = 1.6, Volume = 0.3 } },
+	RevealRare = { { S = "Boom", Speed = 1.6, Volume = 0.32, Fx = { "Reverb" } }, { S = "Water", Speed = 2.2, Volume = 0.2, Fx = { "Reverb", "Bright" } } },
+	RevealEpic = { { S = "Boom", Speed = 1.2, Volume = 0.42, Fx = { "Reverb" } }, { S = "Water", Speed = 1.8, Volume = 0.25, Fx = { "Chorus", "Reverb" } } },
+	RevealLegendary = { { S = "Boom", Speed = 0.85, Volume = 0.55, Fx = { "Reverb", "Echo" } }, { S = "Tick", Speed = 0.5, Volume = 0.5, Fx = { "BigReverb", "Chorus" } } },
+	RevealMythic = { { S = "Boom", Speed = 0.62, Volume = 0.7, Fx = { "Reverb", "Echo", "Bass" } }, { S = "Boom", Speed = 0.4, Volume = 0.4, Fx = { "BigReverb", "OctaveDown" } }, { S = "Tick", Speed = 0.35, Volume = 0.5, Fx = { "BigReverb", "Flange" } } },
+	Heartbeat = { { S = "Boom", Speed = 0.33, Volume = 0.9, From = 0, To = 0.5, Fx = { "Muffle", "Compress" } } },
+	Rumble = { { S = "Wind", Speed = 0.45, Volume = 0.6, Loop = true, Fx = { "Muffle" } } },
+	Equip = { { S = "Boom", Speed = 2, Volume = 0.18, From = 0, To = 0.6, Fx = { "Bright" } }, { S = "Water", Speed = 2.4, Volume = 0.2, Fx = { "Reverb" } } },
+	Purchase = { { S = "Tick", Speed = 1.5, Volume = 0.5, Fx = { "Reverb" }, Jitter = 0 } },
+	Thud = { { S = "Thud", Speed = 0.8, Volume = 0.5 } },
 
--- All game sounds go through one group so we can mute them together
+	-- FIGHTING ---------------------------------------------------------
+	SwingLight = {
+		{ S = "Wind", Speed = 3.4, Volume = 0.5, From = 0, To = 0.28, Fx = { "Bright" } },
+		{ S = "Jump", Speed = 1.7, Volume = 0.25, Fx = { "Thin" } },
+	},
+	SwingHeavy = {
+		{ S = "Wind", Speed = 2.1, Volume = 0.85, From = 0, To = 0.5 },
+		{ S = "Jump", Speed = 1.05, Volume = 0.45 },
+	},
+	Jab = { -- a crisp punch landing
+		{ S = "Thud", Speed = 1.9, Volume = 1, Fx = { "Bass", "Compress" } },
+		{ S = "Boom", Speed = 3.6, Volume = 0.3, From = 0, To = 0.18, Fx = { "Bright" } },
+		{ S = "Tick", Speed = 2.6, Volume = 0.35 },
+	},
+	HeavyHit = { -- a big smash
+		{ S = "Thud", Speed = 1.15, Volume = 1, Fx = { "Bass", "Crunch" } },
+		{ S = "Boom", Speed = 1.7, Volume = 0.7, From = 0, To = 0.55, Fx = { "Distort", "Bass" } },
+		{ S = "Boom", Speed = 0.75, Volume = 0.35, From = 0, To = 1.2, Fx = { "Reverb", "Muffle" } },
+		{ S = "Tick", Speed = 1.4, Volume = 0.4, Fx = { "ShortEcho" } },
+	},
+	Block = { -- metallic clang
+		{ S = "Tick", Speed = 3.4, Volume = 0.9, Fx = { "ShortEcho", "Flange" } },
+		{ S = "Boom", Speed = 4, Volume = 0.3, From = 0, To = 0.15, Fx = { "Bright" } },
+		{ S = "Thud", Speed = 2.3, Volume = 0.45 },
+	},
+	GuardBreak = { -- shield shattering
+		{ S = "Boom", Speed = 2.2, Volume = 0.75, From = 0, To = 0.4, Fx = { "Distort" } },
+		{ S = "Water", Speed = 2.8, Volume = 0.6, Fx = { "Bright", "ShortEcho" } },
+		{ S = "Tick", Speed = 0.6, Volume = 0.8, Fx = { "Flange", "Echo" } },
+	},
+	Dodge = {
+		{ S = "Wind", Speed = 2.7, Volume = 0.65, From = 0, To = 0.32, Fx = { "Bright" } },
+		{ S = "Steps", Speed = 1.7, Volume = 0.35, From = 0, To = 0.22 },
+	},
+	HurtLight = { { S = "Ouch", Speed = 1.05, Volume = 0.4, Jitter = 0.1 } },
+	HurtHeavy = { { S = "Oof", Speed = 0.95, Volume = 0.5, Jitter = 0.1 } },
+	Shoot = {
+		{ S = "Tick", Speed = 1.8, Volume = 0.6, Fx = { "Echo" } },
+		{ S = "Wind", Speed = 4, Volume = 0.4, From = 0, To = 0.2, Fx = { "Bright" } },
+	},
+	BeamFire = {
+		{ S = "Tick", Speed = 0.45, Volume = 1, Fx = { "Echo", "Flange" } },
+		{ S = "Wind", Speed = 3.5, Volume = 0.6, From = 0, To = 0.7, Fx = { "Flange" } },
+		{ S = "Boom", Speed = 2.4, Volume = 0.45, From = 0, To = 0.3, Fx = { "Crunch" } },
+	},
+	Explosion = {
+		{ S = "Boom", Speed = 0.85, Volume = 1, Fx = { "Bass", "Compress" } },
+		{ S = "Boom", Speed = 0.5, Volume = 0.6, Fx = { "Reverb", "OctaveDown" } },
+		{ S = "Water", Speed = 0.6, Volume = 0.35, Delay = 0.05 },
+	},
+	IceShatter = {
+		{ S = "Water", Speed = 2.9, Volume = 0.75, Fx = { "Reverb", "Bright" } },
+		{ S = "Tick", Speed = 0.3, Volume = 0.8, Fx = { "Reverb" } },
+		{ S = "Tick", Speed = 5, Volume = 0.3, Delay = 0.08 },
+	},
+	HealShimmer = {
+		{ S = "Water", Speed = 1.7, Volume = 0.35, Fx = { "Reverb", "Chorus" } },
+		{ S = "Tick", Speed = 1.5, Volume = 0.4, Fx = { "Reverb" } },
+		{ S = "Tick", Speed = 1.89, Volume = 0.35, Delay = 0.08, Fx = { "Reverb" } },
+		{ S = "Tick", Speed = 2.25, Volume = 0.3, Delay = 0.16, Fx = { "Reverb" } },
+	},
+	TeleportZap = {
+		{ S = "Water", Speed = 3.6, Volume = 0.5, Fx = { "Flange" } },
+		{ S = "Tick", Speed = 0.8, Volume = 0.7, Fx = { "Echo" } },
+		{ S = "Wind", Speed = 4, Volume = 0.4, From = 0, To = 0.15 },
+	},
+	BurnCrackle = { { S = "Wind", Speed = 4.5, Volume = 0.3, From = 0, To = 0.22, Fx = { "Tremolo", "Bright" } } },
+	Vacuum = {
+		{ S = "Wind", Speed = 0.75, Volume = 0.85, From = 0, To = 0.9, Fx = { "Flange" } },
+		{ S = "Boom", Speed = 0.6, Volume = 0.5, From = 0, To = 0.8, Fx = { "Muffle" }, Delay = 0.3 },
+	},
+	ShieldUp = {
+		{ S = "Tick", Speed = 0.7, Volume = 0.7, Fx = { "Chorus", "Reverb" } },
+		{ S = "Water", Speed = 2.2, Volume = 0.35, Fx = { "Flange" } },
+	},
+	Beep = { { S = "Tick", Speed = 1, Volume = 1, Fx = { "ShortEcho" }, Jitter = 0 }, { S = "Tick", Speed = 2, Volume = 0.4, Jitter = 0 } },
+	Gong = { -- "FIGHT!"
+		{ S = "Boom", Speed = 0.45, Volume = 1, Fx = { "BigReverb", "Bass" }, Jitter = 0 },
+		{ S = "Tick", Speed = 0.25, Volume = 0.8, Fx = { "BigReverb", "Chorus" }, Jitter = 0 },
+		{ S = "Boom", Speed = 1.2, Volume = 0.5, From = 0, To = 0.6, Jitter = 0 },
+	},
+
+	-- old names kept so nothing else breaks
+	Punch = { { S = "Thud", Speed = 1.5, Volume = 0.7, Fx = { "Bass" } } },
+	Hit = { { S = "Boom", Speed = 2.8, Volume = 0.3, From = 0, To = 0.3, Fx = { "Bright" } } },
+	Swoosh = { { S = "Wind", Speed = 2.4, Volume = 0.4, From = 0, To = 0.25, Fx = { "Bright" } } },
+	Zap = { { S = "Tick", Speed = 0.5, Volume = 0.8, Fx = { "Echo" } } },
+	Freeze = { { S = "Tick", Speed = 0.35, Volume = 0.9, Fx = { "Reverb", "Bright" } }, { S = "Water", Speed = 2.6, Volume = 0.4, Fx = { "Reverb" } } },
+
+	-- drum kit for the duel beat
+	Kick = { { S = "Boom", Speed = 0.38, Volume = 0.8, From = 0, To = 0.28, Fx = { "Muffle", "Compress" }, Jitter = 0.02 } },
+	Snare = {
+		{ S = "Thud", Speed = 1.45, Volume = 0.55, Jitter = 0.03 },
+		{ S = "Boom", Speed = 2.6, Volume = 0.3, From = 0, To = 0.12, Fx = { "Bright" }, Jitter = 0.03 },
+	},
+	HatClosed = { { S = "Tick", Speed = 3.2, Volume = 0.2, Fx = { "Thin" }, Jitter = 0.03 } },
+	HatOpen = { { S = "Wind", Speed = 5, Volume = 0.14, From = 0, To = 0.14, Fx = { "Thin" }, Jitter = 0.03 } },
+}
+SoundFX.Recipes = RECIPES
+
+-- All game sounds go through one group so they can be muted together
 local group = SoundService:FindFirstChild("CosmicSFX")
 if not group then
 	group = Instance.new("SoundGroup")
@@ -1244,31 +1855,15 @@ if not musicGroup then
 	musicGroup.Volume = 1
 	musicGroup.Parent = SoundService
 end
+SoundFX.MusicGroup = musicGroup
 
 local muted = false
+local DEFAULT_JITTER = 0.06
 
-local function build(name, opts)
-	local preset = PRESETS[name]
-	if not preset then
-		warn("[SoundFX] unknown sound", name)
-		return nil
-	end
-	opts = opts or {}
-
-	local override = Config.SoundOverrides[name]
-	local useOverride = override ~= nil and override ~= ""
-
-	local sound = Instance.new("Sound")
-	sound.Name = "SFX_" .. name
-	sound.SoundId = useOverride and override or preset.Id
-	sound.Volume = (useOverride and 0.5 or preset.Volume) * (opts.Volume or 1)
-	sound.PlaybackSpeed = (useOverride and 1 or preset.Speed) * (opts.Speed or 1)
-	sound.Looped = preset.Looped == true
-	sound.SoundGroup = group
-
-	if not useOverride and preset.Effects then
-		for priority, effectName in ipairs(preset.Effects) do
-			local recipe = EFFECTS[effectName]
+local function addEffects(sound, list)
+	for priority, effectName in ipairs(list or {}) do
+		local recipe = EFFECTS[effectName]
+		if recipe then
 			local effect = Instance.new(recipe.Class)
 			for key, value in pairs(recipe.Props) do
 				effect[key] = value
@@ -1277,7 +1872,9 @@ local function build(name, opts)
 			effect.Parent = sound
 		end
 	end
+end
 
+local function place(sound, opts)
 	if opts.Parent then
 		-- 3D sound that comes from a place in the world
 		sound.RollOffMinDistance = 10
@@ -1286,37 +1883,95 @@ local function build(name, opts)
 	else
 		sound.Parent = SoundService
 	end
-	return sound, preset
 end
 
--- Play a one-shot sound. opts: { Speed = 1.2, Volume = 0.5, Parent = part }
+local function buildLayer(layer, opts)
+	local sound = Instance.new("Sound")
+	sound.Name = "SFX"
+	sound.SoundId = FILES[layer.S] or FILES.Tick
+	local jitter = opts.NoJitter and 0 or (layer.Jitter or DEFAULT_JITTER)
+	sound.PlaybackSpeed = layer.Speed * (opts.Speed or 1) * (1 + rand:NextNumber(-jitter, jitter))
+	sound.Volume = layer.Volume * (opts.Volume or 1)
+	sound.Looped = layer.Loop == true
+	sound.SoundGroup = opts.Music and musicGroup or group
+	if layer.From then
+		sound.PlaybackRegionsEnabled = true
+		sound.PlaybackRegion = NumberRange.new(layer.From, layer.To or (layer.From + 1))
+	end
+	addEffects(sound, layer.Fx)
+	place(sound, opts)
+	return sound
+end
+
+local function lifetime(layer, speed)
+	if layer.To then
+		return (layer.To - (layer.From or 0)) / math.max(speed, 0.05) + 1.5
+	end
+	return 6
+end
+
+local function buildOverride(id, opts)
+	local sound = Instance.new("Sound")
+	sound.Name = "SFX"
+	sound.SoundId = id
+	sound.Volume = 0.5 * (opts.Volume or 1)
+	sound.PlaybackSpeed = opts.Speed or 1
+	sound.SoundGroup = opts.Music and musicGroup or group
+	place(sound, opts)
+	return sound
+end
+
+-- Play a sound by name. opts: { Speed, Volume, Parent = part (3D), MaxDistance, NoJitter }
+-- Returns the first layer's Sound.
 function SoundFX.Play(name, opts)
-	local sound, preset = build(name, opts)
-	if not sound then
+	opts = opts or {}
+	local override = Config.SoundOverrides[name]
+	if override ~= nil and override ~= "" then
+		local sound = buildOverride(override, opts)
+		sound:Play()
+		Debris:AddItem(sound, 8)
+		return sound
+	end
+	local recipe = RECIPES[name]
+	if not recipe then
+		warn("[SoundFX] unknown sound", name)
 		return nil
 	end
-	sound:Play()
-	if preset.Duration then
-		task.delay(preset.Duration, function()
-			if sound.Parent then
-				TweenService:Create(sound, TweenInfo.new(0.15), { Volume = 0 }):Play()
+	local first
+	for _, layer in ipairs(recipe) do
+		local function go()
+			if opts.Parent and not opts.Parent.Parent then
+				return -- the thing making the sound is gone
 			end
-		end)
-		Debris:AddItem(sound, preset.Duration + 0.3)
-	elseif not sound.Looped then
-		Debris:AddItem(sound, 8)
+			local sound = buildLayer(layer, opts)
+			sound:Play()
+			if not sound.Looped then
+				Debris:AddItem(sound, lifetime(layer, sound.PlaybackSpeed))
+			end
+			return sound
+		end
+		if layer.Delay then
+			task.delay(layer.Delay, go)
+		else
+			local sound = go()
+			first = first or sound
+		end
 	end
-	return sound
+	return first
 end
 
 -- Start a looping sound (fades in). Stop it with SoundFX.FadeOut.
 function SoundFX.Loop(name, fadeIn, opts)
-	local sound = build(name, opts)
-	if not sound then
+	opts = opts or {}
+	local recipe = RECIPES[name]
+	if not recipe then
 		return nil
 	end
+	local layer = table.clone(recipe[1])
+	layer.Loop = true
+	layer.From, layer.To = nil, nil
+	local sound = buildLayer(layer, opts)
 	local target = sound.Volume
-	sound.Looped = true
 	sound.Volume = 0
 	sound:Play()
 	TweenService:Create(sound, TweenInfo.new(fadeIn or 0.5), { Volume = target }):Play()
@@ -1332,17 +1987,65 @@ function SoundFX.FadeOut(sound, duration)
 	Debris:AddItem(sound, duration + 0.1)
 end
 
--- Quick rising "ding ding ding" made from ticks (new best, purchases)
-function SoundFX.Chime(baseSpeed, notes)
-	baseSpeed = baseSpeed or 1
-	notes = notes or 4
-	local steps = { 1, 1.26, 1.5, 2, 2.52 } -- a major chord going up
+-- A rising "charging up" whoosh that lasts `duration` seconds
+function SoundFX.Riser(duration, opts)
+	opts = opts or {}
+	local sound = buildLayer({ S = "Wind", Speed = 0.5, Volume = 0.7, Loop = true, Fx = { "Flange", "Bright" }, Jitter = 0 }, opts)
+	sound.Volume = 0.1 * (opts.Volume or 1)
+	sound:Play()
+	TweenService:Create(sound, TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+		PlaybackSpeed = 2.2,
+		Volume = 0.8 * (opts.Volume or 1),
+	}):Play()
+	task.delay(duration, function()
+		SoundFX.FadeOut(sound, 0.15)
+	end)
+	return sound
+end
+
+-- Notes made from the click sound. steps = list of pitch ratios.
+function SoundFX.Notes(steps, gap, opts)
+	opts = opts or {}
 	task.spawn(function()
-		for i = 1, math.min(notes, #steps) do
-			SoundFX.Play("Purchase", { Speed = baseSpeed * steps[i] / 1.5, Volume = 0.8 })
-			task.wait(0.07)
+		for _, ratio in ipairs(steps) do
+			if type(ratio) == "table" then -- a chord: several notes at once
+				for _, r in ipairs(ratio) do
+					SoundFX.Play("Purchase", { Speed = r / 1.5, Volume = (opts.Volume or 0.8) * 0.7, NoJitter = true, Parent = opts.Parent })
+				end
+			else
+				SoundFX.Play("Purchase", { Speed = ratio / 1.5, Volume = opts.Volume or 0.8, NoJitter = true, Parent = opts.Parent })
+			end
+			task.wait(gap or 0.08)
 		end
 	end)
+end
+
+-- Quick rising "ding ding ding" (new best, purchases)
+function SoundFX.Chime(baseSpeed, notes)
+	baseSpeed = baseSpeed or 1
+	local scale = { 1, 1.26, 1.5, 2, 2.52 }
+	local steps = {}
+	for i = 1, math.min(notes or 4, #scale) do
+		steps[i] = scale[i] * baseSpeed
+	end
+	SoundFX.Notes(steps, 0.07)
+end
+
+-- Short tunes
+function SoundFX.Jingle(name)
+	if name == "Victory" then
+		SoundFX.Notes({ 1, 1.26, 1.5, 2, 1.5, 2, { 2, 2.52, 3 } }, 0.1, { Volume = 0.9 })
+		task.delay(0.65, function()
+			SoundFX.Play("Gong", { Volume = 0.6, Speed = 1.4 })
+		end)
+	elseif name == "Defeat" then
+		SoundFX.Notes({ 1.5, 1.33, 1.19, 1, { 0.75, 0.89, 1.12 } }, 0.16, { Volume = 0.8 })
+		task.delay(0.7, function()
+			SoundFX.Play("Heartbeat", { Volume = 1 })
+		end)
+	elseif name == "Countdown" then
+		SoundFX.Play("Beep")
+	end
 end
 
 function SoundFX.SetMuted(value)
@@ -1369,24 +2072,27 @@ function SoundFX.StartAmbient()
 		ambient.SoundId = Config.AmbientMusic
 		ambient.Volume = Config.AmbientVolume
 	else
-		ambient.SoundId = BUILT_IN.Wind
+		ambient.SoundId = FILES.Wind
 		ambient.PlaybackSpeed = 0.22
 		ambient.Volume = Config.AmbientVolume * 0.35
-		local eq = Instance.new("EqualizerSoundEffect")
-		eq.LowGain = 4
-		eq.MidGain = -12
-		eq.HighGain = -40
-		eq.Parent = ambient
+		addEffects(ambient, { "Muffle" })
 	end
 	ambient.Parent = SoundService
 	ambient:Play()
+end
+
+function SoundFX.SetAmbientVolume(fraction, duration)
+	if ambient then
+		local base = (Config.AmbientMusic ~= "") and Config.AmbientVolume or Config.AmbientVolume * 0.35
+		TweenService:Create(ambient, TweenInfo.new(duration or 1), { Volume = base * fraction }):Play()
+	end
 end
 
 return SoundFX
 ]]></string>
       </Properties>
     </Item>
-    <Item class="ModuleScript" referent="7">
+    <Item class="ModuleScript" referent="8">
       <Properties>
         <string name="Name">UIKit</string>
         <string name="Source"><![CDATA[-- UIKit (ModuleScript in ReplicatedStorage) - used by LocalScripts only
@@ -1684,11 +2390,11 @@ return UIKit
       </Properties>
     </Item>
   </Item>
-  <Item class="ServerScriptService" referent="8">
+  <Item class="ServerScriptService" referent="9">
     <Properties>
       <string name="Name">ServerScriptService</string>
     </Properties>
-    <Item class="Script" referent="9">
+    <Item class="Script" referent="10">
       <Properties>
         <string name="Name">DuelService</string>
         <token name="RunContext">0</token>
@@ -2033,6 +2739,8 @@ local function setFighterAttributes(fighter)
 	model:SetAttribute("DuelHP", math.max(0, math.floor(fighter.HP + 0.5)))
 	model:SetAttribute("DuelMaxHP", fighter.MaxHP)
 	model:SetAttribute("DuelShield", math.floor(fighter.Shield + 0.5))
+	model:SetAttribute("DuelGuard", math.floor((fighter.Guard or 0) + 0.5))
+	model:SetAttribute("DuelBlocking", fighter.Blocking == true)
 end
 
 local function newFighter(kind, player, model, auraName, displayName)
@@ -2059,6 +2767,11 @@ local function newFighter(kind, player, model, auraName, displayName)
 		BaseSpeed = humanoid and humanoid.WalkSpeed or 16,
 		BaseJumpPower = humanoid and humanoid.JumpPower or 50,
 		BaseJumpHeight = humanoid and humanoid.JumpHeight or 7.2,
+		Combo = 0,
+		LastAttack = 0,
+		Blocking = false,
+		Guard = DUEL.GuardMax,
+		NextDodge = 0,
 	}
 	return fighter
 end
@@ -2388,6 +3101,21 @@ local function damage(target, amount, source, opts)
 		DuelFX:FireAllClients({ Type = "Dodge", Target = target.Model })
 		return
 	end
+	-- blocking soaks up most of the hit (but uses guard). Heavy hits break it.
+	if target.Blocking and opts.Kind ~= "Burn" and opts.Kind ~= "Reflect" then
+		if opts.Kind == "Heavy" or target.Guard <= DUEL.GuardHitCost then
+			target.Blocking = false
+			target.Guard = 0
+			target.StunnedUntil = math.max(target.StunnedUntil, now + DUEL.GuardBreakStun)
+			DuelFX:FireAllClients({ Type = "GuardBreak", Target = target.Model })
+			amount *= 0.6
+		else
+			target.Guard -= DUEL.GuardHitCost
+			amount *= (opts.Kind == "Basic") and DUEL.BlockBasic or DUEL.BlockPower
+			opts.Blocked = true
+			DuelFX:FireAllClients({ Type = "Block", Target = target.Model, Attacker = source and source.Model or nil })
+		end
+	end
 	amount = math.max(1, math.floor(amount + 0.5))
 	local absorbed = 0
 	if not opts.Pierce and target.Shield > 0 and now < target.ShieldEnd then
@@ -2411,6 +3139,9 @@ local function damage(target, amount, source, opts)
 		Blocked = absorbed,
 		Color = source and source.Aura and source.Aura.Colors[1] or Color3.new(1, 1, 1),
 		Kind = opts.Kind,
+		Heavy = opts.Kind == "Heavy",
+		WasBlocked = opts.Blocked == true,
+		Attacker = source and source.Model or nil,
 	})
 	if target.HP <= 0 then
 		startFinisher(duel, target.Opponent)
@@ -2519,25 +3250,80 @@ local function resolveAim(fighter, aim)
 end
 
 local function basicAttack(fighter, aim)
-	if not canAct(fighter) or os.clock() < fighter.NextAttack then
+	local now = os.clock()
+	if not canAct(fighter) or fighter.Blocking or now < fighter.NextAttack then
 		return
 	end
-	fighter.NextAttack = os.clock() + DUEL.AttackCooldown
-	local opponent = fighter.Opponent
+	-- combo: jab, jab, KICK (if you keep attacking quickly)
+	if now - fighter.LastAttack <= DUEL.ComboWindow then
+		fighter.Combo = (fighter.Combo % 3) + 1
+	else
+		fighter.Combo = 1
+	end
+	fighter.LastAttack = now
+	local combo = fighter.Combo
+	local heavy = combo == 3
+	fighter.NextAttack = now + (heavy and DUEL.HeavyRecovery or DUEL.AttackCooldown)
 	local direction = resolveAim(fighter, aim)
-	local toOpponent = opponent.Root.Position - fighter.Root.Position
-	local inRange = toOpponent.Magnitude <= DUEL.AttackRange
-	local inFront = direction:Dot(flatDirection(fighter.Root.Position, opponent.Root.Position)) > math.cos(math.rad(70))
-	local hit = inRange and inFront
 	DuelFX:FireAllClients({
 		Type = "Swing",
 		Attacker = fighter.Model,
 		Direction = direction,
-		Hit = hit,
+		Combo = combo,
+		Heavy = heavy,
 		Color = fighter.Aura and fighter.Aura.Colors[1] or Color3.new(1, 1, 1),
 	})
-	if hit then
-		damage(opponent, fighter.Tier.AttackDamage * rng:NextNumber(0.9, 1.1), fighter)
+	sendTo(fighter, { Type = "Combo", Combo = combo })
+
+	-- the hit lands when the fist/foot connects in the animation
+	task.delay(heavy and 0.27 or 0.12, function()
+		if not canAct(fighter) then
+			return
+		end
+		local opponent = fighter.Opponent
+		local toOpponent = opponent.Root.Position - fighter.Root.Position
+		local reach = DUEL.AttackRange + (heavy and 1.5 or 0)
+		local facing = flatDirection(fighter.Root.Position, opponent.Root.Position)
+		if toOpponent.Magnitude <= reach and direction:Dot(facing) > math.cos(math.rad(75)) then
+			local multiplier = DUEL.ComboDamage[combo] or 1
+			damage(opponent, fighter.Tier.AttackDamage * multiplier * rng:NextNumber(0.92, 1.08), fighter, {
+				Kind = heavy and "Heavy" or "Basic",
+			})
+			if heavy and opponent.Duel and opponent.Duel.State == "Fight" then
+				knockback(opponent, facing, DUEL.HeavyKnockback)
+			end
+		end
+	end)
+end
+
+-- Blocking on/off
+local function setBlocking(fighter, on)
+	if on and (not canAct(fighter) or fighter.Guard < DUEL.GuardHitCost) then
+		return
+	end
+	if fighter.Blocking ~= on then
+		fighter.Blocking = on
+		setFighterAttributes(fighter)
+	end
+end
+
+-- Dodge roll: a quick dash with a moment of invincibility
+local function dodge(fighter, direction)
+	local now = os.clock()
+	if not canAct(fighter) or fighter.Blocking or now < fighter.NextDodge then
+		return
+	end
+	fighter.NextDodge = now + DUEL.DodgeCooldown
+	fighter.DodgeUntil = now + DUEL.DodgeInvincible
+	if typeof(direction) ~= "Vector3" or direction.Magnitude < 0.1 then
+		direction = fighter.Root.CFrame.LookVector
+	end
+	direction = Vector3.new(direction.X, 0, direction.Z)
+	direction = (direction.Magnitude > 0.01) and direction.Unit or Vector3.new(0, 0, -1)
+	DuelFX:FireAllClients({ Type = "DodgeRoll", Target = fighter.Model, Direction = direction, Colors = fighter.Aura and fighter.Aura.Colors or nil })
+	sendTo(fighter, { Type = "DodgeUsed", Cooldown = DUEL.DodgeCooldown })
+	if fighter.Kind == "Bot" then
+		fighter.Root.AssemblyLinearVelocity = direction * DUEL.DodgeSpeed + Vector3.new(0, 6, 0)
 	end
 end
 
@@ -2750,8 +3536,10 @@ POWERS.Teleport = function(fighter, power)
 	return true
 end
 
+local TARGETED = { Freeze = true, Drain = true, Pull = true, Teleport = true }
+
 local function usePower(fighter, aim)
-	if not canAct(fighter) or not fighter.Aura then
+	if not canAct(fighter) or not fighter.Aura or fighter.Blocking then
 		return
 	end
 	local now = os.clock()
@@ -2763,14 +3551,28 @@ local function usePower(fighter, aim)
 	if not handler then
 		return
 	end
-	local used = handler(fighter, power, resolveAim(fighter, aim))
-	if used then
-		fighter.PowerReady = now + power.Cooldown
-		DuelFX:FireAllClients({ Type = "PowerCast", Caster = fighter.Model, Name = power.Name, Colors = fighter.Aura.Colors })
-		sendTo(fighter, { Type = "PowerUsed", Cooldown = power.Cooldown })
-	else
+	if TARGETED[power.Type] and not inRange(fighter, power.Range or 40) then
 		sendTo(fighter, { Type = "OutOfRange" })
+		return
 	end
+	local direction = resolveAim(fighter, aim)
+	fighter.PowerReady = now + power.Cooldown
+	DuelFX:FireAllClients({
+		Type = "PowerCast",
+		Caster = fighter.Model,
+		Name = power.Name,
+		PowerType = power.Type,
+		Windup = DUEL.PowerWindup,
+		Colors = fighter.Aura.Colors,
+	})
+	sendTo(fighter, { Type = "PowerUsed", Cooldown = power.Cooldown })
+	-- the power fires when the casting animation reaches its peak
+	task.delay(DUEL.PowerWindup, function()
+		if fighter.Duel and fighter.Duel.State == "Fight" and fighter.Root and fighter.Root.Parent then
+			-- re-aim at the moment of release (aim assist still applies)
+			handler(fighter, power, resolveAim(fighter, direction))
+		end
+	end)
 end
 
 ---------------------------------------------------------------------
@@ -2792,6 +3594,25 @@ local function botThink(bot)
 
 	local function faceThem()
 		bot.Root.CFrame = CFrame.lookAt(myPosition, Vector3.new(theirPosition.X, myPosition.Y, theirPosition.Z))
+	end
+
+	-- react to the opponent's attacks: harder bots block or dodge more often
+	local theirSwing = opponent.LastAttack or 0
+	if now - theirSwing < 0.12 and bot.LastReactedTo ~= theirSwing and distance < DUEL.AttackRange + 2 then
+		bot.LastReactedTo = theirSwing
+		local roll = rng:NextNumber()
+		local skill = settings.Accuracy
+		if roll < skill * 0.25 then
+			dodge(bot, rotateY(toThem, (rng:NextNumber() < 0.5) and 90 or -90))
+		elseif roll < skill * 0.55 then
+			setBlocking(bot, true)
+			task.delay(rng:NextNumber(0.5, 0.9), function()
+				setBlocking(bot, false)
+			end)
+		end
+	end
+	if bot.Blocking then
+		return
 	end
 
 	-- decide every "Reaction" seconds
@@ -2854,6 +3675,19 @@ RunService.Heartbeat:Connect(function()
 					endDuel(duel, fighter.Opponent, "Left")
 					break
 				end
+				-- guard meter: drains while blocking, refills otherwise
+				local guardBefore = math.floor(fighter.Guard)
+				if fighter.Blocking then
+					fighter.Guard = math.max(0, fighter.Guard - DUEL.GuardDrain * (1 / 60))
+					if fighter.Guard <= 0 or now < fighter.StunnedUntil then
+						fighter.Blocking = false
+					end
+				else
+					fighter.Guard = math.min(DUEL.GuardMax, fighter.Guard + DUEL.GuardRegen * (1 / 60))
+				end
+				if math.floor(fighter.Guard) ~= guardBefore then
+					setFighterAttributes(fighter)
+				end
 				-- shield runs out
 				if fighter.Shield > 0 and now >= fighter.ShieldEnd then
 					fighter.Shield = 0
@@ -2867,7 +3701,9 @@ RunService.Heartbeat:Connect(function()
 					humanoid.JumpHeight = 0
 				else
 					local speed = fighter.BaseSpeed
-					if fighter.Player and fighter.Player:GetAttribute("Sprinting") then
+					if fighter.Blocking then
+						speed *= DUEL.BlockSpeed
+					elseif fighter.Player and fighter.Player:GetAttribute("Sprinting") then
 						speed *= Config.Movement.DuelSprintMultiplier
 					end
 					if now < fighter.SlowUntil then
@@ -3058,6 +3894,16 @@ DuelRequest.OnServerEvent:Connect(function(player, request)
 		if fighter then
 			usePower(fighter, request.Aim)
 		end
+	elseif action == "Block" then
+		local fighter = fighterOf[player]
+		if fighter then
+			setBlocking(fighter, request.On == true)
+		end
+	elseif action == "Dodge" then
+		local fighter = fighterOf[player]
+		if fighter then
+			dodge(fighter, request.Direction)
+		end
 	elseif action == "Forfeit" then
 		local fighter = fighterOf[player]
 		if fighter and fighter.Duel then
@@ -3082,7 +3928,7 @@ end)
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="10">
+    <Item class="Script" referent="11">
       <Properties>
         <string name="Name">Leaderboard</string>
         <token name="RunContext">0</token>
@@ -3236,7 +4082,7 @@ end
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="11">
+    <Item class="Script" referent="12">
       <Properties>
         <string name="Name">LuckyIsland</string>
         <token name="RunContext">0</token>
@@ -3962,7 +4808,7 @@ end)
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="12">
+    <Item class="Script" referent="13">
       <Properties>
         <string name="Name">Movement</string>
         <token name="RunContext">0</token>
@@ -4032,7 +4878,7 @@ end
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="13">
+    <Item class="Script" referent="14">
       <Properties>
         <string name="Name">Parkour</string>
         <token name="RunContext">0</token>
@@ -4719,7 +5565,7 @@ end)
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="14">
+    <Item class="Script" referent="15">
       <Properties>
         <string name="Name">RollService</string>
         <token name="RunContext">0</token>
@@ -5199,7 +6045,7 @@ end)
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="15">
+    <Item class="Script" referent="16">
       <Properties>
         <string name="Name">WorldSetup</string>
         <token name="RunContext">0</token>
@@ -6467,16 +7313,16 @@ island.Parent = workspace
       </Properties>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="16">
+  <Item class="StarterPlayer" referent="17">
     <Properties>
       <string name="Name">StarterPlayer</string>
       <bool name="EnableMouseLockOption">false</bool>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="17">
+    <Item class="StarterPlayerScripts" referent="18">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="LocalScript" referent="18">
+      <Item class="LocalScript" referent="19">
         <Properties>
           <string name="Name">AuraRenderer</string>
           <string name="Source"><![CDATA[-- AuraRenderer (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -6961,7 +7807,7 @@ end
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="19">
+      <Item class="LocalScript" referent="20">
         <Properties>
           <string name="Name">DuelClient</string>
           <string name="Source"><![CDATA[-- DuelClient (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -6981,10 +7827,12 @@ local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
 local AuraData = require(ReplicatedStorage:WaitForChild("AuraData"))
 local SoundFX = require(ReplicatedStorage:WaitForChild("SoundFX"))
 local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
+local CombatAnim = require(ReplicatedStorage:WaitForChild("CombatAnim"))
 
 local remotes = ReplicatedStorage:WaitForChild("CosmicRemotes")
 local DuelRequest = remotes:WaitForChild("DuelRequest", 60)
 local DuelEvent = remotes:WaitForChild("DuelEvent", 60)
+local DuelFX = remotes:WaitForChild("DuelFX", 60)
 if not DuelRequest or not DuelEvent then
 	warn("[DuelClient] duel remotes not found")
 	return
@@ -7009,6 +7857,9 @@ local fightEndsAt = 0
 local fighting = false
 local powerReadyAt = 0
 local nextAttackAt = 0
+local dodgeReadyAt = 0
+local blocking = false
+local localCombo, lastLocalAttack = 0, 0
 
 local function statsForAura(auraName)
 	local aura = AuraData.Get(auraName or "")
@@ -7318,7 +8169,16 @@ local function healthSide(anchorX, xScale, fillColor)
 	})
 	local hpText = label({ Size = UDim2.fromScale(1, 1), Text = "", Font = TITLE_FONT, TextSize = 18, ZIndex = 3, Parent = barBack })
 	textStroke(1.5).Parent = hpText
-	return { Name = name, Aura = aura, Fill = fill, Trail = trail, Shield = shield, Text = hpText, LastFraction = 1 }
+	-- guard meter (thin blue line under the health bar)
+	local guardBack = new("Frame", {
+		Position = UDim2.fromOffset(12, 82), Size = UDim2.new(1, -24, 0, 5), BackgroundColor3 = Color3.fromRGB(30, 25, 45),
+		BorderSizePixel = 0, Parent = side,
+	}, { corner(UDim.new(1, 0)) })
+	local guardFill = new("Frame", {
+		AnchorPoint = Vector2.new(anchorX, 0), Position = UDim2.fromScale(anchorX, 0), Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.fromRGB(120, 200, 255), BorderSizePixel = 0, Parent = guardBack,
+	}, { corner(UDim.new(1, 0)) })
+	return { Name = name, Aura = aura, Fill = fill, Trail = trail, Shield = shield, Text = hpText, Guard = guardFill, LastFraction = 1 }
 end
 
 local mySide = healthSide(0, 0, Color3.fromRGB(90, 220, 130))
@@ -7366,7 +8226,7 @@ end
 
 -- action buttons (bottom right)
 local actions = new("Frame", {
-	AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -20, 1, -24), Size = UDim2.fromOffset(300, 240),
+	AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -20, 1, -24), Size = UDim2.fromOffset(300, 290),
 	BackgroundTransparency = 1, Parent = hud,
 })
 UIKit.addAutoScale(actions)
@@ -7390,9 +8250,25 @@ local powerCooldown = new("Frame", {
 	AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.fromScale(1, 0),
 	BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.45, BorderSizePixel = 0, ZIndex = 2, Parent = powerButton,
 })
+local function smallButton(text, color, x, y)
+	local b = new("TextButton", {
+		AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, x, 1, y), Size = UDim2.fromOffset(88, 88),
+		BackgroundColor3 = color, AutoButtonColor = false, Text = text, Font = TITLE_FONT, TextSize = 16,
+		TextColor3 = THEME.Text, ClipsDescendants = true, Parent = actions,
+	}, { corner(UDim.new(1, 0)), stroke(Color3.new(1, 1, 1), 2.5, 0.3), textStroke(1.4) })
+	UIKit.addButtonFeel(b, true)
+	return b
+end
+local dodgeButton = smallButton("💨\nDODGE", Color3.fromRGB(90, 110, 200), -26, -150)
+local blockButton = smallButton("🛡\nBLOCK", Color3.fromRGB(60, 140, 200), -166, -150)
+local dodgeCooldown = new("Frame", {
+	AnchorPoint = Vector2.new(0, 1), Position = UDim2.fromScale(0, 1), Size = UDim2.fromScale(1, 0),
+	BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.45, BorderSizePixel = 0, Parent = dodgeButton,
+})
 local keyHint = label({
-	AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, 0, 1, -146), Size = UDim2.fromOffset(300, 22),
-	Text = "Click / F = attack   •   Q = power", TextSize = 14, TextColor3 = THEME.SubText, Parent = actions,
+	AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, 0, 1, -244), Size = UDim2.fromOffset(300, 40),
+	Text = "Click/F attack (3 = combo)  •  Q power\nhold G block  •  E dodge  •  Shift sprint", TextSize = 13,
+	TextColor3 = THEME.SubText, Parent = actions,
 })
 textStroke(1.2).Parent = keyHint
 local forfeitButton = new("TextButton", {
@@ -7401,6 +8277,41 @@ local forfeitButton = new("TextButton", {
 	TextSize = 16, TextColor3 = THEME.Text, Parent = hud,
 }, { corner(UDim.new(0, 10)) })
 UIKit.addButtonFeel(forfeitButton)
+
+local comboLabel = label({
+	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.62), Size = UDim2.fromOffset(300, 50),
+	Text = "", Font = TITLE_FONT, TextSize = 36, TextTransparency = 1, Parent = hud,
+})
+local comboStroke = textStroke(2.5)
+comboStroke.Transparency = 1
+comboStroke.Parent = comboLabel
+local comboScale = new("UIScale", { Parent = comboLabel })
+local comboToken = 0
+local function showCombo(combo)
+	if combo < 2 then
+		return
+	end
+	comboToken += 1
+	local token = comboToken
+	comboLabel.Text = (combo == 3) and "x3  SMASH!" or ("x" .. combo)
+	comboLabel.TextColor3 = (combo == 3) and Color3.fromRGB(255, 150, 50) or THEME.Gold
+	comboLabel.TextTransparency = 0
+	comboStroke.Transparency = 0.2
+	comboScale.Scale = (combo == 3) and 1.8 or 1.4
+	tween(comboScale, 0.25, { Scale = 1 }, Enum.EasingStyle.Back)
+	task.delay(0.7, function()
+		if token == comboToken then
+			tween(comboLabel, 0.3, { TextTransparency = 1 })
+			tween(comboStroke, 0.3, { Transparency = 1 })
+		end
+	end)
+end
+
+-- red flash when you get hit
+local hurtFlash = new("Frame", {
+	Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(255, 30, 50), BackgroundTransparency = 1,
+	BorderSizePixel = 0, ZIndex = 0, Parent = hud,
+})
 
 ---------------------------------------------------------------------
 -- ACTIONS
@@ -7427,16 +8338,83 @@ local function aimDirection()
 	return camera.CFrame.LookVector
 end
 
-local function attack()
-	if not fighting or os.clock() < nextAttackAt then
+-- push your own character (knockback, dodge rolls)
+local function push(velocity, duration)
+	local root = myRoot()
+	if not root then
 		return
 	end
-	nextAttackAt = os.clock() + DUEL.AttackCooldown
+	local attachment = Instance.new("Attachment")
+	attachment.Name = "PushAttachment"
+	attachment.Parent = root
+	local mover = Instance.new("LinearVelocity")
+	mover.Attachment0 = attachment
+	mover.VectorVelocity = velocity
+	mover.MaxForce = 1e6
+	mover.RelativeTo = Enum.ActuatorRelativeTo.World
+	mover.Parent = root
+	task.delay(duration, function()
+		mover:Destroy()
+		attachment:Destroy()
+	end)
+end
+
+local function attack()
+	local now = os.clock()
+	if not fighting or blocking or now < nextAttackAt then
+		return
+	end
+	-- predict the combo so the animation starts instantly
+	if now - lastLocalAttack <= DUEL.ComboWindow then
+		localCombo = (localCombo % 3) + 1
+	else
+		localCombo = 1
+	end
+	lastLocalAttack = now
+	local heavy = localCombo == 3
+	nextAttackAt = now + (heavy and DUEL.HeavyRecovery or DUEL.AttackCooldown)
 	faceOpponent(DUEL.AttackRange + 4)
 	DuelRequest:FireServer({ Action = "Attack", Aim = aimDirection() })
-	SoundFX.Play("Swoosh")
+	local clip = heavy and "Roundhouse" or ((localCombo == 2) and "JabLeft" or "JabRight")
+	CombatAnim.Play(player.Character, clip)
+	SoundFX.Play(heavy and "SwingHeavy" or "SwingLight")
 	attackButton:FindFirstChild("FeelScale").Scale = 0.88
 	tween(attackButton:FindFirstChild("FeelScale"), 0.2, { Scale = 1 }, Enum.EasingStyle.Back)
+end
+
+local function setBlock(on)
+	if on and (not fighting) then
+		return
+	end
+	if blocking == on then
+		return
+	end
+	blocking = on
+	DuelRequest:FireServer({ Action = "Block", On = on })
+	blockButton.BackgroundColor3 = on and Color3.fromRGB(150, 220, 255) or Color3.fromRGB(60, 140, 200)
+end
+
+local function dodge()
+	local now = os.clock()
+	if not fighting or blocking or now < dodgeReadyAt then
+		return
+	end
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local root = myRoot()
+	if not humanoid or not root or humanoid.WalkSpeed <= 0 then
+		return -- stunned
+	end
+	dodgeReadyAt = now + DUEL.DodgeCooldown
+	local direction = humanoid.MoveDirection
+	if direction.Magnitude < 0.1 then
+		direction = -root.CFrame.LookVector -- standing still: hop backwards
+	end
+	direction = Vector3.new(direction.X, 0, direction.Z).Unit
+	push(direction * DUEL.DodgeSpeed + Vector3.new(0, 4, 0), 0.2)
+	DuelRequest:FireServer({ Action = "Dodge", Direction = direction })
+	CombatAnim.Play(character, "Dodge")
+	SoundFX.Play("Dodge")
 end
 
 local function usePower()
@@ -7449,6 +8427,17 @@ end
 
 attackButton.Activated:Connect(attack)
 powerButton.Activated:Connect(usePower)
+dodgeButton.Activated:Connect(dodge)
+blockButton.InputBegan:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+		setBlock(true)
+	end
+end)
+blockButton.InputEnded:Connect(function(input)
+	if input.UserInputType == Enum.UserInputType.Touch or input.UserInputType == Enum.UserInputType.MouseButton1 then
+		setBlock(false)
+	end
+end)
 forfeitButton.Activated:Connect(function()
 	if inDuel then
 		DuelRequest:FireServer({ Action = "Forfeit" })
@@ -7463,6 +8452,15 @@ UserInputService.InputBegan:Connect(function(input, processed)
 		attack()
 	elseif input.KeyCode == Enum.KeyCode.Q then
 		usePower()
+	elseif input.KeyCode == Enum.KeyCode.G then
+		setBlock(true)
+	elseif input.KeyCode == Enum.KeyCode.E then
+		dodge()
+	end
+end)
+UserInputService.InputEnded:Connect(function(input)
+	if input.KeyCode == Enum.KeyCode.G then
+		setBlock(false)
 	end
 end)
 
@@ -7483,6 +8481,9 @@ local function updateSide(side, model)
 		side.LastFraction = fraction
 	end
 	side.Shield.Size = UDim2.fromScale(math.clamp(shieldAmount / maxHp, 0, 1), 0.35)
+	local guard = (model:GetAttribute("DuelGuard") or DUEL.GuardMax) / DUEL.GuardMax
+	side.Guard.Size = UDim2.fromScale(math.clamp(guard, 0, 1), 1)
+	side.Guard.BackgroundColor3 = model:GetAttribute("DuelBlocking") and Color3.fromRGB(200, 240, 255) or Color3.fromRGB(120, 200, 255)
 	side.Text.Text = ("%d / %d%s"):format(hp, maxHp, shieldAmount > 0 and ("  🛡" .. shieldAmount) or "")
 end
 
@@ -7497,6 +8498,8 @@ RunService.RenderStepped:Connect(function()
 		timerLabel.Text = ("%d:%02d"):format(left // 60, left % 60)
 		timerLabel.TextColor3 = (left < 10) and RED or THEME.Text
 	end
+	local dodgeLeft = dodgeReadyAt - os.clock()
+	dodgeCooldown.Size = UDim2.fromScale(1, math.clamp(dodgeLeft / DUEL.DodgeCooldown, 0, 1))
 	local cooldownLeft = powerReadyAt - os.clock()
 	local total = (me and me.Power and me.Power.Cooldown) or 1
 	if cooldownLeft > 0 then
@@ -7507,6 +8510,64 @@ RunService.RenderStepped:Connect(function()
 		powerLabel.Text = me and me.Power and ("⚡\n" .. me.Power.Name) or "⚡\nNo power"
 	end
 end)
+
+---------------------------------------------------------------------
+-- BATTLE BEAT: a drum loop made from the sound designer's drum kit.
+-- It gets more intense when someone is low on HP or time is running out.
+---------------------------------------------------------------------
+local beatOn = false
+local BPM = 132
+-- 16 steps per bar: K = kick, S = snare, h = closed hat, o = open hat
+local PATTERN_CALM = { "Kh", "h", "h", "Kh", "Sh", "h", "Kh", "h", "Kh", "h", "Kh", "h", "Sh", "h", "h", "o" }
+local PATTERN_HYPE = { "Kh", "h", "Kh", "h", "Sh", "h", "Kh", "Kh", "Kh", "h", "Kh", "h", "Sh", "Kh", "Sh", "So" }
+local DRUMS = { K = "Kick", S = "Snare", h = "HatClosed", o = "HatOpen" }
+
+local function intense()
+	if not me or not opponent then
+		return false
+	end
+	local function low(info)
+		local model = info.Model
+		return model and (model:GetAttribute("DuelHP") or 1) / math.max(model:GetAttribute("DuelMaxHP") or 1, 1) <= 0.3
+	end
+	return low(me) or low(opponent) or (fightEndsAt - os.clock() <= 15)
+end
+
+local function startBeat()
+	if beatOn then
+		return
+	end
+	beatOn = true
+	SoundFX.SetAmbientVolume(0.15, 1)
+	task.spawn(function()
+		local stepLength = 60 / BPM / 4
+		local nextTime = os.clock()
+		local step = 0
+		while beatOn do
+			local pattern = intense() and PATTERN_HYPE or PATTERN_CALM
+			local hits = pattern[(step % 16) + 1]
+			for letter in hits:gmatch(".") do
+				local drum = DRUMS[letter]
+				if drum then
+					SoundFX.Play(drum, { Music = true, Volume = (letter == "h") and 0.8 or 1 })
+				end
+			end
+			step += 1
+			nextTime += stepLength
+			local waitTime = nextTime - os.clock()
+			if waitTime > 0 then
+				task.wait(waitTime)
+			else
+				nextTime = os.clock() -- fell behind (lag): don't machine-gun to catch up
+			end
+		end
+	end)
+end
+
+local function stopBeat()
+	beatOn = false
+	SoundFX.SetAmbientVolume(1, 2)
+end
 
 ---------------------------------------------------------------------
 -- SERVER MESSAGES
@@ -7545,7 +8606,7 @@ DuelEvent.OnClientEvent:Connect(function(info)
 					return
 				end
 				flashBig(tostring(n), THEME.Text, (n == info.Countdown) and ("vs " .. opponent.Name) or nil)
-				SoundFX.Play("Tick", { Speed = 0.8, Volume = 1.2 })
+				SoundFX.Play("Beep", { Speed = (n == 1) and 1.25 or 1 })
 				task.wait(1)
 			end
 		end)
@@ -7554,27 +8615,30 @@ DuelEvent.OnClientEvent:Connect(function(info)
 		fightEndsAt = os.clock() + info.EndsIn
 		flashBig("FIGHT!", RED)
 		hideBig(0.9)
-		SoundFX.Play("RevealLegendary", { Volume = 0.7 })
+		SoundFX.Play("Gong")
+		startBeat()
 	elseif kind == "PowerUsed" then
 		powerReadyAt = os.clock() + info.Cooldown
 	elseif kind == "OutOfRange" then
 		UIKit.toast("Too far away for your power!", THEME.Bad)
 	elseif kind == "Knockback" then
-		local root = myRoot()
-		if root then
-			root.AssemblyLinearVelocity = info.Velocity
-		end
+		push(info.Velocity, 0.15)
+	elseif kind == "Combo" then
+		showCombo(info.Combo)
+	elseif kind == "DodgeUsed" then
+		dodgeReadyAt = os.clock() + info.Cooldown
 	elseif kind == "End" then
 		fighting = false
+		stopBeat()
+		setBlock(false)
 		local reasonText = ({ KO = "Knockout!", Time = "Time's up!", Forfeit = "Forfeit", Left = "Opponent left" })[info.Reason] or ""
 		if info.Result == "Win" then
 			flashBig("VICTORY!", THEME.Gold, reasonText)
 			UIKit.confetti({ THEME.Gold, Color3.fromRGB(120, 255, 170), THEME.Accent2 }, 110)
-			SoundFX.Chime(1, 5)
-			SoundFX.Play("RevealMythic", { Volume = 0.7 })
+			SoundFX.Jingle("Victory")
 		elseif info.Result == "Lose" then
 			flashBig("DEFEAT", RED, reasonText)
-			SoundFX.Play("Heartbeat")
+			SoundFX.Jingle("Defeat")
 		else
 			flashBig("DRAW", THEME.SubText, reasonText)
 		end
@@ -7751,13 +8815,68 @@ end
 DuelEvent.OnClientEvent:Connect(function(info)
 	if info.Type == "Finisher" then
 		fighting = false
+		stopBeat()
+		setBlock(false)
 		playFinisherCamera(info)
 	end
 end)
+
+
+---------------------------------------------------------------------
+-- FEEL THE HITS: screen shake, red flash, zoom punch
+---------------------------------------------------------------------
+local shakeAmount = 0
+local shaking = false
+RunService.RenderStepped:Connect(function(dt)
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if shakeAmount > 0.01 then
+		shaking = true
+		local m = shakeAmount * 0.3
+		if humanoid then
+			humanoid.CameraOffset = Vector3.new(rand:NextNumber(-m, m), rand:NextNumber(-m, m), rand:NextNumber(-m, m))
+		end
+		shakeAmount = math.max(0, shakeAmount - dt * 4)
+	elseif shaking then
+		shaking = false
+		if humanoid then
+			humanoid.CameraOffset = Vector3.zero
+		end
+	end
+end)
+
+local baseFov = camera.FieldOfView
+if DuelFX then
+	DuelFX.OnClientEvent:Connect(function(info)
+		if not inDuel then
+			return
+		end
+		local character = player.Character
+		if info.Type == "Damage" and (info.Amount or 0) > 0 and info.Kind ~= "Burn" then
+			local big = info.Heavy or info.Amount >= 30
+			if info.Target == character then
+				shakeAmount = math.max(shakeAmount, big and 1.6 or 0.7)
+				hurtFlash.BackgroundTransparency = big and 0.55 or 0.75
+				tween(hurtFlash, 0.35, { BackgroundTransparency = 1 })
+			elseif info.Attacker == character then
+				shakeAmount = math.max(shakeAmount, big and 1 or 0.3)
+				if big then
+					camera.FieldOfView = baseFov - 6
+					tween(camera, 0.35, { FieldOfView = baseFov }, Enum.EasingStyle.Quint)
+				end
+			end
+		elseif info.Type == "GuardBreak" and info.Target == character then
+			shakeAmount = math.max(shakeAmount, 1.2)
+			setBlock(false)
+		elseif info.Type == "Block" and info.Target == character then
+			shakeAmount = math.max(shakeAmount, 0.35)
+		end
+	end)
+end
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="20">
+      <Item class="LocalScript" referent="21">
         <Properties>
           <string name="Name">DuelFX</string>
           <string name="Source"><![CDATA[-- DuelFX (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -7773,6 +8892,7 @@ local Debris = game:GetService("Debris")
 
 local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
 local AuraEffects = require(ReplicatedStorage:WaitForChild("AuraEffects"))
+local CombatAnim = require(ReplicatedStorage:WaitForChild("CombatAnim"))
 local SoundFX = require(ReplicatedStorage:WaitForChild("SoundFX"))
 
 local remotes = ReplicatedStorage:WaitForChild("CosmicRemotes")
@@ -8010,11 +9130,23 @@ task.spawn(function()
 			alive[model] = true
 			if not bars[model] then
 				makeBar(model)
+				CombatAnim.SetLoop(model, "Stance", true)
 			end
+			CombatAnim.SetLoop(model, "Block", model:GetAttribute("DuelBlocking") == true)
 		end
 		for model in pairs(bars) do
 			if not alive[model] or not model.Parent then
 				removeBar(model)
+				if model.Parent then
+					CombatAnim.SetLoop(model, "Stance", false)
+					CombatAnim.SetLoop(model, "Block", false)
+					CombatAnim.SetLoop(model, "Stun", false)
+					task.delay(1.6, function()
+						if not model:GetAttribute("InDuel") then
+							CombatAnim.Release(model)
+						end
+					end)
+				end
 			end
 		end
 	end
@@ -8022,6 +9154,7 @@ end)
 
 RunService.RenderStepped:Connect(function()
 	for model, bar in pairs(bars) do
+		CombatAnim.SetLoop(model, "Block", model:GetAttribute("DuelBlocking") == true)
 		local hp = model:GetAttribute("DuelHP") or 0
 		local maxHp = math.max(model:GetAttribute("DuelMaxHP") or 1, 1)
 		local fraction = math.clamp(hp / maxHp, 0, 1)
@@ -8067,7 +9200,7 @@ local function spawnProjectile(info)
 	local duration = info.Range / info.Speed
 	tween(orb, duration, { CFrame = CFrame.new(info.Origin + info.Direction * info.Range) }, Enum.EasingStyle.Linear)
 	Debris:AddItem(orb, duration + 0.2)
-	soundAt(info.Origin, "Zap", { Speed = 1.6, Volume = 0.6 })
+	soundAt(info.Origin, "Shoot")
 end
 
 local function projectileHit(info)
@@ -8117,7 +9250,7 @@ local function meteor(info)
 		rock:Destroy()
 		AuraEffects.Burst(target + Vector3.new(0, 1, 0), { c1, c2 }, 1.2)
 		ring(target + Vector3.new(0, 0.2, 0), c1, 2, info.Radius * 2.4, 0.6)
-		soundAt(target, "RevealRare", { Volume = 0.8 })
+		soundAt(target, "Explosion", { Volume = 0.9 })
 	end)
 end
 
@@ -8154,7 +9287,7 @@ local function shieldBubble(info)
 	followFor(info.Target, bubble, info.Duration or 4)
 	local root = rootOf(info.Target)
 	if root then
-		soundAt(root.Position, "Freeze", { Speed = 1.8, Volume = 0.6 })
+		soundAt(root.Position, "ShieldUp")
 	end
 end
 
@@ -8187,24 +9320,67 @@ DuelFX.OnClientEvent:Connect(function(info)
 	local kind = info.Type
 	if kind == "Swing" then
 		local root = rootOf(info.Attacker)
+		local clip = (info.Combo == 3) and "Roundhouse" or ((info.Combo == 2) and "JabLeft" or "JabRight")
+		local mine = info.Attacker == localPlayer.Character -- your own swing already played instantly
+		if not mine then
+			CombatAnim.Play(info.Attacker, clip)
+		end
 		if root then
-			local from = root.Position + Vector3.new(0, 0.5, 0)
-			local to = from + info.Direction * 6
-			line(from, to, info.Color or Color3.new(1, 1, 1), info.Hit and 1 or 0.5, 0.2)
-			if info.Hit then
-				soundAt(to, "Punch")
-			else
-				soundAt(from, "Swoosh", { Volume = 0.7 })
+			if not mine then
+				soundAt(root.Position, info.Heavy and "SwingHeavy" or "SwingLight", { Volume = 0.9 })
+			end
+			if info.Heavy then
+				task.delay(0.22, function()
+					if root.Parent then
+						ring(root.Position - Vector3.new(0, 2.8, 0), info.Color or Color3.new(1, 1, 1), 2, 11, 0.35)
+					end
+				end)
 			end
 		end
 	elseif kind == "Damage" then
-		if info.Amount > 0 then
-			floatingText(info.Target, "-" .. info.Amount, Color3.fromRGB(255, 90, 90), info.Amount >= 30)
-			hitFlash(info.Target, Color3.fromRGB(255, 60, 60))
-			local root = rootOf(info.Target)
+		local root = rootOf(info.Target)
+		local attackerRoot = rootOf(info.Attacker)
+		local big = info.Heavy or (info.Amount or 0) >= 30
+		if info.Kind == "Burn" then
+			if info.Amount > 0 then
+				floatingText(info.Target, "-" .. info.Amount, Color3.fromRGB(255, 150, 60))
+			end
 			if root then
-				soundAt(root.Position, "Hit")
-				sphere(root.Position, info.Color or Color3.new(1, 1, 1), 1, 5, 0.3)
+				soundAt(root.Position, "BurnCrackle", { Volume = 0.8 })
+			end
+		elseif info.Amount > 0 then
+			-- the body reacts
+			if info.WasBlocked then
+				CombatAnim.Play(info.Target, "BlockHit")
+			else
+				CombatAnim.Play(info.Target, big and "HitHeavy" or "HitLight")
+				hitFlash(info.Target, Color3.fromRGB(255, 60, 60))
+			end
+			-- numbers: bigger and angrier for big hits
+			local text = "-" .. info.Amount .. (info.Heavy and "!" or "")
+			local color = info.WasBlocked and Color3.fromRGB(160, 180, 210)
+				or (info.Heavy and Color3.fromRGB(255, 140, 40) or Color3.fromRGB(255, 90, 90))
+			floatingText(info.Target, text, color, big)
+			if root then
+				-- sparks where the hit landed (between the two fighters)
+				local contact = root.Position + Vector3.new(0, 0.6, 0)
+				if attackerRoot then
+					contact = root.Position:Lerp(attackerRoot.Position, 0.3) + Vector3.new(0, 0.8, 0)
+				end
+				local c = info.Color or Color3.new(1, 1, 1)
+				AuraEffects.Burst(contact, { c, Color3.new(1, 1, 1) }, big and 0.9 or 0.45)
+				sphere(contact, Color3.new(1, 1, 1), 0.6, big and 6 or 3.5, big and 0.25 or 0.15)
+				if not info.WasBlocked then
+					soundAt(contact, big and "HeavyHit" or "Jab", { Volume = 1 })
+					if big and rand:NextNumber() < 0.6 then
+						soundAt(root.Position, "HurtHeavy", { Volume = 0.9 })
+					elseif rand:NextNumber() < 0.25 then
+						soundAt(root.Position, "HurtLight", { Volume = 0.8 })
+					end
+				end
+				if info.Heavy then
+					ring(root.Position - Vector3.new(0, 2.6, 0), c, 3, 16, 0.45)
+				end
 			end
 		end
 		if info.Blocked and info.Blocked > 0 then
@@ -8216,7 +9392,7 @@ DuelFX.OnClientEvent:Connect(function(info)
 		local root = rootOf(info.Target)
 		if root then
 			AuraEffects.Burst(root.Position, { Color3.fromRGB(110, 255, 150), Color3.new(1, 1, 1) }, 0.6)
-			soundAt(root.Position, "Purchase", { Speed = 1.2 })
+			soundAt(root.Position, "HealShimmer")
 		end
 	elseif kind == "Shield" then
 		shieldBubble(info)
@@ -8233,13 +9409,13 @@ DuelFX.OnClientEvent:Connect(function(info)
 		line(info.From, info.To, c1, 2.5, 0.4)
 		line(info.From, info.To, c2, 1, 0.6)
 		AuraEffects.Burst(info.To, { c1, c2 }, 0.6)
-		soundAt(info.To, "Swoosh", { Speed = 0.8 })
+		soundAt(info.To, "Dodge", { Speed = 0.8 })
 	elseif kind == "Burst" then
 		local c1, c2 = colorsOf(info)
 		sphere(info.Position, c1, 2, info.Radius * 2, 0.5)
 		ring(info.Position - Vector3.new(0, 2.6, 0), c2, 2, info.Radius * 2.2, 0.6)
 		AuraEffects.Burst(info.Position, { c1, c2 }, 1.2 + info.Radius / 15)
-		soundAt(info.Position, "RevealLegendary", { Volume = 0.8 })
+		soundAt(info.Position, "Explosion")
 	elseif kind == "Meteor" then
 		meteor(info)
 	elseif kind == "Freeze" then
@@ -8247,7 +9423,7 @@ DuelFX.OnClientEvent:Connect(function(info)
 		local root = rootOf(info.Target)
 		if root then
 			line(info.From, root.Position, c1, 1.6, 0.5)
-			soundAt(root.Position, "Freeze")
+			soundAt(root.Position, "IceShatter")
 		end
 	elseif kind == "Drain" then
 		local c1, c2 = colorsOf(info)
@@ -8258,25 +9434,25 @@ DuelFX.OnClientEvent:Connect(function(info)
 					line(info.From, root.Position, (i % 2 == 0) and c1 or c2, 1.2, 0.5)
 				end)
 			end
-			soundAt(info.From, "Zap", { Speed = 0.7 })
+			soundAt(info.From, "Vacuum", { Speed = 1.3 })
 		end
 	elseif kind == "Beam" then
 		local c1, c2 = colorsOf(info)
 		line(info.From, info.To, c1, 3, 0.5)
 		line(info.From, info.To, Color3.new(1, 1, 1), 1, 0.35)
 		line(info.From, info.To, c2, 5, 0.25)
-		soundAt(info.From, "Zap")
+		soundAt(info.From, "BeamFire")
 	elseif kind == "Pull" then
 		local c1, c2 = colorsOf(info)
 		line(info.From, info.To, c1, 2, 0.5)
 		sphere(info.To, c2, 8, 1, 0.5, Enum.Material.ForceField)
-		soundAt(info.To, "RevealMythic", { Volume = 0.6 })
+		soundAt(info.To, "Vacuum")
 	elseif kind == "Teleport" then
 		local c1, c2 = colorsOf(info)
 		sphere(info.From, c1, 4, 0.5, 0.4)
 		sphere(info.To, c2, 0.5, 6, 0.4)
 		AuraEffects.Burst(info.To, { c1, c2 }, 0.8)
-		soundAt(info.To, "Zap", { Speed = 1.3 })
+		soundAt(info.To, "TeleportZap")
 	elseif kind == "DuelStart" then
 		if info.Center then
 			ring(info.Center + Vector3.new(0, 0.3, 0), Color3.fromRGB(255, 80, 100), 4, 34, 1)
@@ -8757,10 +9933,148 @@ DuelFX.OnClientEvent:Connect(function(info)
 		playFinisher(info)
 	end
 end)
+
+
+---------------------------------------------------------------------
+-- Blocks, guard breaks, dodges, casting poses, stuns, victory poses
+---------------------------------------------------------------------
+local function shieldFlash(model, attackerModel)
+	local root = rootOf(model)
+	if not root then
+		return
+	end
+	local facing = root.CFrame.LookVector
+	local attackerRoot = rootOf(attackerModel)
+	if attackerRoot then
+		local d = attackerRoot.Position - root.Position
+		d = Vector3.new(d.X, 0, d.Z)
+		if d.Magnitude > 0.1 then
+			facing = d.Unit
+		end
+	end
+	local center = root.Position + facing * 2 + Vector3.new(0, 0.5, 0)
+	local shield = fxPart({
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.2, 5, 5),
+		CFrame = CFrame.lookAt(center, center + facing) * CFrame.Angles(0, math.pi / 2, 0),
+		Color = Color3.fromRGB(120, 200, 255),
+		Material = Enum.Material.ForceField,
+		Transparency = 0,
+	})
+	tween(shield, 0.3, { Size = Vector3.new(0.1, 6.5, 6.5), Transparency = 1 })
+	Debris:AddItem(shield, 0.35)
+	AuraEffects.Burst(center, { Color3.fromRGB(150, 220, 255), Color3.new(1, 1, 1) }, 0.35)
+	soundAt(center, "Block")
+end
+
+local function guardBreak(model)
+	local root = rootOf(model)
+	if not root then
+		return
+	end
+	floatingText(model, "GUARD BREAK!", Color3.fromRGB(120, 200, 255), true)
+	for _ = 1, 10 do
+		local shard = Instance.new("Part")
+		shard.Size = Vector3.new(0.5, 0.8, 0.1)
+		shard.Material = Enum.Material.Glass
+		shard.Color = Color3.fromRGB(150, 210, 255)
+		shard.Transparency = 0.2
+		shard.CanQuery = false
+		shard.CanTouch = false
+		shard.CFrame = root.CFrame * CFrame.new(rand:NextNumber(-1.5, 1.5), rand:NextNumber(-0.5, 1.5), -1.5)
+		shard.Parent = folder
+		shard.AssemblyLinearVelocity = Vector3.new(rand:NextNumber(-20, 20), rand:NextNumber(10, 25), rand:NextNumber(-20, 20))
+		Debris:AddItem(shard, 1.5)
+	end
+	soundAt(root.Position, "GuardBreak")
+	CombatAnim.Play(model, "HitHeavy")
+end
+
+local function dodgeRoll(info)
+	local mine = info.Target == localPlayer.Character -- already played on your screen
+	if not mine then
+		CombatAnim.Play(info.Target, "Dodge")
+	end
+	local root = rootOf(info.Target)
+	if root then
+		if not mine then
+			soundAt(root.Position, "Dodge")
+		end
+		afterimage({ Target = info.Target, Colors = info.Colors or { Color3.fromRGB(200, 200, 255), Color3.fromRGB(140, 140, 255) } })
+		ring(root.Position - Vector3.new(0, 2.8, 0), Color3.fromRGB(200, 200, 255), 2, 7, 0.3)
+	end
+end
+
+local function castPose(info)
+	local pose = CombatAnim.PowerPose[info.PowerType] or "CastForward"
+	CombatAnim.Play(info.Caster, pose)
+	local c1 = colorsOf(info)
+	-- energy gathers in the hands while winding up
+	for _, handName in ipairs({ "RightHand", "LeftHand" }) do
+		local hand = info.Caster and info.Caster:FindFirstChild(handName)
+		if hand then
+			local orb = fxPart({ Shape = Enum.PartType.Ball, Size = Vector3.one * 0.4, CFrame = hand.CFrame, Color = c1, Transparency = 0.1 })
+			local light = Instance.new("PointLight")
+			light.Color = c1
+			light.Range = 8
+			light.Brightness = 3
+			light.Parent = orb
+			local start = os.clock()
+			local windup = info.Windup or 0.2
+			local connection
+			connection = RunService.RenderStepped:Connect(function()
+				local t = os.clock() - start
+				if t > windup + 0.15 or not hand.Parent then
+					connection:Disconnect()
+					orb:Destroy()
+					return
+				end
+				orb.CFrame = hand.CFrame
+				orb.Size = Vector3.one * (0.4 + math.min(t / windup, 1) * 1.4)
+			end)
+		end
+	end
+	local root = rootOf(info.Caster)
+	if root then
+		soundAt(root.Position, "Zap", { Speed = 2.2, Volume = 0.6 })
+	end
+end
+
+DuelFX.OnClientEvent:Connect(function(info)
+	local kind = info.Type
+	if kind == "Block" then
+		shieldFlash(info.Target, info.Attacker)
+	elseif kind == "GuardBreak" then
+		guardBreak(info.Target)
+		CombatAnim.SetLoop(info.Target, "Stun", true)
+		task.delay(1, function()
+			if info.Target then
+				CombatAnim.SetLoop(info.Target, "Stun", false)
+			end
+		end)
+	elseif kind == "DodgeRoll" then
+		dodgeRoll(info)
+	elseif kind == "PowerCast" then
+		castPose(info)
+	elseif kind == "Stun" then
+		CombatAnim.SetLoop(info.Target, "Stun", true)
+		task.delay(info.Duration or 1, function()
+			if info.Target then
+				CombatAnim.SetLoop(info.Target, "Stun", false)
+			end
+		end)
+	elseif kind == "Dash" then
+		-- the caster leans into the dash (DashLean comes from the cast pose)
+	elseif kind == "DuelEnd" then
+		if info.Winner then
+			CombatAnim.Play(info.Winner, "Victory")
+		end
+	end
+end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="21">
+      <Item class="LocalScript" referent="22">
         <Properties>
           <string name="Name">ParkourClient</string>
           <string name="Source"><![CDATA[-- ParkourClient (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -8971,7 +10285,7 @@ end
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="22">
+      <Item class="LocalScript" referent="23">
         <Properties>
           <string name="Name">RollUI</string>
           <string name="Source"><![CDATA[-- RollUI (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -10297,7 +11611,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="23">
+      <Item class="LocalScript" referent="24">
         <Properties>
           <string name="Name">Sprint</string>
           <string name="Source"><![CDATA[-- Sprint (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -10539,7 +11853,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="24">
+      <Item class="LocalScript" referent="25">
         <Properties>
           <string name="Name">StoreUI</string>
           <string name="Source"><![CDATA[-- StoreUI (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -10890,7 +12204,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="25">
+      <Item class="LocalScript" referent="26">
         <Properties>
           <string name="Name">WorldFX</string>
           <string name="Source"><![CDATA[-- WorldFX (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -11252,7 +12566,7 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="26">
+  <Item class="Workspace" referent="27">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>

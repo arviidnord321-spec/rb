@@ -136,6 +136,25 @@ Config.Duel = {
 	AttackCooldown = 0.55, -- basic attack
 	AttackRange = 8, -- studs
 	FinisherSeconds = 4.6, -- length of the knockout cutscene
+	-- combos: attack again within ComboWindow to chain jab, jab, KICK
+	ComboWindow = 0.9,
+	ComboDamage = { 1, 1.1, 1.8 }, -- damage multiplier for hit 1, 2, 3
+	HeavyRecovery = 0.75, -- pause after the kick
+	HeavyKnockback = 45,
+	-- blocking (hold G): uses up a guard meter
+	BlockBasic = 0.2, -- basic hits do 20% damage into a block
+	BlockPower = 0.5, -- powers do 50%
+	BlockSpeed = 0.45, -- you move slower while blocking
+	GuardMax = 100,
+	GuardDrain = 22, -- per second while blocking
+	GuardHitCost = 18, -- extra per blocked hit
+	GuardRegen = 25, -- per second when not blocking
+	GuardBreakStun = 1, -- seconds stunned when your guard breaks
+	-- dodge roll (E)
+	DodgeCooldown = 2.2,
+	DodgeInvincible = 0.35, -- seconds you can't be hit
+	DodgeSpeed = 58,
+	PowerWindup = 0.2, -- powers fire this long after you press (matches the animation)
 	NoAuraTier = "Common", -- stats used if you have no aura equipped
 	-- Bots: which aura they use and how sharp they are
 	Bots = {
