@@ -202,3 +202,188 @@ if door then
 		end
 	end)
 end
+
+---------------------------------------------------------------------
+-- VIP TEMPLE + ROYAL ISLAND animations
+---------------------------------------------------------------------
+local Lighting = game:GetService("Lighting")
+
+-- things that spin around a fixed pivot: { Model, BaseCFrame, Function(t) -> CFrame offset }
+local spinners = {}
+local function addSpinner(model, offsetFn)
+	if model then
+		table.insert(spinners, { Model = model, Base = model.WorldPivot, Offset = offsetFn })
+	end
+end
+
+if lounge then
+	addSpinner(lounge:FindFirstChild("VIPPortalRing"), function(time)
+		return CFrame.Angles(0, 0, time * 0.8)
+	end)
+	addSpinner(lounge:FindFirstChild("VIPPortalRingOuter"), function(time)
+		return CFrame.Angles(0, 0, -time * 0.5)
+	end)
+	addSpinner(lounge:FindFirstChild("VIPChandelier"), function(time)
+		return CFrame.Angles(0, time * 0.3, 0)
+	end)
+	addSpinner(lounge:FindFirstChild("VIPCrown"), function(time)
+		return CFrame.new(0, math.sin(time * 1.5) * 0.6, 0) * CFrame.Angles(0, time * 0.6, 0)
+	end)
+end
+
+local royal = workspace:WaitForChild("VIPIsland", 30)
+local royalOrb, royalOrbBase
+local lanterns = {}
+if royal then
+	local royalCore = royal:FindFirstChild("RoyalCore")
+	if royalCore then
+		royalOrb = royalCore:FindFirstChild("VIPOrb")
+		royalOrbBase = royalOrb and royalOrb.Position
+		addSpinner(royalCore:FindFirstChild("VIPRing1"), function(time)
+			return CFrame.Angles(time * 0.8, time * 0.3, 0)
+		end)
+		addSpinner(royalCore:FindFirstChild("VIPRing2"), function(time)
+			return CFrame.Angles(0, time * 0.6, time * 0.9)
+		end)
+		addSpinner(royalCore:FindFirstChild("VIPRing3"), function(time)
+			return CFrame.Angles(time * 0.4, 0, time * 0.5)
+		end)
+	end
+	addSpinner(royal:FindFirstChild("ReturnPortalRing"), function(time)
+		return CFrame.Angles(0, 0, -time * 0.8)
+	end)
+	addSpinner(royal:FindFirstChild("ReturnPortalRingOuter"), function(time)
+		return CFrame.Angles(0, 0, time * 0.5)
+	end)
+	for _, child in ipairs(royal:GetChildren()) do
+		if child:IsA("BasePart") and child.Name == "VIPLantern" then
+			table.insert(lanterns, { Part = child, Base = child.Position, Phase = rand:NextNumber(0, 6) })
+		end
+	end
+end
+
+RunService.RenderStepped:Connect(function()
+	for _, s in ipairs(spinners) do
+		s.Model:PivotTo(s.Base * s.Offset(t))
+	end
+	if royalOrb and royalOrbBase then
+		royalOrb.Size = Vector3.one * (5.5 + math.sin(t * 2.2) * 0.4)
+		royalOrb.CFrame = CFrame.new(royalOrbBase + Vector3.new(0, math.sin(t * 1.1) * 0.5, 0))
+	end
+	for _, l in ipairs(lanterns) do
+		l.Part.CFrame = CFrame.new(l.Base + Vector3.new(0, math.sin(t * 0.9 + l.Phase) * 1.4, 0))
+			* CFrame.Angles(0, t * 0.5 + l.Phase, 0)
+	end
+end)
+
+---------------------------------------------------------------------
+-- Royal Island sky: pink + gold while you're there
+---------------------------------------------------------------------
+local savedSky
+local function setRoyalSky(on)
+	local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
+	local colorFx = Lighting:FindFirstChildOfClass("ColorCorrectionEffect")
+	local info = TweenInfo.new(2, Enum.EasingStyle.Sine)
+	if on then
+		savedSky = {
+			Ambient = Lighting.Ambient,
+			OutdoorAmbient = Lighting.OutdoorAmbient,
+			AtmosphereColor = atmosphere and atmosphere.Color,
+			AtmosphereDecay = atmosphere and atmosphere.Decay,
+			Tint = colorFx and colorFx.TintColor,
+			Saturation = colorFx and colorFx.Saturation,
+		}
+		TweenService:Create(Lighting, info, {
+			Ambient = Color3.fromRGB(120, 90, 100),
+			OutdoorAmbient = Color3.fromRGB(190, 140, 160),
+		}):Play()
+		if atmosphere then
+			TweenService:Create(atmosphere, info, {
+				Color = Color3.fromRGB(255, 170, 195),
+				Decay = Color3.fromRGB(140, 70, 110),
+			}):Play()
+		end
+		if colorFx then
+			TweenService:Create(colorFx, info, {
+				TintColor = Color3.fromRGB(255, 238, 225),
+				Saturation = 0.25,
+			}):Play()
+		end
+	elseif savedSky then
+		TweenService:Create(Lighting, info, {
+			Ambient = savedSky.Ambient,
+			OutdoorAmbient = savedSky.OutdoorAmbient,
+		}):Play()
+		if atmosphere and savedSky.AtmosphereColor then
+			TweenService:Create(atmosphere, info, {
+				Color = savedSky.AtmosphereColor,
+				Decay = savedSky.AtmosphereDecay,
+			}):Play()
+		end
+		if colorFx and savedSky.Tint then
+			TweenService:Create(colorFx, info, {
+				TintColor = savedSky.Tint,
+				Saturation = savedSky.Saturation,
+			}):Play()
+		end
+		savedSky = nil
+	end
+end
+
+local wasOnRoyal = false
+player:GetAttributeChangedSignal("OnVIPIsland"):Connect(function()
+	local on = player:GetAttribute("OnVIPIsland") == true
+	if on == wasOnRoyal then
+		return
+	end
+	wasOnRoyal = on
+	setRoyalSky(on)
+	if on then
+		UIKit.toast(("👑 Welcome to Royal Island! x%s luck here"):format(tostring(Config.VIPIsland.LuckMultiplier)), UIKit.Theme.Gold)
+		SoundFX.Chime(1, 5)
+	end
+end)
+
+---------------------------------------------------------------------
+-- Portal travel effect (the server teleports, we make it look good)
+---------------------------------------------------------------------
+local portalGui = UIKit.screen("CosmicPortal", 40)
+local portalFlash = UIKit.new("Frame", {
+	Size = UDim2.fromScale(1, 1),
+	BackgroundColor3 = Color3.fromRGB(255, 220, 160),
+	BackgroundTransparency = 1,
+	Parent = portalGui,
+}, {
+	UIKit.new("UIGradient", {
+		Color = ColorSequence.new(Color3.fromRGB(255, 240, 200), Color3.fromRGB(255, 150, 210)),
+		Rotation = 45,
+	}),
+})
+
+local remotes = ReplicatedStorage:WaitForChild("CosmicRemotes")
+local PortalFXRemote = remotes:WaitForChild("PortalFX", 30)
+local camera = workspace.CurrentCamera
+if PortalFXRemote then
+	PortalFXRemote.OnClientEvent:Connect(function(kind)
+		if kind == "Out" then
+			SoundFX.Play("Whoosh", { Speed = 0.7, Volume = 1.5 })
+			SoundFX.Play("RevealEpic", { Volume = 0.5 })
+			UIKit.tween(portalFlash, 0.3, { BackgroundTransparency = 0 })
+			local fov = camera.FieldOfView
+			UIKit.tween(camera, 0.3, { FieldOfView = fov + 25 }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+			task.delay(0.45, function()
+				camera.FieldOfView = fov
+			end)
+		elseif kind == "In" then
+			UIKit.tween(portalFlash, 0.8, { BackgroundTransparency = 1 })
+			UIKit.burst({ Color3.fromRGB(255, 220, 140), Color3.fromRGB(255, 150, 210), Color3.fromRGB(120, 230, 210) }, 30, 1.2, Vector2.new(0.5, 0.5))
+		elseif kind == "Denied" then
+			UIKit.toast("👑 The Royal Portal is for VIPs only!", UIKit.Theme.Gold)
+			SoundFX.Play("Thud")
+			local passId = Config.GamePasses.VIP
+			if passId and passId ~= 0 then
+				MarketplaceService:PromptGamePassPurchase(player, passId)
+			end
+		end
+	end)
+end

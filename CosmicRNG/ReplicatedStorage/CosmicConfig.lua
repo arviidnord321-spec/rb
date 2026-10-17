@@ -14,7 +14,7 @@ Config.GamePasses = {
 	AutoRoll = 0, -- unlocks the Auto Roll button
 	QuickRoll = 0, -- faster rolling (see QuickRollCooldown)
 	DoubleLuck = 0, -- permanent x2 luck
-	VIP = 0, -- x1.25 luck, VIP tag, VIP Lounge access
+	VIP = 0, -- x1.25 luck, VIP tag, VIP Lounge + Royal Island access
 	MultiRoll = 0, -- every roll rolls 3 auras at once
 	LuckyCharm = 0, -- lucky roll every 5 rolls instead of every 10
 }
@@ -27,7 +27,7 @@ Config.PassInfo = {
 	{ Key = "DoubleLuck", Icon = "🍀", Name = "2x Luck", Description = "Permanently doubles your luck on every roll." },
 	{ Key = "MultiRoll", Icon = "🎲", Name = "Triple Roll", Description = "Every roll gives you 3 auras at once." },
 	{ Key = "LuckyCharm", Icon = "✨", Name = "Lucky Charm", Description = "Lucky roll every 5 rolls instead of every 10." },
-	{ Key = "VIP", Icon = "👑", Name = "VIP", Description = "x1.25 luck, a gold VIP tag and access to the VIP Lounge." },
+	{ Key = "VIP", Icon = "👑", Name = "VIP", Description = "x1.25 luck, gold VIP tag and the portal to Royal Island (x2 luck there)." },
 }
 
 ---------------------------------------------------------------------
@@ -84,6 +84,13 @@ Config.LeaderboardRefresh = 90 -- seconds
 -- WORLD
 ---------------------------------------------------------------------
 Config.RemoveDefaultBaseplate = true -- deletes the part named "Baseplate"
+
+-- Royal Island: the VIP-only island you reach through the portal
+Config.VIPIsland = {
+	Center = Vector3.new(0, 30, 1000), -- middle of the island's ground
+	Radius = 75,
+	LuckMultiplier = 2, -- extra luck while you stand on it
+}
 
 ---------------------------------------------------------------------
 -- PARTICLE TEXTURES (built into Roblox, always available)

@@ -26,6 +26,10 @@ game pass IDs in `CosmicConfig`).
 
 ### Auras
 - 20 auras in 7 tiers, each with layered 3D effects and a duel power.
+- Aura pictures (see "Adding the aura pictures" below) show:
+  - above the reveal card, flicking through pictures while you roll and spinning in on the reveal
+  - on every inventory card (undiscovered auras show a "?")
+  - in the rare-roll banners
 
 ### Players see each other
 - Name tags with aura, tier and VIP crown.
@@ -43,7 +47,7 @@ Side menu with **STORE** and **SOUND** (mute) buttons.
 | 2x Luck | Permanent x2 luck |
 | Triple Roll | 3 auras every roll |
 | Lucky Charm | Lucky roll every 5 rolls instead of every 10 |
-| VIP | x1.25 luck, gold tag, VIP Lounge |
+| VIP | x1.25 luck, gold tag, VIP Temple + Royal Island |
 
 | Boost (buy many times) | What it does |
 |---|---|
@@ -53,7 +57,13 @@ Side menu with **STORE** and **SOUND** (mute) buttons.
 ### Map
 - Floating island with a night sky and bloom glow.
 - **Cosmic Core**: an altar with a pulsing orb and 3 spinning rings.
-- **VIP Lounge**: gold glass walls and a door only VIPs can walk through (others are offered the pass), plus a fountain, seats and gold crystals.
+- **VIP Temple**: gold glass walls and a door only VIPs can walk through (others are offered the pass). Inside are corner pillars, a red carpet, benches, banners, a chandelier, statues, torches and a floating crown on the roof. The carpet leads to the **Royal Portal**.
+- **Royal Island** (through the portal, VIP only):
+  - A second floating island in white marble, gold, rose and teal.
+  - A golden core altar with spinning rings, a circle of columns, 4 grand arches, 2 domed pavilions with seats, light waterfalls off the edge, floating lanterns and golden dust.
+  - **x2 luck while you stand on it.** The sky turns pink and gold while you're there.
+  - A return portal takes you back.
+  - Non-VIPs are sent home. Falling off puts you back at the island's portal.
 - **Top Rollers** board: global top 10.
 - Lantern gems, floating crystals, a giant ringed planet, a moon and shooting stars.
 
@@ -73,9 +83,17 @@ All sounds are made from Roblox's built-in sound files, so they always work:
 
 | Where in Studio | Type | Name |
 |---|---|---|
-| ReplicatedStorage | ModuleScript | `CosmicConfig`, `AuraData`, `AuraEffects`, `Luck`, `SoundFX`, `UIKit` |
-| ServerScriptService | Script | `RollService`, `WorldSetup`, `Leaderboard` |
+| ReplicatedStorage | ModuleScript | `CosmicConfig`, `AuraData`, `AuraImages`, `AuraEffects`, `Luck`, `SoundFX`, `UIKit` |
+| ServerScriptService | Script | `RollService`, `WorldSetup`, `VIPIsland`, `Leaderboard` |
 | StarterPlayer > StarterPlayerScripts | LocalScript | `AuraRenderer`, `RollUI`, `StoreUI`, `WorldFX` |
+
+## Adding the aura pictures
+Roblox can only show pictures that are uploaded to Roblox, so this is a one-time step:
+1. In Studio, open **View > Asset Manager**, click **Bulk Import**, and select all 20 files from `AuraImages/Final` at once.
+2. In Asset Manager > **Images**, right-click each picture, then **Copy Asset ID**.
+3. Paste each number into the **AuraImages** ModuleScript, for example `["Stardust"] = 1234567890,`.
+
+Any aura still set to `0` just shows without a picture.
 
 ## Setting up money (game passes + boosts)
 1. Publish the game: **File > Publish to Roblox**.
@@ -103,10 +121,10 @@ Enable Studio Access to API Services**.
 ## Testing tips
 - Want to see a Mythic or Secret cutscene right away? In CosmicConfig, temporarily set `Config.BaseLuck = 200000`, then set it back to `1`.
 - Press **R** to roll on PC.
-- In Studio all passes are free, so Studio luck shows **x2.5** (2x Luck + VIP). Boost buttons in the Store activate for free in Studio too.
+- In Studio all passes are free, so Studio luck shows **x2.5** (2x Luck + VIP), or **x5** on Royal Island. Boost buttons in the Store activate for free in Studio too.
+- To test as a non-VIP, set `Config.FreePassesInStudio = false`.
 
 ## Coming in later parts
 - 1v1 duels against players or bots, using each aura's power
-- Aura pictures (you'll provide them)
 - Cosmic events (Meteor Shower, Eclipse, Solar Flare)
 - Index rewards, more auras (when you say so)

@@ -35,6 +35,11 @@ function Luck.GetBonuses(player)
 		table.insert(bonuses, { Name = "Server", Multiplier = m.ServerBoost, EndsAt = serverEnd })
 	end
 
+	-- Standing on Royal Island (the server sets this, so it can't be faked)
+	if player:GetAttribute("OnVIPIsland") then
+		table.insert(bonuses, { Name = "Royal Island", Multiplier = Config.VIPIsland.LuckMultiplier, Show = true })
+	end
+
 	-- Reserved for events in a later part
 	local eventLuck = ReplicatedStorage:GetAttribute("EventLuck")
 	if eventLuck and eventLuck > 1 then

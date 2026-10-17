@@ -181,7 +181,7 @@ local reveal = new("Frame", {
 	Name = "Reveal",
 	AnchorPoint = Vector2.new(0.5, 0.5),
 	Position = UDim2.fromScale(0.5, 0.4),
-	Size = UDim2.fromOffset(700, 260),
+	Size = UDim2.fromOffset(700, 420),
 	BackgroundTransparency = 1,
 	ZIndex = 6,
 	Visible = false,
@@ -192,11 +192,41 @@ UIKit.addAutoScale(reveal)
 local popHolder = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 6, Parent = reveal })
 local popScale = new("UIScale", { Parent = popHolder })
 
+-- The aura's picture sits above the card (hidden if it has no picture yet)
+local IMAGE_SIZE = 170
+local IMAGE_Y = 85 -- center of the picture
+local imageGlow = new("Frame", {
+	Name = "ImageGlow",
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.new(0.5, 0, 0, IMAGE_Y),
+	Size = UDim2.fromOffset(IMAGE_SIZE + 40, IMAGE_SIZE + 40),
+	BackgroundColor3 = THEME.Accent,
+	BackgroundTransparency = 0.6,
+	ZIndex = 6,
+	Visible = false,
+	Parent = popHolder,
+}, { corner(UDim.new(0, 40)) })
+local auraImage = new("ImageLabel", {
+	Name = "AuraImage",
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.new(0.5, 0, 0, IMAGE_Y),
+	Size = UDim2.fromOffset(IMAGE_SIZE, IMAGE_SIZE),
+	BackgroundColor3 = THEME.Panel,
+	ScaleType = Enum.ScaleType.Crop,
+	Image = "",
+	ZIndex = 7,
+	Visible = false,
+	Parent = popHolder,
+}, { corner(UDim.new(0, 26)) })
+local imageBorder = stroke(THEME.Accent, 4, 0)
+imageBorder.Parent = auraImage
+local imageScale = new("UIScale", { Parent = auraImage })
+
 local CARD_TRANSPARENCY = 0.15
 local card = new("Frame", {
 	Name = "Card",
 	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.fromScale(0.5, 0),
+	Position = UDim2.new(0.5, 0, 0, 150),
 	Size = UDim2.fromOffset(620, 196),
 	BackgroundColor3 = Color3.new(1, 1, 1),
 	BackgroundTransparency = CARD_TRANSPARENCY,
@@ -232,24 +262,24 @@ local shine = new("Frame", {
 })
 
 local tierLabel = label({
-	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 12), Size = UDim2.new(1, 0, 0, 30),
+	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 162), Size = UDim2.new(1, 0, 0, 30),
 	Text = "", Font = TITLE_FONT, TextSize = 26, ZIndex = 6, Parent = popHolder,
 })
 textStroke(2).Parent = tierLabel
 local nameLabel = label({
-	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 92), Size = UDim2.new(1, 0, 0, 96),
+	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 242), Size = UDim2.new(1, 0, 0, 96),
 	Text = "", Font = TITLE_FONT, TextSize = 84, ZIndex = 6, Parent = popHolder,
 })
 textStroke(3.5).Parent = nameLabel
 local nameGradient = new("UIGradient", { Parent = nameLabel })
 local chanceLabel = label({
-	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 142), Size = UDim2.new(1, 0, 0, 34),
+	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 292), Size = UDim2.new(1, 0, 0, 34),
 	Text = "", Font = TITLE_FONT, TextSize = 30, TextColor3 = THEME.SubText, ZIndex = 6, Parent = popHolder,
 })
 textStroke(2).Parent = chanceLabel
 
 local badgeLabel = label({
-	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0), Size = UDim2.fromOffset(170, 32),
+	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 346), Size = UDim2.fromOffset(170, 32),
 	Text = "", Font = TITLE_FONT, TextSize = 20, ZIndex = 7, BackgroundTransparency = 0,
 	BackgroundColor3 = THEME.Good, Visible = false, Parent = popHolder,
 })
@@ -261,7 +291,7 @@ local badgeScale = new("UIScale", { Parent = badgeLabel })
 local extrasRow = new("Frame", {
 	Name = "Extras",
 	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0, 208),
+	Position = UDim2.new(0.5, 0, 0, 372),
 	Size = UDim2.fromOffset(620, 36),
 	BackgroundTransparency = 1,
 	ZIndex = 6,
@@ -288,6 +318,15 @@ local function setRevealAura(aura)
 	tierLabel.TextColor3 = tierColor
 	cardGradient.Color = ColorSequence.new(tierColor:Lerp(THEME.Panel, 0.55), THEME.Panel)
 	cardBorder.Color = tierColor
+
+	local image = AuraData.GetImage(aura.Name)
+	auraImage.Visible = image ~= nil
+	imageGlow.Visible = image ~= nil
+	if image then
+		auraImage.Image = image
+		imageBorder.Color = tierColor
+		imageGlow.BackgroundColor3 = tierColor
+	end
 end
 
 local function setRevealVisible(visible, duration)
@@ -310,6 +349,9 @@ local function setRevealVisible(visible, duration)
 	end
 	apply(card, { BackgroundTransparency = cardT })
 	apply(cardBorder, { Transparency = borderT })
+	apply(auraImage, { ImageTransparency = textT, BackgroundTransparency = textT })
+	apply(imageBorder, { Transparency = borderT })
+	apply(imageGlow, { BackgroundTransparency = visible and 0.6 or 1 })
 end
 
 local function clearExtras()
@@ -410,6 +452,10 @@ local bannerLabel = label({
 	Size = UDim2.new(1, -20, 1, 0), Position = UDim2.fromOffset(10, 0), RichText = true,
 	Text = "", Font = TITLE_FONT, TextSize = 22, ZIndex = 9, TextWrapped = true, Parent = banner,
 })
+local bannerIcon = new("ImageLabel", {
+	AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 8, 0.5, 0), Size = UDim2.fromOffset(44, 44),
+	BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Crop, ZIndex = 9, Visible = false, Parent = banner,
+}, { corner(UDim.new(0, 10)) })
 
 ---------------------------------------------------------------------
 -- EFFECTS: camera shake, FOV punch, flash
@@ -452,7 +498,7 @@ end
 ---------------------------------------------------------------------
 -- LUCK LINE + STATS
 ---------------------------------------------------------------------
-local BONUS_ICONS = { ["2x Luck"] = "🍀", VIP = "👑", Potion = "🧪", Server = "🌌", Event = "☄️" }
+local BONUS_ICONS = { ["2x Luck"] = "🍀", VIP = "👑", Potion = "🧪", Server = "🌌", Event = "☄️", ["Royal Island"] = "🏝" }
 
 local function updateInfo()
 	local total = Luck.Get(player)
@@ -462,6 +508,9 @@ local function updateInfo()
 		if bonus.EndsAt then
 			table.insert(parts, ("<font color='#ffd76a'>%s %s</font>"):format(
 				BONUS_ICONS[bonus.Name] or "✦", Luck.FormatTime(bonus.EndsAt - now)))
+		elseif bonus.Show then
+			table.insert(parts, ("<font color='#ffb4dc'>%s %s x%s</font>"):format(
+				BONUS_ICONS[bonus.Name] or "✦", bonus.Name, Luck.Format(bonus.Multiplier)))
 		end
 	end
 	luckLine.Text = table.concat(parts, "   ")
@@ -670,6 +719,8 @@ local function playRollAnimation(result, fast)
 		setRevealAura(fake)
 		popScale.Scale = 1.1
 		tween(popScale, 0.08, { Scale = 1 })
+		imageScale.Scale = 0.9
+		tween(imageScale, 0.08, { Scale = 1 })
 		nameLabel.Rotation = rand:NextNumber(-3, 3)
 		SoundFX.Play("Tick", { Speed = 0.85 + progress * 0.9 })
 		task.wait((fast and 0.03 or 0.04) + progress ^ 3 * (fast and 0.12 or 0.28))
@@ -692,6 +743,15 @@ local function playRollAnimation(result, fast)
 	tween(nameLabel, 0.8, { Rotation = 0 }, Enum.EasingStyle.Elastic)
 	cardBorder.Thickness = 8
 	tween(cardBorder, 0.6, { Thickness = 3 })
+	if auraImage.Visible then
+		imageScale.Scale = 0.3
+		auraImage.Rotation = -25
+		tween(imageScale, 0.55, { Scale = 1 }, Enum.EasingStyle.Back)
+		tween(auraImage, 0.9, { Rotation = 0 }, Enum.EasingStyle.Elastic)
+		imageGlow.Size = UDim2.fromOffset(IMAGE_SIZE + 140, IMAGE_SIZE + 140)
+		imageGlow.BackgroundTransparency = 0.2
+		tween(imageGlow, 0.7, { Size = UDim2.fromOffset(IMAGE_SIZE + 40, IMAGE_SIZE + 40), BackgroundTransparency = 0.6 }, Enum.EasingStyle.Quint)
+	end
 	shine.Position = UDim2.fromScale(-0.2, 0.5)
 	tween(shine, 0.7, { Position = UDim2.fromScale(1.2, 0.5) }, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
 
@@ -910,7 +970,7 @@ local list = new("ScrollingFrame", {
 	ZIndex = 8, Parent = inventory,
 }, {
 	new("UIGridLayout", {
-		CellSize = UDim2.fromOffset(200, 170), CellPadding = UDim2.fromOffset(10, 10),
+		CellSize = UDim2.fromOffset(200, 214), CellPadding = UDim2.fromOffset(10, 10),
 		SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Center,
 	}),
 	new("UIPadding", { PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 8) }),
@@ -942,49 +1002,78 @@ local function buildCard(aura, count, index, animate)
 		tween(cardScale, 0.12, { Scale = 1 })
 	end)
 
+	-- picture (or a placeholder) in the top-left corner
+	local image = AuraData.GetImage(aura.Name)
+	local thumb
+	if owned and image then
+		thumb = new("ImageLabel", {
+			Position = UDim2.fromOffset(10, 10), Size = UDim2.fromOffset(58, 58),
+			BackgroundColor3 = THEME.Panel, Image = image, ScaleType = Enum.ScaleType.Crop,
+			ZIndex = 8, Parent = cardFrame,
+		}, { corner(UDim.new(0, 10)) })
+	else
+		thumb = new("Frame", {
+			Position = UDim2.fromOffset(10, 10), Size = UDim2.fromOffset(58, 58),
+			BackgroundColor3 = owned and Color3.new(1, 1, 1) or Color3.fromRGB(24, 20, 44),
+			ZIndex = 8, Parent = cardFrame,
+		}, { corner(UDim.new(0, 10)) })
+		if owned then
+			UIKit.gradient(aura.Colors[1], aura.Colors[2], 45).Parent = thumb
+		end
+		label({
+			Size = UDim2.fromScale(1, 1), Text = owned and "✦" or "?", Font = TITLE_FONT, TextSize = 30,
+			TextColor3 = owned and Color3.new(1, 1, 1) or Color3.fromRGB(110, 100, 140), ZIndex = 8, Parent = thumb,
+		})
+	end
+	stroke(tier.Color, 2, owned and 0 or 0.6).Parent = thumb
+
 	local nameText = label({
-		Position = UDim2.fromOffset(10, 6), Size = UDim2.new(1, -20, 0, 28),
-		Text = owned and aura.Name or "???", Font = TITLE_FONT, TextSize = 22,
+		Position = UDim2.fromOffset(76, 10), Size = UDim2.new(1, -86, 0, 24),
+		Text = owned and aura.Name or "???", Font = TITLE_FONT, TextScaled = true,
 		TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = cardFrame,
 	})
+	new("UITextSizeConstraint", { MaxTextSize = 20, Parent = nameText })
 	if owned then
 		UIKit.gradient(UIKit.readable(aura.Colors[1]), UIKit.readable(aura.Colors[2]), 0).Parent = nameText
 	else
 		nameText.TextColor3 = Color3.fromRGB(110, 100, 140)
 	end
 
-	label({
-		Position = UDim2.fromOffset(10, 32), Size = UDim2.new(1, -20, 0, 18),
-		Text = ("%s • %s"):format(aura.Tier, AuraData.FormatChance(aura.Chance)),
-		TextSize = 13, TextColor3 = tier.Color, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = cardFrame,
+	local tierText = label({
+		Position = UDim2.fromOffset(76, 36), Size = UDim2.new(1, -86, 0, 14),
+		Text = aura.Tier, TextScaled = true, TextColor3 = tier.Color,
+		TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = cardFrame,
 	})
+	new("UITextSizeConstraint", { MaxTextSize = 13, Parent = tierText })
+	local chanceText = label({
+		Position = UDim2.fromOffset(76, 52), Size = UDim2.new(1, -86, 0, 14),
+		Text = AuraData.FormatChance(aura.Chance) .. (owned and ("  •  x" .. AuraData.FormatNumber(count)) or ""),
+		TextScaled = true, TextColor3 = THEME.SubText,
+		TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = cardFrame,
+	})
+	new("UITextSizeConstraint", { MaxTextSize = 12, Parent = chanceText })
 
 	if owned then
 		label({
-			AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 8), Size = UDim2.fromOffset(60, 22),
-			Text = "x" .. AuraData.FormatNumber(count), TextSize = 15, TextColor3 = THEME.SubText,
-			TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 8, Parent = cardFrame,
-		})
-		label({
-			Position = UDim2.fromOffset(10, 54), Size = UDim2.new(1, -20, 0, 18),
+			Position = UDim2.fromOffset(10, 78), Size = UDim2.new(1, -20, 0, 18),
 			Text = ("⚡ %s"):format(aura.Power.Name), TextSize = 14, TextColor3 = Color3.fromRGB(255, 220, 120),
 			TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = cardFrame,
 		})
 		label({
-			Position = UDim2.fromOffset(10, 72), Size = UDim2.new(1, -20, 0, 34),
+			Position = UDim2.fromOffset(10, 96), Size = UDim2.new(1, -20, 0, 34),
 			Text = aura.Power.Description, TextSize = 12, Font = Enum.Font.Gotham, TextWrapped = true,
 			TextColor3 = THEME.SubText, TextXAlignment = Enum.TextXAlignment.Left,
 			TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 8, Parent = cardFrame,
 		})
 		label({
-			Position = UDim2.fromOffset(10, 106), Size = UDim2.new(1, -20, 0, 16),
+			Position = UDim2.fromOffset(10, 132), Size = UDim2.new(1, -20, 0, 16),
 			Text = ("❤ %d HP   ⚔ %d DMG"):format(tier.MaxHealth, tier.AttackDamage),
 			TextSize = 12, TextColor3 = Color3.fromRGB(255, 150, 160),
 			TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = cardFrame,
 		})
 
 		local equipButton = new("TextButton", {
-			AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -8), Size = UDim2.new(1, -20, 0, 32),
+			AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Size = UDim2.new(1, -20, 0, 34),
 			BackgroundColor3 = equipped and THEME.Good or THEME.Accent, AutoButtonColor = false,
 			Text = equipped and "EQUIPPED" or "EQUIP", Font = TITLE_FONT, TextSize = 18,
 			TextColor3 = THEME.Text, ZIndex = 8, Parent = cardFrame,
@@ -1001,7 +1090,7 @@ local function buildCard(aura, count, index, animate)
 		end)
 	else
 		label({
-			Position = UDim2.fromOffset(10, 60), Size = UDim2.new(1, -20, 0, 60),
+			Position = UDim2.fromOffset(10, 90), Size = UDim2.new(1, -20, 0, 60),
 			Text = "Not discovered yet.\nKeep rolling!", TextSize = 14, Font = Enum.Font.Gotham,
 			TextColor3 = Color3.fromRGB(130, 120, 160), TextWrapped = true, ZIndex = 8, Parent = cardFrame,
 		})
@@ -1057,7 +1146,11 @@ end)
 -- ANNOUNCEMENTS
 ---------------------------------------------------------------------
 local bannerToken = 0
-local function showBanner(message, color)
+local function showBanner(message, color, image)
+	bannerIcon.Visible = image ~= nil
+	bannerIcon.Image = image or ""
+	bannerLabel.Position = UDim2.fromOffset(image and 58 or 10, 0)
+	bannerLabel.Size = UDim2.new(1, image and -68 or -20, 1, 0)
 	bannerToken += 1
 	local token = bannerToken
 	bannerLabel.Text = message
@@ -1114,7 +1207,7 @@ AnnounceRemote.OnClientEvent:Connect(function(info)
 	end
 	local hex = tierOf(aura).Color:ToHex()
 	showBanner(("✦ <b>%s</b> rolled <font color='#%s'><b>%s</b></font> (%s) ✦"):format(
-		info.PlayerName, hex, aura.Name, AuraData.FormatChance(aura.Chance)), tierOf(aura).Color)
+		info.PlayerName, hex, aura.Name, AuraData.FormatChance(aura.Chance)), tierOf(aura).Color, AuraData.GetImage(aura.Name))
 	if info.UserId ~= player.UserId then
 		SoundFX.Play("Pop", { Volume = 0.7 })
 	end

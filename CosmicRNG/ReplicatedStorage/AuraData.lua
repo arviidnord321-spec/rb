@@ -193,6 +193,23 @@ function AuraData.Get(name)
 	return AuraData.ByName[name]
 end
 
+-- The picture for an aura ("rbxassetid://..."), or nil if not set yet.
+-- Picture IDs live in the AuraImages ModuleScript.
+local imagesModule = script.Parent:WaitForChild("AuraImages", 5)
+local images = imagesModule and require(imagesModule) or {}
+function AuraData.GetImage(name)
+	local id = images[name]
+	if type(id) == "number" and id > 0 then
+		return "rbxassetid://" .. id
+	elseif type(id) == "string" and id ~= "" then
+		if id:match("^%d+$") then
+			return "rbxassetid://" .. id
+		end
+		return id
+	end
+	return nil
+end
+
 function AuraData.GetTier(name)
 	local aura = AuraData.ByName[name]
 	return aura and AuraData.Tiers[aura.Tier]

@@ -201,6 +201,23 @@ function AuraData.Get(name)
 	return AuraData.ByName[name]
 end
 
+-- The picture for an aura ("rbxassetid://..."), or nil if not set yet.
+-- Picture IDs live in the AuraImages ModuleScript.
+local imagesModule = script.Parent:WaitForChild("AuraImages", 5)
+local images = imagesModule and require(imagesModule) or {}
+function AuraData.GetImage(name)
+	local id = images[name]
+	if type(id) == "number" and id > 0 then
+		return "rbxassetid://" .. id
+	elseif type(id) == "string" and id ~= "" then
+		if id:match("^%d+$") then
+			return "rbxassetid://" .. id
+		end
+		return id
+	end
+	return nil
+end
+
 function AuraData.GetTier(name)
 	local aura = AuraData.ByName[name]
 	return aura and AuraData.Tiers[aura.Tier]
@@ -815,6 +832,44 @@ return AuraEffects
     </Item>
     <Item class="ModuleScript" referent="3">
       <Properties>
+        <string name="Name">AuraImages</string>
+        <string name="Source"><![CDATA[-- AuraImages (ModuleScript in ReplicatedStorage)
+-- The picture for each aura. Paste the image ID after each name.
+--
+-- How to get the IDs:
+--   1. In Roblox Studio open View > Asset Manager, click "Bulk Import"
+--      and select all 20 pictures at once.
+--   2. In Asset Manager > Images, right-click a picture > "Copy Asset ID".
+--   3. Paste the number here, e.g.  ["Stardust"] = 1234567890,
+-- Auras with 0 just show without a picture.
+
+return {
+	["Stardust"] = 0,
+	["Moonbeam"] = 0,
+	["Twilight"] = 0,
+	["Comet"] = 0,
+	["Aurora"] = 0,
+	["Meteor"] = 0,
+	["Nebula"] = 0,
+	["Pulsar"] = 0,
+	["Frostmoon"] = 0,
+	["Solar Flare"] = 0,
+	["Eclipse"] = 0,
+	["Starfall"] = 0,
+	["Supernova"] = 0,
+	["Quasar"] = 0,
+	["Celestial"] = 0,
+	["Black Hole"] = 0,
+	["Galaxy"] = 0,
+	["Cosmic Rift"] = 0,
+	["Big Bang"] = 0,
+	["Void Sovereign"] = 0,
+}
+]]></string>
+      </Properties>
+    </Item>
+    <Item class="ModuleScript" referent="4">
+      <Properties>
         <string name="Name">CosmicConfig</string>
         <string name="Source"><![CDATA[-- CosmicConfig (ModuleScript in ReplicatedStorage)
 -- All the numbers you might want to tweak live here.
@@ -832,7 +887,7 @@ Config.GamePasses = {
 	AutoRoll = 0, -- unlocks the Auto Roll button
 	QuickRoll = 0, -- faster rolling (see QuickRollCooldown)
 	DoubleLuck = 0, -- permanent x2 luck
-	VIP = 0, -- x1.25 luck, VIP tag, VIP Lounge access
+	VIP = 0, -- x1.25 luck, VIP tag, VIP Lounge + Royal Island access
 	MultiRoll = 0, -- every roll rolls 3 auras at once
 	LuckyCharm = 0, -- lucky roll every 5 rolls instead of every 10
 }
@@ -845,7 +900,7 @@ Config.PassInfo = {
 	{ Key = "DoubleLuck", Icon = "🍀", Name = "2x Luck", Description = "Permanently doubles your luck on every roll." },
 	{ Key = "MultiRoll", Icon = "🎲", Name = "Triple Roll", Description = "Every roll gives you 3 auras at once." },
 	{ Key = "LuckyCharm", Icon = "✨", Name = "Lucky Charm", Description = "Lucky roll every 5 rolls instead of every 10." },
-	{ Key = "VIP", Icon = "👑", Name = "VIP", Description = "x1.25 luck, a gold VIP tag and access to the VIP Lounge." },
+	{ Key = "VIP", Icon = "👑", Name = "VIP", Description = "x1.25 luck, gold VIP tag and the portal to Royal Island (x2 luck there)." },
 }
 
 ---------------------------------------------------------------------
@@ -903,6 +958,13 @@ Config.LeaderboardRefresh = 90 -- seconds
 ---------------------------------------------------------------------
 Config.RemoveDefaultBaseplate = true -- deletes the part named "Baseplate"
 
+-- Royal Island: the VIP-only island you reach through the portal
+Config.VIPIsland = {
+	Center = Vector3.new(0, 30, 1000), -- middle of the island's ground
+	Radius = 75,
+	LuckMultiplier = 2, -- extra luck while you stand on it
+}
+
 ---------------------------------------------------------------------
 -- PARTICLE TEXTURES (built into Roblox, always available)
 -- You can swap these for your own uploaded decal IDs later.
@@ -945,7 +1007,7 @@ return Config
 ]]></string>
       </Properties>
     </Item>
-    <Item class="ModuleScript" referent="4">
+    <Item class="ModuleScript" referent="5">
       <Properties>
         <string name="Name">Luck</string>
         <string name="Source"><![CDATA[-- Luck (ModuleScript in ReplicatedStorage)
@@ -983,6 +1045,11 @@ function Luck.GetBonuses(player)
 	local serverEnd = ReplicatedStorage:GetAttribute("ServerLuckEnd") or 0
 	if serverEnd > now then
 		table.insert(bonuses, { Name = "Server", Multiplier = m.ServerBoost, EndsAt = serverEnd })
+	end
+
+	-- Standing on Royal Island (the server sets this, so it can't be faked)
+	if player:GetAttribute("OnVIPIsland") then
+		table.insert(bonuses, { Name = "Royal Island", Multiplier = Config.VIPIsland.LuckMultiplier, Show = true })
 	end
 
 	-- Reserved for events in a later part
@@ -1027,7 +1094,7 @@ return Luck
 ]]></string>
       </Properties>
     </Item>
-    <Item class="ModuleScript" referent="5">
+    <Item class="ModuleScript" referent="6">
       <Properties>
         <string name="Name">SoundFX</string>
         <string name="Source"><![CDATA[-- SoundFX (ModuleScript in ReplicatedStorage) - used by LocalScripts only
@@ -1235,7 +1302,7 @@ return SoundFX
 ]]></string>
       </Properties>
     </Item>
-    <Item class="ModuleScript" referent="6">
+    <Item class="ModuleScript" referent="7">
       <Properties>
         <string name="Name">UIKit</string>
         <string name="Source"><![CDATA[-- UIKit (ModuleScript in ReplicatedStorage) - used by LocalScripts only
@@ -1533,11 +1600,11 @@ return UIKit
       </Properties>
     </Item>
   </Item>
-  <Item class="ServerScriptService" referent="7">
+  <Item class="ServerScriptService" referent="8">
     <Properties>
       <string name="Name">ServerScriptService</string>
     </Properties>
-    <Item class="Script" referent="8">
+    <Item class="Script" referent="9">
       <Properties>
         <string name="Name">Leaderboard</string>
         <token name="RunContext">0</token>
@@ -1691,7 +1758,7 @@ end
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="9">
+    <Item class="Script" referent="10">
       <Properties>
         <string name="Name">RollService</string>
         <token name="RunContext">0</token>
@@ -2144,7 +2211,714 @@ end)
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="10">
+    <Item class="Script" referent="11">
+      <Properties>
+        <string name="Name">VIPIsland</string>
+        <token name="RunContext">0</token>
+        <string name="Source"><![CDATA[-- VIPIsland (Script in ServerScriptService)
+-- Builds ROYAL ISLAND (the VIP island) and runs its portals:
+--   * VIPs who step into the portal in the VIP Temple are teleported here
+--   * standing on the island gives extra luck (Config.VIPIsland.LuckMultiplier)
+--   * the return portal takes you back
+--   * non-VIPs who somehow get here are sent home
+-- Same vibe as the main island, but white marble + gold, rose and teal.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
+
+local VIP = Config.VIPIsland
+local CENTER = VIP.Center
+local RADIUS = VIP.Radius
+local rand = Random.new(7)
+
+local MARBLE = Color3.fromRGB(238, 232, 220)
+local MARBLE_DARK = Color3.fromRGB(205, 196, 182)
+local GOLD = Color3.fromRGB(255, 200, 70)
+local ROSE = Color3.fromRGB(255, 130, 190)
+local TEAL = Color3.fromRGB(80, 230, 205)
+local WINE = Color3.fromRGB(95, 35, 70)
+local WINE_DARK = Color3.fromRGB(60, 20, 45)
+local FLAT = CFrame.Angles(0, 0, math.rad(90))
+
+-- where you arrive (next to the return portal, looking at the island)
+local ARRIVAL = CFrame.lookAt(CENTER + Vector3.new(0, 4, -46), CENTER + Vector3.new(0, 4, 0))
+
+---------------------------------------------------------------------
+-- Remotes
+---------------------------------------------------------------------
+local remotes = ReplicatedStorage:FindFirstChild("CosmicRemotes")
+if not remotes then
+	remotes = Instance.new("Folder")
+	remotes.Name = "CosmicRemotes"
+	remotes.Parent = ReplicatedStorage
+end
+local PortalFXRemote = remotes:FindFirstChild("PortalFX")
+if not PortalFXRemote then
+	PortalFXRemote = Instance.new("RemoteEvent")
+	PortalFXRemote.Name = "PortalFX"
+	PortalFXRemote.Parent = remotes
+end
+
+---------------------------------------------------------------------
+-- Build helpers
+---------------------------------------------------------------------
+local old = workspace:FindFirstChild("VIPIsland")
+if old then
+	old:Destroy()
+end
+local island = Instance.new("Model")
+island.Name = "VIPIsland"
+island.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
+
+local function part(props)
+	local p = Instance.new("Part")
+	p.Anchored = true
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	for key, value in pairs(props) do
+		if key ~= "Parent" then
+			p[key] = value
+		end
+	end
+	p.Parent = props.Parent or island
+	return p
+end
+
+local function at(offset)
+	return CENTER + offset
+end
+
+local function disc(name, radius, thickness, topY, color3, material, extra)
+	local props = {
+		Name = name,
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(thickness, radius * 2, radius * 2),
+		CFrame = CFrame.new(at(Vector3.new(0, topY - thickness / 2, 0))) * FLAT,
+		Color = color3,
+		Material = material,
+	}
+	for key, value in pairs(extra or {}) do
+		props[key] = value
+	end
+	return part(props)
+end
+
+local function column(position, height, radius, parent)
+	part({
+		Name = "Column",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(height, radius * 2, radius * 2),
+		CFrame = CFrame.new(position + Vector3.new(0, height / 2, 0)) * FLAT,
+		Color = MARBLE,
+		Material = Enum.Material.Marble,
+		Parent = parent,
+	})
+	part({
+		Name = "ColumnBase",
+		Size = Vector3.new(radius * 2.6, 0.8, radius * 2.6),
+		CFrame = CFrame.new(position + Vector3.new(0, 0.4, 0)),
+		Color = GOLD,
+		Material = Enum.Material.Metal,
+		Parent = parent,
+	})
+	part({
+		Name = "ColumnCap",
+		Size = Vector3.new(radius * 2.8, 0.8, radius * 2.8),
+		CFrame = CFrame.new(position + Vector3.new(0, height + 0.2, 0)),
+		Color = GOLD,
+		Material = Enum.Material.Neon,
+		CanCollide = false,
+		Parent = parent,
+	})
+end
+
+local function addLight(target, color3, range, brightness)
+	local light = Instance.new("PointLight")
+	light.Color = color3
+	light.Range = range
+	light.Brightness = brightness
+	light.Parent = target
+	return light
+end
+
+local function addSparkles(target, color3, rate, size)
+	local e = Instance.new("ParticleEmitter")
+	e.Texture = Config.Textures.Sparkle
+	e.Rate = rate
+	e.Lifetime = NumberRange.new(1.5, 3)
+	e.Speed = NumberRange.new(0.5, 2)
+	e.SpreadAngle = Vector2.new(180, 180)
+	e.Size = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0),
+		NumberSequenceKeypoint.new(0.5, size),
+		NumberSequenceKeypoint.new(1, 0),
+	})
+	e.LightEmission = 1
+	e.LightInfluence = 0
+	e.Color = ColorSequence.new(color3)
+	e.Parent = target
+	return e
+end
+
+-- flat ring of neon pieces as its own Model (WorldFX spins some of these)
+local function ringModel(name, center, radius, segments, thickness, color3, parent, material)
+	local model = Instance.new("Model")
+	model.Name = name
+	local length = (2 * math.pi * radius / segments) * 1.06
+	for i = 1, segments do
+		local a = (i / segments) * math.pi * 2
+		local p = center + Vector3.new(math.cos(a) * radius, 0, math.sin(a) * radius)
+		part({
+			Name = "Segment",
+			Size = Vector3.new(thickness, thickness, length),
+			CFrame = CFrame.lookAt(p, center) * CFrame.Angles(0, math.pi / 2, 0),
+			Color = color3,
+			Material = material or Enum.Material.Neon,
+			CanCollide = false,
+			CanQuery = false,
+			CastShadow = false,
+			Parent = model,
+		})
+	end
+	model.WorldPivot = CFrame.new(center)
+	model.Parent = parent or island
+	return model
+end
+
+-- vertical ring facing portalCF's look direction
+local function portalRing(name, portalCF, radius, segments, thickness, color3, parent)
+	local model = Instance.new("Model")
+	model.Name = name
+	local length = (2 * math.pi * radius / segments) * 1.08
+	for i = 1, segments do
+		local a = (i / segments) * math.pi * 2
+		local radial = Vector3.new(math.cos(a), math.sin(a), 0)
+		part({
+			Name = "Segment",
+			Size = Vector3.new(thickness, thickness, length),
+			CFrame = portalCF * CFrame.fromMatrix(radial * radius, radial, Vector3.new(0, 0, 1)),
+			Color = color3,
+			Material = Enum.Material.Neon,
+			CanCollide = false,
+			CanQuery = false,
+			CastShadow = false,
+			Parent = model,
+		})
+	end
+	model.WorldPivot = portalCF
+	model.Parent = parent or island
+	return model
+end
+
+local function crystalCluster(position, color3)
+	local count = rand:NextInteger(3, 5)
+	for i = 1, count do
+		local height = (i == 1) and rand:NextNumber(8, 12) or rand:NextNumber(3, 7)
+		local width = height * 0.22
+		local offset = (i == 1) and Vector3.zero or Vector3.new(rand:NextNumber(-2.5, 2.5), 0, rand:NextNumber(-2.5, 2.5))
+		local crystal = part({
+			Name = "Crystal",
+			Size = Vector3.new(width, height, width),
+			CFrame = CFrame.new(position + offset + Vector3.new(0, height * 0.4, 0))
+				* CFrame.Angles(rand:NextNumber(-0.35, 0.35), rand:NextNumber(0, math.pi), rand:NextNumber(-0.35, 0.35)),
+			Color = color3,
+			Material = Enum.Material.Neon,
+			Transparency = 0.1,
+			CanCollide = (i == 1),
+		})
+		if i == 1 then
+			addLight(crystal, color3, 18, 1.4)
+			addSparkles(crystal, color3, 3, 0.4)
+		end
+	end
+end
+
+local function billboard(target, text, color3, offset, size)
+	local gui = Instance.new("BillboardGui")
+	gui.Size = size or UDim2.fromOffset(420, 70)
+	gui.StudsOffset = offset or Vector3.new(0, 6, 0)
+	gui.MaxDistance = 220
+	gui.LightInfluence = 0
+	gui.Parent = target
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.fromScale(1, 1)
+	label.Font = Enum.Font.FredokaOne
+	label.TextScaled = true
+	label.Text = text
+	label.TextColor3 = color3
+	label.Parent = gui
+	local outline = Instance.new("UIStroke")
+	outline.Thickness = 2.5
+	outline.Transparency = 0.2
+	outline.Parent = label
+end
+
+---------------------------------------------------------------------
+-- GROUND: white marble top, wine-red rock underneath, teal veins
+---------------------------------------------------------------------
+disc("Ground", RADIUS, 4, 0, MARBLE, Enum.Material.Marble)
+disc("EdgeGlow", RADIUS + 0.7, 0.7, -0.2, ROSE, Enum.Material.Neon, { CanCollide = false })
+-- (the gold trim is a thin ring along the edge, built once ringModel exists below)
+
+local layers = {
+	{ r = RADIUS - 6, y = -4, t = 6 },
+	{ r = RADIUS - 18, y = -10, t = 7 },
+	{ r = RADIUS - 32, y = -17, t = 8 },
+	{ r = RADIUS - 46, y = -25, t = 9 },
+	{ r = RADIUS - 60, y = -34, t = 10 },
+}
+for i, layer in ipairs(layers) do
+	disc("Underside" .. i, layer.r, layer.t, layer.y, (i % 2 == 0) and WINE_DARK or WINE, Enum.Material.Slate, { CanCollide = false })
+end
+for i = 1, 12 do
+	local a = (i / 12) * math.pi * 2
+	local r = RADIUS - 22 - rand:NextNumber(0, 14)
+	part({
+		Name = "Vein",
+		Size = Vector3.new(0.6, rand:NextNumber(10, 22), 0.6),
+		CFrame = CFrame.new(at(Vector3.new(math.cos(a) * r, -14, math.sin(a) * r)))
+			* CFrame.Angles(rand:NextNumber(-0.3, 0.3), 0, rand:NextNumber(-0.3, 0.3)),
+		Color = TEAL,
+		Material = Enum.Material.Neon,
+		CanCollide = false,
+	})
+end
+
+ringModel("EdgeTrim", at(Vector3.new(0, 0.2, 0)), RADIUS - 0.4, 120, 0.5, GOLD)
+
+-- Mosaic floor: rings of rose and teal set into the marble
+disc("Plaza", 24, 0.3, 0.15, MARBLE_DARK, Enum.Material.Marble)
+ringModel("MosaicOuter", at(Vector3.new(0, 0.32, 0)), 23.5, 64, 0.25, GOLD)
+ringModel("MosaicRose", at(Vector3.new(0, 0.32, 0)), 19, 56, 0.25, ROSE)
+ringModel("MosaicTeal", at(Vector3.new(0, 0.32, 0)), 15, 48, 0.25, TEAL)
+for i = 1, 8 do -- star lines between the rings
+	local a = (i / 8) * math.pi * 2
+	local p = at(Vector3.new(math.cos(a) * 19.2, 0.32, math.sin(a) * 19.2))
+	part({
+		Name = "MosaicLine",
+		Size = Vector3.new(0.25, 0.25, 8.5),
+		CFrame = CFrame.lookAt(p, at(Vector3.new(0, 0.32, 0))),
+		Color = GOLD,
+		Material = Enum.Material.Neon,
+		CanCollide = false,
+	})
+end
+
+---------------------------------------------------------------------
+-- GOLDEN CORE: royal altar with a sun orb and 3 spinning rings
+---------------------------------------------------------------------
+local core = Instance.new("Model")
+core.Name = "RoyalCore"
+core.Parent = island
+local function coreDisc(name, radius, thickness, topY, color3, material, collide)
+	return part({
+		Name = name,
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(thickness, radius * 2, radius * 2),
+		CFrame = CFrame.new(at(Vector3.new(0, topY - thickness / 2, 0))) * FLAT,
+		Color = color3,
+		Material = material,
+		CanCollide = collide ~= false,
+		Parent = core,
+	})
+end
+coreDisc("Base", 8, 1.4, 1.6, MARBLE, Enum.Material.Marble)
+coreDisc("BaseTrim", 8.3, 0.4, 1.0, GOLD, Enum.Material.Neon, false)
+coreDisc("Step", 5.5, 1, 2.6, MARBLE_DARK, Enum.Material.Marble)
+coreDisc("StepTrim", 5.8, 0.3, 2.2, ROSE, Enum.Material.Neon, false)
+part({
+	Name = "Pillar",
+	Shape = Enum.PartType.Cylinder,
+	Size = Vector3.new(5, 2.8, 2.8),
+	CFrame = CFrame.new(at(Vector3.new(0, 5.1, 0))) * FLAT,
+	Color = GOLD,
+	Material = Enum.Material.Metal,
+	Parent = core,
+})
+local ORB = at(Vector3.new(0, 13, 0))
+local orb = part({
+	Name = "VIPOrb",
+	Shape = Enum.PartType.Ball,
+	Size = Vector3.one * 5.5,
+	CFrame = CFrame.new(ORB),
+	Color = Color3.fromRGB(255, 215, 120),
+	Material = Enum.Material.Neon,
+	CanCollide = false,
+	Parent = core,
+})
+addLight(orb, Color3.fromRGB(255, 200, 120), 40, 3)
+addSparkles(orb, Color3.fromRGB(255, 230, 170), 16, 0.7)
+ringModel("VIPRing1", ORB, 5.2, 28, 0.35, GOLD, core)
+ringModel("VIPRing2", ORB, 6.8, 34, 0.3, ROSE, core)
+ringModel("VIPRing3", ORB, 8.4, 40, 0.3, TEAL, core)
+billboard(orb, "👑 ROYAL ISLAND • x" .. VIP.LuckMultiplier .. " LUCK", GOLD, Vector3.new(0, 10, 0))
+
+---------------------------------------------------------------------
+-- COLONNADE: a circle of marble columns with a golden ring on top
+---------------------------------------------------------------------
+local colonnade = Instance.new("Model")
+colonnade.Name = "Colonnade"
+colonnade.Parent = island
+local COLUMN_RADIUS = 31
+local COLUMN_HEIGHT = 14
+for i = 1, 16 do
+	local a = (i / 16) * math.pi * 2 + math.pi / 16
+	-- leave a wide gap facing the return portal (north, -Z)
+	if math.abs(math.sin(a) + 1) > 0.08 then
+		column(at(Vector3.new(math.cos(a) * COLUMN_RADIUS, 0, math.sin(a) * COLUMN_RADIUS)), COLUMN_HEIGHT, 1.2, colonnade)
+	end
+end
+ringModel("ColonnadeTop", at(Vector3.new(0, COLUMN_HEIGHT + 0.9, 0)), COLUMN_RADIUS, 72, 1.2, MARBLE, colonnade, Enum.Material.Marble)
+ringModel("ColonnadeGlow", at(Vector3.new(0, COLUMN_HEIGHT + 1.6, 0)), COLUMN_RADIUS, 72, 0.3, GOLD, colonnade)
+
+---------------------------------------------------------------------
+-- GRAND ARCHES at the four diagonals
+---------------------------------------------------------------------
+for i = 1, 4 do
+	local a = (i / 4) * math.pi * 2 + math.pi / 4
+	local base = at(Vector3.new(math.cos(a) * 55, 0, math.sin(a) * 55))
+	local archCF = CFrame.lookAt(base, at(Vector3.zero) + Vector3.new(0, 0, 0))
+	local arch = Instance.new("Model")
+	arch.Name = "Arch"
+	arch.Parent = island
+	for _, side in ipairs({ -1, 1 }) do
+		local pillarPos = (archCF * CFrame.new(side * 6, 0, 0)).Position
+		column(pillarPos, 12, 1.4, arch)
+	end
+	-- the curved top: a half ring of gold pieces
+	local segments = 14
+	for s = 0, segments do
+		local t = s / segments * math.pi
+		local localPos = Vector3.new(math.cos(t) * 6, 12.6 + math.sin(t) * 4, 0)
+		local nextT = (s + 1) / segments * math.pi
+		local nextPos = Vector3.new(math.cos(nextT) * 6, 12.6 + math.sin(nextT) * 4, 0)
+		if s < segments then
+			local mid = (localPos + nextPos) / 2
+			local worldMid = (archCF * CFrame.new(mid)).Position
+			local worldNext = (archCF * CFrame.new(nextPos)).Position
+			part({
+				Name = "ArchPiece",
+				Size = Vector3.new(1.4, 1.4, (nextPos - localPos).Magnitude + 0.3),
+				CFrame = CFrame.lookAt(worldMid, worldNext),
+				Color = GOLD,
+				Material = Enum.Material.Neon,
+				CanCollide = false,
+				Parent = arch,
+			})
+		end
+	end
+	local gem = part({
+		Name = "ArchGem",
+		Size = Vector3.one * 1.8,
+		CFrame = (archCF * CFrame.new(0, 17.4, 0)) * CFrame.Angles(math.rad(45), 0, math.rad(45)),
+		Color = (i % 2 == 0) and ROSE or TEAL,
+		Material = Enum.Material.Neon,
+		CanCollide = false,
+		Parent = arch,
+	})
+	addLight(gem, gem.Color, 20, 1.5)
+end
+
+---------------------------------------------------------------------
+-- DOMED PAVILIONS east and west
+---------------------------------------------------------------------
+for _, side in ipairs({ -1, 1 }) do
+	local center = at(Vector3.new(side * 52, 0, 8))
+	local pavilion = Instance.new("Model")
+	pavilion.Name = "Pavilion"
+	pavilion.Parent = island
+	part({
+		Name = "Floor",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(1, 16, 16),
+		CFrame = CFrame.new(center + Vector3.new(0, 0.5, 0)) * FLAT,
+		Color = MARBLE_DARK,
+		Material = Enum.Material.Marble,
+		Parent = pavilion,
+	})
+	for c = 1, 6 do
+		local a = (c / 6) * math.pi * 2
+		column(center + Vector3.new(math.cos(a) * 6.5, 1, math.sin(a) * 6.5), 9, 0.7, pavilion)
+	end
+	part({
+		Name = "Roof",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(1, 16, 16),
+		CFrame = CFrame.new(center + Vector3.new(0, 11, 0)) * FLAT,
+		Color = MARBLE,
+		Material = Enum.Material.Marble,
+		Parent = pavilion,
+	})
+	part({
+		Name = "Dome",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.one * 13,
+		CFrame = CFrame.new(center + Vector3.new(0, 11.5, 0)),
+		Color = (side == 1) and ROSE or TEAL,
+		Material = Enum.Material.Glass,
+		Transparency = 0.15,
+		Parent = pavilion,
+	})
+	part({
+		Name = "Spire",
+		Size = Vector3.new(0.6, 5, 0.6),
+		CFrame = CFrame.new(center + Vector3.new(0, 20, 0)),
+		Color = GOLD,
+		Material = Enum.Material.Neon,
+		CanCollide = false,
+		Parent = pavilion,
+	})
+	local light = part({
+		Name = "PavilionLight",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.one * 1.6,
+		CFrame = CFrame.new(center + Vector3.new(0, 8, 0)),
+		Color = Color3.fromRGB(255, 230, 180),
+		Material = Enum.Material.Neon,
+		CanCollide = false,
+		Parent = pavilion,
+	})
+	addLight(light, Color3.fromRGB(255, 210, 160), 22, 2)
+	for _, z in ipairs({ -2.5, 2.5 }) do
+		local seat = Instance.new("Seat")
+		seat.Name = "RoyalSeat"
+		seat.Anchored = true
+		seat.Size = Vector3.new(2.5, 0.8, 2.5)
+		seat.CFrame = CFrame.lookAt(center + Vector3.new(0, 1.4, z), center + Vector3.new(-side * 10, 1.4, z))
+		seat.Color = Color3.fromRGB(150, 30, 50)
+		seat.Material = Enum.Material.Fabric
+		seat.Parent = pavilion
+	end
+end
+
+---------------------------------------------------------------------
+-- LIGHT WATERFALLS pouring off the edge
+---------------------------------------------------------------------
+for i = 1, 8 do
+	local a = (i / 8) * math.pi * 2 + math.pi / 8
+	local edge = at(Vector3.new(math.cos(a) * (RADIUS + 0.6), 0, math.sin(a) * (RADIUS + 0.6)))
+	local color3 = (i % 2 == 0) and ROSE or TEAL
+	local fall = part({
+		Name = "LightFall",
+		Size = Vector3.new(6, 46, 0.3),
+		CFrame = CFrame.lookAt(edge - Vector3.new(0, 23, 0), at(Vector3.new(0, -23, 0))),
+		Color = color3,
+		Material = Enum.Material.Neon,
+		Transparency = 0.55,
+		CanCollide = false,
+	})
+	local mist = Instance.new("ParticleEmitter")
+	mist.Texture = Config.Textures.Sparkle
+	mist.Rate = 12
+	mist.Lifetime = NumberRange.new(1.5, 2.5)
+	mist.Speed = NumberRange.new(0, 1)
+	mist.Acceleration = Vector3.new(0, -8, 0)
+	mist.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.5), NumberSequenceKeypoint.new(1, 0) })
+	mist.LightEmission = 1
+	mist.LightInfluence = 0
+	mist.Color = ColorSequence.new(color3, Color3.new(1, 1, 1))
+	mist.Parent = fall
+end
+
+---------------------------------------------------------------------
+-- DECORATION: crystals, floating lanterns, golden dust
+---------------------------------------------------------------------
+local crystalSpots = { 0.4, 1.2, 2.0, 2.7, 3.6, 4.4, 5.2, 5.9 }
+for i, a in ipairs(crystalSpots) do
+	local r = RADIUS - rand:NextNumber(7, 12)
+	local position = at(Vector3.new(math.cos(a) * r, 0, math.sin(a) * r))
+	-- keep clear of the return portal path (north) and pavilions
+	local nearPortal = math.abs(position.X - CENTER.X) < 12 and position.Z < CENTER.Z - 30
+	if not nearPortal then
+		crystalCluster(position, (i % 3 == 0) and GOLD or (i % 3 == 1) and ROSE or TEAL)
+	end
+end
+
+local lanternColors = { Color3.fromRGB(255, 210, 140), ROSE, TEAL, GOLD }
+for i = 1, 18 do
+	local a = rand:NextNumber(0, math.pi * 2)
+	local r = rand:NextNumber(14, RADIUS - 5)
+	local lantern = part({
+		Name = "VIPLantern", -- WorldFX makes these bob
+		Size = Vector3.new(1.1, 1.5, 1.1),
+		CFrame = CFrame.new(at(Vector3.new(math.cos(a) * r, rand:NextNumber(9, 24), math.sin(a) * r))),
+		Color = lanternColors[(i % #lanternColors) + 1],
+		Material = Enum.Material.Neon,
+		Transparency = 0.1,
+		CanCollide = false,
+	})
+	addLight(lantern, lantern.Color, 10, 1)
+end
+
+local dust = part({
+	Name = "GoldenDust",
+	Size = Vector3.new(RADIUS * 2, 30, RADIUS * 2),
+	CFrame = CFrame.new(at(Vector3.new(0, 15, 0))),
+	Transparency = 1,
+	CanCollide = false,
+	CanQuery = false,
+	CanTouch = false,
+})
+local dustEmitter = addSparkles(dust, GOLD, 45, 0.35)
+dustEmitter.Lifetime = NumberRange.new(5, 9)
+dustEmitter.Speed = NumberRange.new(0.2, 0.8)
+dustEmitter.Color = ColorSequence.new(Color3.fromRGB(255, 220, 150), ROSE)
+
+---------------------------------------------------------------------
+-- RETURN PORTAL (north edge, facing the island)
+---------------------------------------------------------------------
+local RETURN_CENTER = at(Vector3.new(0, 6.4, -56))
+local returnCF = CFrame.lookAt(RETURN_CENTER, RETURN_CENTER + Vector3.new(0, 0, 1))
+part({
+	Name = "ReturnDais",
+	Size = Vector3.new(12, 1, 5),
+	CFrame = CFrame.new(at(Vector3.new(0, 0.5, -56))),
+	Color = MARBLE_DARK,
+	Material = Enum.Material.Marble,
+})
+for _, side in ipairs({ -1, 1 }) do
+	column(at(Vector3.new(side * 6.6, 0, -56)), 12, 1, island)
+end
+portalRing("ReturnPortalRing", returnCF, 4.6, 30, 0.55, TEAL)
+portalRing("ReturnPortalRingOuter", returnCF, 5.4, 36, 0.25, GOLD)
+local returnSwirl = part({
+	Name = "ReturnPortalSwirl",
+	Shape = Enum.PartType.Cylinder,
+	Size = Vector3.new(0.3, 8.8, 8.8),
+	CFrame = returnCF * CFrame.Angles(0, math.pi / 2, 0),
+	Color = Color3.fromRGB(140, 120, 255),
+	Material = Enum.Material.ForceField,
+	CanCollide = false,
+})
+part({
+	Name = "ReturnPortalCore",
+	Shape = Enum.PartType.Cylinder,
+	Size = Vector3.new(0.2, 7.8, 7.8),
+	CFrame = returnCF * CFrame.Angles(0, math.pi / 2, 0),
+	Color = Color3.fromRGB(150, 110, 255),
+	Material = Enum.Material.Neon,
+	Transparency = 0.55,
+	CanCollide = false,
+})
+addLight(returnSwirl, Color3.fromRGB(150, 130, 255), 24, 2.5)
+addSparkles(returnSwirl, Color3.fromRGB(190, 170, 255), 20, 0.5)
+billboard(returnSwirl, "⟲ BACK TO COSMIC ISLAND", Color3.fromRGB(200, 190, 255), Vector3.new(0, 7, 0), UDim2.fromOffset(360, 50))
+local returnTrigger = part({
+	Name = "ReturnPortalTrigger",
+	Size = Vector3.new(8, 8, 2),
+	CFrame = returnCF,
+	Transparency = 1,
+	CanCollide = false,
+})
+
+island.Parent = workspace
+
+---------------------------------------------------------------------
+-- PORTAL LOGIC
+---------------------------------------------------------------------
+local mainIsland = workspace:WaitForChild("CosmicIsland")
+local lounge = mainIsland:WaitForChild("VIPLounge")
+local templeTrigger = lounge:WaitForChild("VIPPortalTrigger")
+-- where you come out on the main island: in front of the portal, facing the door
+local templeExit = CFrame.lookAt(
+	templeTrigger.Position + Vector3.new(-7, -3, 0),
+	templeTrigger.Position + Vector3.new(-20, -3, 0)
+)
+
+local busy = {} -- [player] = true while teleporting
+
+local function isVIP(player)
+	return player:GetAttribute("Pass_VIP") == true
+end
+
+local function teleport(player, destination)
+	if busy[player] then
+		return
+	end
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not root then
+		return
+	end
+	busy[player] = true
+	PortalFXRemote:FireClient(player, "Out")
+	task.wait(0.35)
+	if character.Parent then
+		root.AssemblyLinearVelocity = Vector3.zero
+		character:PivotTo(destination)
+	end
+	PortalFXRemote:FireClient(player, "In")
+	task.wait(1) -- don't bounce straight back through the other portal
+	busy[player] = nil
+end
+
+local function playerFromHit(hit)
+	local character = hit:FindFirstAncestorOfClass("Model")
+	local player = character and Players:GetPlayerFromCharacter(character)
+	if player and character:FindFirstChildOfClass("Humanoid") and character.Humanoid.Health > 0 then
+		return player
+	end
+	return nil
+end
+
+local deniedAt = {}
+templeTrigger.Touched:Connect(function(hit)
+	local player = playerFromHit(hit)
+	if not player then
+		return
+	end
+	if isVIP(player) then
+		teleport(player, ARRIVAL)
+	elseif os.clock() - (deniedAt[player] or 0) > 3 then
+		deniedAt[player] = os.clock()
+		PortalFXRemote:FireClient(player, "Denied")
+	end
+end)
+
+returnTrigger.Touched:Connect(function(hit)
+	local player = playerFromHit(hit)
+	if player then
+		teleport(player, templeExit)
+	end
+end)
+
+-- Who is standing on Royal Island? (gives the luck bonus)
+local function onIsland(root)
+	local offset = root.Position - CENTER
+	local flat = Vector3.new(offset.X, 0, offset.Z)
+	return flat.Magnitude < RADIUS + 8 and offset.Y > -20 and offset.Y < 80
+end
+
+task.spawn(function()
+	while true do
+		for _, player in ipairs(Players:GetPlayers()) do
+			local character = player.Character
+			local root = character and character:FindFirstChild("HumanoidRootPart")
+			local here = root ~= nil and onIsland(root)
+			if here and not isVIP(player) and not busy[player] then
+				-- not allowed here: send them home
+				task.spawn(teleport, player, CFrame.new(0, 4, 0))
+				here = false
+			end
+			if player:GetAttribute("OnVIPIsland") ~= here then
+				player:SetAttribute("OnVIPIsland", here)
+			end
+		end
+		task.wait(0.5)
+	end
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+	busy[player] = nil
+	deniedAt[player] = nil
+end)
+]]></string>
+      </Properties>
+    </Item>
+    <Item class="Script" referent="12">
       <Properties>
         <string name="Name">WorldSetup</string>
         <token name="RunContext">0</token>
@@ -2496,7 +3270,15 @@ net.Touched:Connect(function(hit)
 	local root = character and character:FindFirstChild("HumanoidRootPart")
 	if humanoid and root then
 		root.AssemblyLinearVelocity = Vector3.zero
-		character:PivotTo(CFrame.new(SPAWN_POSITION))
+		local vip = Config.VIPIsland
+		local flat = Vector3.new(root.Position.X - vip.Center.X, 0, root.Position.Z - vip.Center.Z)
+		local player = game:GetService("Players"):GetPlayerFromCharacter(character)
+		if flat.Magnitude < vip.Radius * 3 and player and player:GetAttribute("Pass_VIP") then
+			-- fell off Royal Island: back to its portal
+			character:PivotTo(CFrame.new(vip.Center + Vector3.new(0, 4, -45)))
+		else
+			character:PivotTo(CFrame.new(SPAWN_POSITION))
+		end
 	end
 end)
 
@@ -2682,6 +3464,10 @@ for i = 1, 12 do
 	local r = rand:NextNumber(30, 55)
 	local height = rand:NextNumber(10, 20)
 	local size = rand:NextNumber(1.6, 3)
+	local floatPosition = Vector3.new(math.cos(a) * r, 0, math.sin(a) * r)
+	if isReserved(floatPosition, 4) then
+		continue -- keep the sky above the temple, core and board clear
+	end
 	local crystal = part({
 		Name = "FloatingCrystal",
 		Size = Vector3.new(size * 0.5, size * 1.6, size * 0.5),
@@ -2787,39 +3573,345 @@ signText.BackgroundTransparency = 1
 signText.Size = UDim2.fromScale(1, 1)
 signText.Font = Enum.Font.FredokaOne
 signText.TextScaled = true
-signText.Text = "👑 VIP LOUNGE"
+signText.Text = "👑 VIP TEMPLE"
 signText.TextColor3 = GOLD
 signText.Parent = signGui
 
--- inside: golden crystals, a fountain of sparkles and two seats
-crystalCluster(LOUNGE_CENTER + Vector3.new(6, 1, 6), GOLD)
-crystalCluster(LOUNGE_CENTER + Vector3.new(6, 1, -6), Color3.fromRGB(255, 160, 220))
-local fountain = part({
-	Name = "Fountain",
-	Shape = Enum.PartType.Cylinder,
-	Size = Vector3.new(1.2, 6, 6),
-	CFrame = CFrame.new(LOUNGE_CENTER + Vector3.new(-2, 1.6, 0)) * FLAT,
-	Color = GOLD,
-	Material = Enum.Material.Neon,
+---------------------------------------------------------------------
+-- VIP TEMPLE INTERIOR: red carpet leading to the Royal Portal
+-- (portal, crown and chandelier are animated by WorldFX;
+--  the VIPIsland script teleports VIPs who step into the portal)
+---------------------------------------------------------------------
+local MARBLE = Color3.fromRGB(235, 228, 215)
+local RED = Color3.fromRGB(150, 30, 50)
+local ROSE = Color3.fromRGB(255, 130, 190)
+
+-- A vertical ring facing along portalCF's look direction, as its own Model
+local function portalRing(name, portalCF, radius, segments, thickness, color3, parent)
+	local model = Instance.new("Model")
+	model.Name = name
+	local length = (2 * math.pi * radius / segments) * 1.08
+	for i = 1, segments do
+		local a = (i / segments) * math.pi * 2
+		local radial = Vector3.new(math.cos(a), math.sin(a), 0)
+		part({
+			Name = "Segment",
+			Size = Vector3.new(thickness, thickness, length),
+			CFrame = portalCF * CFrame.fromMatrix(radial * radius, radial, Vector3.new(0, 0, 1)),
+			Color = color3,
+			Material = Enum.Material.Neon,
+			CanCollide = false,
+			CanQuery = false,
+			CastShadow = false,
+			Parent = model,
+		})
+	end
+	model.WorldPivot = portalCF
+	model.Parent = parent
+	return model
+end
+
+-- Corner pillars with gold caps
+for _, corner in ipairs({ { 1, 1 }, { 1, -1 }, { -1, 1 }, { -1, -1 } }) do
+	local x, z = LX + corner[1] * H, LZ + corner[2] * H
+	part({
+		Name = "Pillar",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(12, 2.6, 2.6),
+		CFrame = CFrame.new(x, 7, z) * FLAT,
+		Color = MARBLE,
+		Material = Enum.Material.Marble,
+		Parent = lounge,
+	})
+	part({
+		Name = "PillarBase",
+		Size = Vector3.new(3.4, 1, 3.4),
+		CFrame = CFrame.new(x, 1.5, z),
+		Color = GOLD,
+		Material = Enum.Material.Metal,
+		Parent = lounge,
+	})
+	local cap = part({
+		Name = "PillarCap",
+		Size = Vector3.new(3.4, 0.8, 3.4),
+		CFrame = CFrame.new(x, 13.4, z),
+		Color = GOLD,
+		Material = Enum.Material.Neon,
+		CanCollide = false,
+		Parent = lounge,
+	})
+	addLight(cap, GOLD, 14, 1)
+end
+
+-- Red carpet from the door to the portal steps
+local carpetStart, carpetEnd = LX - H + 0.4, LX + H - 7
+local carpetLength = carpetEnd - carpetStart
+part({
+	Name = "Carpet",
+	Size = Vector3.new(carpetLength, 0.12, 4.4),
+	CFrame = CFrame.new((carpetStart + carpetEnd) / 2, 1.06, LZ),
+	Color = RED,
+	Material = Enum.Material.Fabric,
 	Parent = lounge,
 })
-local fountainSpray = addSparkles(fountain, GOLD, 30, 0.6)
-fountainSpray.Speed = NumberRange.new(6, 10)
-fountainSpray.SpreadAngle = Vector2.new(15, 15)
-fountainSpray.EmissionDirection = Enum.NormalId.Right -- cylinder's top after rotation
-fountainSpray.Acceleration = Vector3.new(0, -12, 0)
-addLight(fountain, GOLD, 20, 2)
-for _, z in ipairs({ -5, 5 }) do
-	local seat = Instance.new("Seat")
-	seat.Name = "VIPSeat"
-	seat.Anchored = true
-	seat.Size = Vector3.new(3, 1, 3)
-	seat.CFrame = CFrame.new(LOUNGE_CENTER + Vector3.new(-8, 1.5, z)) * CFrame.Angles(0, math.rad(-90), 0)
-	seat.Color = Color3.fromRGB(150, 40, 60)
-	seat.Material = Enum.Material.Fabric
-	seat.TopSurface = Enum.SurfaceType.Smooth
-	seat.Parent = lounge
+for _, side in ipairs({ -1, 1 }) do
+	part({
+		Name = "CarpetTrim",
+		Size = Vector3.new(carpetLength, 0.14, 0.35),
+		CFrame = CFrame.new((carpetStart + carpetEnd) / 2, 1.07, LZ + side * 2.3),
+		Color = GOLD,
+		Material = Enum.Material.Neon,
+		CanCollide = false,
+		Parent = lounge,
+	})
 end
+
+-- Steps up to the portal
+part({ Name = "Step1", Size = Vector3.new(2, 0.4, 10), CFrame = CFrame.new(LX + H - 6, 1.2, LZ), Color = MARBLE, Material = Enum.Material.Marble, Parent = lounge })
+part({ Name = "Step2", Size = Vector3.new(2, 0.8, 10.5), CFrame = CFrame.new(LX + H - 4.5, 1.4, LZ), Color = MARBLE, Material = Enum.Material.Marble, Parent = lounge })
+part({ Name = "PortalDais", Size = Vector3.new(3.5, 1.2, 11), CFrame = CFrame.new(LX + H - 2, 1.6, LZ), Color = MARBLE, Material = Enum.Material.Marble, Parent = lounge })
+part({ Name = "DaisTrim", Size = Vector3.new(3.7, 0.25, 11.2), CFrame = CFrame.new(LX + H - 2, 2.25, LZ), Color = GOLD, Material = Enum.Material.Neon, CanCollide = false, Parent = lounge })
+
+-- THE ROYAL PORTAL (faces the door)
+local PORTAL_CENTER = Vector3.new(LX + H - 2.6, 7.4, LZ)
+local portalCF = CFrame.lookAt(PORTAL_CENTER, PORTAL_CENTER - Vector3.new(1, 0, 0))
+portalRing("VIPPortalRing", portalCF, 4.6, 30, 0.55, GOLD, lounge)
+portalRing("VIPPortalRingOuter", portalCF, 5.4, 36, 0.25, ROSE, lounge)
+local swirl = part({
+	Name = "VIPPortalSwirl",
+	Shape = Enum.PartType.Cylinder,
+	Size = Vector3.new(0.3, 8.8, 8.8),
+	CFrame = portalCF * CFrame.Angles(0, math.pi / 2, 0),
+	Color = Color3.fromRGB(255, 160, 220),
+	Material = Enum.Material.ForceField,
+	CanCollide = false,
+	Parent = lounge,
+})
+part({
+	Name = "VIPPortalCore",
+	Shape = Enum.PartType.Cylinder,
+	Size = Vector3.new(0.2, 7.8, 7.8),
+	CFrame = portalCF * CFrame.Angles(0, math.pi / 2, 0),
+	Color = Color3.fromRGB(255, 205, 130),
+	Material = Enum.Material.Neon,
+	Transparency = 0.55,
+	CanCollide = false,
+	Parent = lounge,
+})
+addLight(swirl, Color3.fromRGB(255, 170, 210), 24, 2.5)
+local portalSparkles = addSparkles(swirl, GOLD, 25, 0.5)
+portalSparkles.Speed = NumberRange.new(1, 3)
+part({
+	Name = "VIPPortalTrigger",
+	Size = Vector3.new(8, 8, 2), -- wide + tall, thin in the walking direction
+	CFrame = portalCF,
+	Transparency = 1,
+	CanCollide = false,
+	Parent = lounge,
+})
+
+-- Sign above the portal
+local portalSign = part({
+	Name = "PortalSign",
+	Size = Vector3.new(0.3, 1.8, 9),
+	CFrame = CFrame.new(LX + H - 2.6, 13.6, LZ),
+	Color = Color3.fromRGB(40, 25, 15),
+	Material = Enum.Material.SmoothPlastic,
+	CanCollide = false,
+	Parent = lounge,
+})
+local portalSignGui = Instance.new("SurfaceGui")
+portalSignGui.Face = Enum.NormalId.Left -- faces the door (-X)
+portalSignGui.LightInfluence = 0
+portalSignGui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+portalSignGui.PixelsPerStud = 40
+portalSignGui.Parent = portalSign
+local portalSignText = Instance.new("TextLabel")
+portalSignText.BackgroundTransparency = 1
+portalSignText.Size = UDim2.fromScale(1, 1)
+portalSignText.Font = Enum.Font.FredokaOne
+portalSignText.TextScaled = true
+portalSignText.Text = "✦ ROYAL ISLAND • x" .. Config.VIPIsland.LuckMultiplier .. " LUCK ✦"
+portalSignText.TextColor3 = GOLD
+portalSignText.Parent = portalSignGui
+
+-- Statues: pedestals with floating crystals beside the portal
+for _, side in ipairs({ -1, 1 }) do
+	local px, pz = LX + H - 5, LZ + side * 7
+	part({
+		Name = "Pedestal",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(3, 2.4, 2.4),
+		CFrame = CFrame.new(px, 2.5, pz) * FLAT,
+		Color = MARBLE,
+		Material = Enum.Material.Marble,
+		Parent = lounge,
+	})
+	part({
+		Name = "PedestalCap",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.3, 2.8, 2.8),
+		CFrame = CFrame.new(px, 4.1, pz) * FLAT,
+		Color = GOLD,
+		Material = Enum.Material.Neon,
+		CanCollide = false,
+		Parent = lounge,
+	})
+	local gem = part({
+		Name = "FloatingCrystal", -- WorldFX makes it bob and spin
+		Size = Vector3.new(1.2, 3, 1.2),
+		CFrame = CFrame.new(px, 6.6, pz),
+		Color = (side == 1) and ROSE or GOLD,
+		Material = Enum.Material.Neon,
+		CanCollide = false,
+	})
+	addLight(gem, gem.Color, 12, 1.5)
+end
+
+-- Royal benches along the side walls
+for _, side in ipairs({ -1, 1 }) do
+	for _, offset in ipairs({ -6, 0 }) do
+		local seat = Instance.new("Seat")
+		seat.Name = "VIPSeat"
+		seat.Anchored = true
+		seat.Size = Vector3.new(4, 1, 2)
+		seat.CFrame = CFrame.lookAt(Vector3.new(LX + offset, 1.6, LZ + side * (H - 1.6)), Vector3.new(LX + offset, 1.6, LZ))
+		seat.Color = RED
+		seat.Material = Enum.Material.Fabric
+		seat.TopSurface = Enum.SurfaceType.Smooth
+		seat.Parent = lounge
+		part({
+			Name = "BenchBack",
+			Size = Vector3.new(4, 2.2, 0.4),
+			CFrame = seat.CFrame * CFrame.new(0, 1.2, 0.9),
+			Color = GOLD,
+			Material = Enum.Material.Metal,
+			Parent = lounge,
+		})
+	end
+end
+
+-- Banners with crowns on the side walls
+for _, side in ipairs({ -1, 1 }) do
+	for _, offset in ipairs({ -3, 3 }) do
+		local position = Vector3.new(LX + offset * 2, 6.5, LZ + side * (H - 0.45))
+		local bannerPart = part({
+			Name = "Banner",
+			Size = Vector3.new(2.6, 5, 0.12),
+			CFrame = CFrame.lookAt(position, Vector3.new(position.X, position.Y, LZ)),
+			Color = RED,
+			Material = Enum.Material.Fabric,
+			CanCollide = false,
+			Parent = lounge,
+		})
+		local bannerGui = Instance.new("SurfaceGui")
+		bannerGui.Face = Enum.NormalId.Front
+		bannerGui.LightInfluence = 0
+		bannerGui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+		bannerGui.PixelsPerStud = 30
+		bannerGui.Parent = bannerPart
+		local crownText = Instance.new("TextLabel")
+		crownText.BackgroundTransparency = 1
+		crownText.Size = UDim2.fromScale(1, 0.6)
+		crownText.Position = UDim2.fromScale(0, 0.2)
+		crownText.TextScaled = true
+		crownText.Text = "👑"
+		crownText.Parent = bannerGui
+		part({
+			Name = "BannerRod",
+			Size = Vector3.new(3, 0.25, 0.25),
+			CFrame = bannerPart.CFrame * CFrame.new(0, 2.6, 0),
+			Color = GOLD,
+			Material = Enum.Material.Neon,
+			CanCollide = false,
+			Parent = lounge,
+		})
+	end
+end
+
+-- Chandelier (spins in WorldFX)
+local chandelier = ringModel("VIPChandelier", Vector3.new(LX - 3, 11, LZ), 3, 22, 0.3, GOLD, lounge)
+local chandelierCore = part({
+	Name = "ChandelierCore",
+	Shape = Enum.PartType.Ball,
+	Size = Vector3.one * 1.2,
+	CFrame = CFrame.new(LX - 3, 11, LZ),
+	Color = Color3.fromRGB(255, 230, 170),
+	Material = Enum.Material.Neon,
+	CanCollide = false,
+	Parent = chandelier,
+})
+addLight(chandelierCore, Color3.fromRGB(255, 210, 150), 26, 2)
+for i = 1, 6 do
+	local a = (i / 6) * math.pi * 2
+	part({
+		Name = "Drop",
+		Size = Vector3.new(0.4, 1.2, 0.4),
+		CFrame = CFrame.new(LX - 3 + math.cos(a) * 3, 10.2, LZ + math.sin(a) * 3) * CFrame.Angles(0, a, math.rad(45)),
+		Color = (i % 2 == 0) and ROSE or GOLD,
+		Material = Enum.Material.Neon,
+		CanCollide = false,
+		Parent = chandelier,
+	})
+end
+chandelier.WorldPivot = CFrame.new(LX - 3, 11, LZ)
+
+-- Floating crown above the temple (spins + bobs in WorldFX)
+local CROWN_CENTER = Vector3.new(LX, 17, LZ)
+local crown = ringModel("VIPCrown", CROWN_CENTER, 4, 30, 0.6, GOLD, lounge)
+for i = 1, 6 do
+	local a = (i / 6) * math.pi * 2
+	part({
+		Name = "Spike",
+		Size = Vector3.new(1, 2.6, 1),
+		CFrame = CFrame.new(CROWN_CENTER + Vector3.new(math.cos(a) * 4, 1.4, math.sin(a) * 4)) * CFrame.Angles(0, -a, 0),
+		Color = GOLD,
+		Material = Enum.Material.Neon,
+		CanCollide = false,
+		Parent = crown,
+	})
+	part({
+		Name = "Jewel",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.one * 0.8,
+		CFrame = CFrame.new(CROWN_CENTER + Vector3.new(math.cos(a) * 4, 3, math.sin(a) * 4)),
+		Color = (i % 2 == 0) and ROSE or Color3.fromRGB(90, 230, 210),
+		Material = Enum.Material.Neon,
+		CanCollide = false,
+		Parent = crown,
+	})
+end
+crown.WorldPivot = CFrame.new(CROWN_CENTER)
+local crownLight = part({ Name = "CrownLight", Size = Vector3.one * 0.2, Transparency = 1, CanCollide = false, CFrame = CFrame.new(CROWN_CENTER), Parent = crown })
+addLight(crownLight, GOLD, 30, 2)
+addSparkles(crownLight, GOLD, 10, 0.6)
+
+-- Torches either side of the door (outside)
+for _, side in ipairs({ -1, 1 }) do
+	local tx, tz = LX - H - 1.2, LZ + side * 4.2
+	part({ Name = "TorchPost", Size = Vector3.new(0.6, 5, 0.6), CFrame = CFrame.new(tx, 3.5, tz), Color = GOLD, Material = Enum.Material.Metal })
+	local flame = part({
+		Name = "TorchFlame",
+		Size = Vector3.new(0.9, 0.9, 0.9),
+		CFrame = CFrame.new(tx, 6.4, tz),
+		Color = Color3.fromRGB(255, 170, 80),
+		Material = Enum.Material.Neon,
+		CanCollide = false,
+	})
+	local fire = Instance.new("ParticleEmitter")
+	fire.Texture = Config.Textures.Fire
+	fire.Rate = 20
+	fire.Lifetime = NumberRange.new(0.4, 0.8)
+	fire.Speed = NumberRange.new(1, 2.5)
+	fire.Acceleration = Vector3.new(0, 4, 0)
+	fire.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0) })
+	fire.LightEmission = 1
+	fire.LightInfluence = 0
+	fire.Color = ColorSequence.new(Color3.fromRGB(255, 220, 120), Color3.fromRGB(255, 90, 40))
+	fire.Parent = flame
+	addLight(flame, Color3.fromRGB(255, 170, 90), 16, 1.6)
+end
+
 
 ---------------------------------------------------------------------
 -- LEADERBOARD BOARD (filled in by the Leaderboard script)
@@ -2969,15 +4061,15 @@ island.Parent = workspace
       </Properties>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="11">
+  <Item class="StarterPlayer" referent="13">
     <Properties>
       <string name="Name">StarterPlayer</string>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="12">
+    <Item class="StarterPlayerScripts" referent="14">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="LocalScript" referent="13">
+      <Item class="LocalScript" referent="15">
         <Properties>
           <string name="Name">AuraRenderer</string>
           <string name="Source"><![CDATA[-- AuraRenderer (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -3443,7 +4535,7 @@ end
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="14">
+      <Item class="LocalScript" referent="16">
         <Properties>
           <string name="Name">RollUI</string>
           <string name="Source"><![CDATA[-- RollUI (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -3629,7 +4721,7 @@ local reveal = new("Frame", {
 	Name = "Reveal",
 	AnchorPoint = Vector2.new(0.5, 0.5),
 	Position = UDim2.fromScale(0.5, 0.4),
-	Size = UDim2.fromOffset(700, 260),
+	Size = UDim2.fromOffset(700, 420),
 	BackgroundTransparency = 1,
 	ZIndex = 6,
 	Visible = false,
@@ -3640,11 +4732,41 @@ UIKit.addAutoScale(reveal)
 local popHolder = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 6, Parent = reveal })
 local popScale = new("UIScale", { Parent = popHolder })
 
+-- The aura's picture sits above the card (hidden if it has no picture yet)
+local IMAGE_SIZE = 170
+local IMAGE_Y = 85 -- center of the picture
+local imageGlow = new("Frame", {
+	Name = "ImageGlow",
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.new(0.5, 0, 0, IMAGE_Y),
+	Size = UDim2.fromOffset(IMAGE_SIZE + 40, IMAGE_SIZE + 40),
+	BackgroundColor3 = THEME.Accent,
+	BackgroundTransparency = 0.6,
+	ZIndex = 6,
+	Visible = false,
+	Parent = popHolder,
+}, { corner(UDim.new(0, 40)) })
+local auraImage = new("ImageLabel", {
+	Name = "AuraImage",
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.new(0.5, 0, 0, IMAGE_Y),
+	Size = UDim2.fromOffset(IMAGE_SIZE, IMAGE_SIZE),
+	BackgroundColor3 = THEME.Panel,
+	ScaleType = Enum.ScaleType.Crop,
+	Image = "",
+	ZIndex = 7,
+	Visible = false,
+	Parent = popHolder,
+}, { corner(UDim.new(0, 26)) })
+local imageBorder = stroke(THEME.Accent, 4, 0)
+imageBorder.Parent = auraImage
+local imageScale = new("UIScale", { Parent = auraImage })
+
 local CARD_TRANSPARENCY = 0.15
 local card = new("Frame", {
 	Name = "Card",
 	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.fromScale(0.5, 0),
+	Position = UDim2.new(0.5, 0, 0, 150),
 	Size = UDim2.fromOffset(620, 196),
 	BackgroundColor3 = Color3.new(1, 1, 1),
 	BackgroundTransparency = CARD_TRANSPARENCY,
@@ -3680,24 +4802,24 @@ local shine = new("Frame", {
 })
 
 local tierLabel = label({
-	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 12), Size = UDim2.new(1, 0, 0, 30),
+	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 162), Size = UDim2.new(1, 0, 0, 30),
 	Text = "", Font = TITLE_FONT, TextSize = 26, ZIndex = 6, Parent = popHolder,
 })
 textStroke(2).Parent = tierLabel
 local nameLabel = label({
-	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 92), Size = UDim2.new(1, 0, 0, 96),
+	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 242), Size = UDim2.new(1, 0, 0, 96),
 	Text = "", Font = TITLE_FONT, TextSize = 84, ZIndex = 6, Parent = popHolder,
 })
 textStroke(3.5).Parent = nameLabel
 local nameGradient = new("UIGradient", { Parent = nameLabel })
 local chanceLabel = label({
-	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 142), Size = UDim2.new(1, 0, 0, 34),
+	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 292), Size = UDim2.new(1, 0, 0, 34),
 	Text = "", Font = TITLE_FONT, TextSize = 30, TextColor3 = THEME.SubText, ZIndex = 6, Parent = popHolder,
 })
 textStroke(2).Parent = chanceLabel
 
 local badgeLabel = label({
-	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0), Size = UDim2.fromOffset(170, 32),
+	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 346), Size = UDim2.fromOffset(170, 32),
 	Text = "", Font = TITLE_FONT, TextSize = 20, ZIndex = 7, BackgroundTransparency = 0,
 	BackgroundColor3 = THEME.Good, Visible = false, Parent = popHolder,
 })
@@ -3709,7 +4831,7 @@ local badgeScale = new("UIScale", { Parent = badgeLabel })
 local extrasRow = new("Frame", {
 	Name = "Extras",
 	AnchorPoint = Vector2.new(0.5, 0),
-	Position = UDim2.new(0.5, 0, 0, 208),
+	Position = UDim2.new(0.5, 0, 0, 372),
 	Size = UDim2.fromOffset(620, 36),
 	BackgroundTransparency = 1,
 	ZIndex = 6,
@@ -3736,6 +4858,15 @@ local function setRevealAura(aura)
 	tierLabel.TextColor3 = tierColor
 	cardGradient.Color = ColorSequence.new(tierColor:Lerp(THEME.Panel, 0.55), THEME.Panel)
 	cardBorder.Color = tierColor
+
+	local image = AuraData.GetImage(aura.Name)
+	auraImage.Visible = image ~= nil
+	imageGlow.Visible = image ~= nil
+	if image then
+		auraImage.Image = image
+		imageBorder.Color = tierColor
+		imageGlow.BackgroundColor3 = tierColor
+	end
 end
 
 local function setRevealVisible(visible, duration)
@@ -3758,6 +4889,9 @@ local function setRevealVisible(visible, duration)
 	end
 	apply(card, { BackgroundTransparency = cardT })
 	apply(cardBorder, { Transparency = borderT })
+	apply(auraImage, { ImageTransparency = textT, BackgroundTransparency = textT })
+	apply(imageBorder, { Transparency = borderT })
+	apply(imageGlow, { BackgroundTransparency = visible and 0.6 or 1 })
 end
 
 local function clearExtras()
@@ -3858,6 +4992,10 @@ local bannerLabel = label({
 	Size = UDim2.new(1, -20, 1, 0), Position = UDim2.fromOffset(10, 0), RichText = true,
 	Text = "", Font = TITLE_FONT, TextSize = 22, ZIndex = 9, TextWrapped = true, Parent = banner,
 })
+local bannerIcon = new("ImageLabel", {
+	AnchorPoint = Vector2.new(0, 0.5), Position = UDim2.new(0, 8, 0.5, 0), Size = UDim2.fromOffset(44, 44),
+	BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Crop, ZIndex = 9, Visible = false, Parent = banner,
+}, { corner(UDim.new(0, 10)) })
 
 ---------------------------------------------------------------------
 -- EFFECTS: camera shake, FOV punch, flash
@@ -3900,7 +5038,7 @@ end
 ---------------------------------------------------------------------
 -- LUCK LINE + STATS
 ---------------------------------------------------------------------
-local BONUS_ICONS = { ["2x Luck"] = "🍀", VIP = "👑", Potion = "🧪", Server = "🌌", Event = "☄️" }
+local BONUS_ICONS = { ["2x Luck"] = "🍀", VIP = "👑", Potion = "🧪", Server = "🌌", Event = "☄️", ["Royal Island"] = "🏝" }
 
 local function updateInfo()
 	local total = Luck.Get(player)
@@ -3910,6 +5048,9 @@ local function updateInfo()
 		if bonus.EndsAt then
 			table.insert(parts, ("<font color='#ffd76a'>%s %s</font>"):format(
 				BONUS_ICONS[bonus.Name] or "✦", Luck.FormatTime(bonus.EndsAt - now)))
+		elseif bonus.Show then
+			table.insert(parts, ("<font color='#ffb4dc'>%s %s x%s</font>"):format(
+				BONUS_ICONS[bonus.Name] or "✦", bonus.Name, Luck.Format(bonus.Multiplier)))
 		end
 	end
 	luckLine.Text = table.concat(parts, "   ")
@@ -4118,6 +5259,8 @@ local function playRollAnimation(result, fast)
 		setRevealAura(fake)
 		popScale.Scale = 1.1
 		tween(popScale, 0.08, { Scale = 1 })
+		imageScale.Scale = 0.9
+		tween(imageScale, 0.08, { Scale = 1 })
 		nameLabel.Rotation = rand:NextNumber(-3, 3)
 		SoundFX.Play("Tick", { Speed = 0.85 + progress * 0.9 })
 		task.wait((fast and 0.03 or 0.04) + progress ^ 3 * (fast and 0.12 or 0.28))
@@ -4140,6 +5283,15 @@ local function playRollAnimation(result, fast)
 	tween(nameLabel, 0.8, { Rotation = 0 }, Enum.EasingStyle.Elastic)
 	cardBorder.Thickness = 8
 	tween(cardBorder, 0.6, { Thickness = 3 })
+	if auraImage.Visible then
+		imageScale.Scale = 0.3
+		auraImage.Rotation = -25
+		tween(imageScale, 0.55, { Scale = 1 }, Enum.EasingStyle.Back)
+		tween(auraImage, 0.9, { Rotation = 0 }, Enum.EasingStyle.Elastic)
+		imageGlow.Size = UDim2.fromOffset(IMAGE_SIZE + 140, IMAGE_SIZE + 140)
+		imageGlow.BackgroundTransparency = 0.2
+		tween(imageGlow, 0.7, { Size = UDim2.fromOffset(IMAGE_SIZE + 40, IMAGE_SIZE + 40), BackgroundTransparency = 0.6 }, Enum.EasingStyle.Quint)
+	end
 	shine.Position = UDim2.fromScale(-0.2, 0.5)
 	tween(shine, 0.7, { Position = UDim2.fromScale(1.2, 0.5) }, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
 
@@ -4358,7 +5510,7 @@ local list = new("ScrollingFrame", {
 	ZIndex = 8, Parent = inventory,
 }, {
 	new("UIGridLayout", {
-		CellSize = UDim2.fromOffset(200, 170), CellPadding = UDim2.fromOffset(10, 10),
+		CellSize = UDim2.fromOffset(200, 214), CellPadding = UDim2.fromOffset(10, 10),
 		SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Center,
 	}),
 	new("UIPadding", { PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 8) }),
@@ -4390,49 +5542,78 @@ local function buildCard(aura, count, index, animate)
 		tween(cardScale, 0.12, { Scale = 1 })
 	end)
 
+	-- picture (or a placeholder) in the top-left corner
+	local image = AuraData.GetImage(aura.Name)
+	local thumb
+	if owned and image then
+		thumb = new("ImageLabel", {
+			Position = UDim2.fromOffset(10, 10), Size = UDim2.fromOffset(58, 58),
+			BackgroundColor3 = THEME.Panel, Image = image, ScaleType = Enum.ScaleType.Crop,
+			ZIndex = 8, Parent = cardFrame,
+		}, { corner(UDim.new(0, 10)) })
+	else
+		thumb = new("Frame", {
+			Position = UDim2.fromOffset(10, 10), Size = UDim2.fromOffset(58, 58),
+			BackgroundColor3 = owned and Color3.new(1, 1, 1) or Color3.fromRGB(24, 20, 44),
+			ZIndex = 8, Parent = cardFrame,
+		}, { corner(UDim.new(0, 10)) })
+		if owned then
+			UIKit.gradient(aura.Colors[1], aura.Colors[2], 45).Parent = thumb
+		end
+		label({
+			Size = UDim2.fromScale(1, 1), Text = owned and "✦" or "?", Font = TITLE_FONT, TextSize = 30,
+			TextColor3 = owned and Color3.new(1, 1, 1) or Color3.fromRGB(110, 100, 140), ZIndex = 8, Parent = thumb,
+		})
+	end
+	stroke(tier.Color, 2, owned and 0 or 0.6).Parent = thumb
+
 	local nameText = label({
-		Position = UDim2.fromOffset(10, 6), Size = UDim2.new(1, -20, 0, 28),
-		Text = owned and aura.Name or "???", Font = TITLE_FONT, TextSize = 22,
+		Position = UDim2.fromOffset(76, 10), Size = UDim2.new(1, -86, 0, 24),
+		Text = owned and aura.Name or "???", Font = TITLE_FONT, TextScaled = true,
 		TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = cardFrame,
 	})
+	new("UITextSizeConstraint", { MaxTextSize = 20, Parent = nameText })
 	if owned then
 		UIKit.gradient(UIKit.readable(aura.Colors[1]), UIKit.readable(aura.Colors[2]), 0).Parent = nameText
 	else
 		nameText.TextColor3 = Color3.fromRGB(110, 100, 140)
 	end
 
-	label({
-		Position = UDim2.fromOffset(10, 32), Size = UDim2.new(1, -20, 0, 18),
-		Text = ("%s • %s"):format(aura.Tier, AuraData.FormatChance(aura.Chance)),
-		TextSize = 13, TextColor3 = tier.Color, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = cardFrame,
+	local tierText = label({
+		Position = UDim2.fromOffset(76, 36), Size = UDim2.new(1, -86, 0, 14),
+		Text = aura.Tier, TextScaled = true, TextColor3 = tier.Color,
+		TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = cardFrame,
 	})
+	new("UITextSizeConstraint", { MaxTextSize = 13, Parent = tierText })
+	local chanceText = label({
+		Position = UDim2.fromOffset(76, 52), Size = UDim2.new(1, -86, 0, 14),
+		Text = AuraData.FormatChance(aura.Chance) .. (owned and ("  •  x" .. AuraData.FormatNumber(count)) or ""),
+		TextScaled = true, TextColor3 = THEME.SubText,
+		TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = cardFrame,
+	})
+	new("UITextSizeConstraint", { MaxTextSize = 12, Parent = chanceText })
 
 	if owned then
 		label({
-			AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 8), Size = UDim2.fromOffset(60, 22),
-			Text = "x" .. AuraData.FormatNumber(count), TextSize = 15, TextColor3 = THEME.SubText,
-			TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 8, Parent = cardFrame,
-		})
-		label({
-			Position = UDim2.fromOffset(10, 54), Size = UDim2.new(1, -20, 0, 18),
+			Position = UDim2.fromOffset(10, 78), Size = UDim2.new(1, -20, 0, 18),
 			Text = ("⚡ %s"):format(aura.Power.Name), TextSize = 14, TextColor3 = Color3.fromRGB(255, 220, 120),
 			TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = cardFrame,
 		})
 		label({
-			Position = UDim2.fromOffset(10, 72), Size = UDim2.new(1, -20, 0, 34),
+			Position = UDim2.fromOffset(10, 96), Size = UDim2.new(1, -20, 0, 34),
 			Text = aura.Power.Description, TextSize = 12, Font = Enum.Font.Gotham, TextWrapped = true,
 			TextColor3 = THEME.SubText, TextXAlignment = Enum.TextXAlignment.Left,
 			TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 8, Parent = cardFrame,
 		})
 		label({
-			Position = UDim2.fromOffset(10, 106), Size = UDim2.new(1, -20, 0, 16),
+			Position = UDim2.fromOffset(10, 132), Size = UDim2.new(1, -20, 0, 16),
 			Text = ("❤ %d HP   ⚔ %d DMG"):format(tier.MaxHealth, tier.AttackDamage),
 			TextSize = 12, TextColor3 = Color3.fromRGB(255, 150, 160),
 			TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = cardFrame,
 		})
 
 		local equipButton = new("TextButton", {
-			AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -8), Size = UDim2.new(1, -20, 0, 32),
+			AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -10), Size = UDim2.new(1, -20, 0, 34),
 			BackgroundColor3 = equipped and THEME.Good or THEME.Accent, AutoButtonColor = false,
 			Text = equipped and "EQUIPPED" or "EQUIP", Font = TITLE_FONT, TextSize = 18,
 			TextColor3 = THEME.Text, ZIndex = 8, Parent = cardFrame,
@@ -4449,7 +5630,7 @@ local function buildCard(aura, count, index, animate)
 		end)
 	else
 		label({
-			Position = UDim2.fromOffset(10, 60), Size = UDim2.new(1, -20, 0, 60),
+			Position = UDim2.fromOffset(10, 90), Size = UDim2.new(1, -20, 0, 60),
 			Text = "Not discovered yet.\nKeep rolling!", TextSize = 14, Font = Enum.Font.Gotham,
 			TextColor3 = Color3.fromRGB(130, 120, 160), TextWrapped = true, ZIndex = 8, Parent = cardFrame,
 		})
@@ -4505,7 +5686,11 @@ end)
 -- ANNOUNCEMENTS
 ---------------------------------------------------------------------
 local bannerToken = 0
-local function showBanner(message, color)
+local function showBanner(message, color, image)
+	bannerIcon.Visible = image ~= nil
+	bannerIcon.Image = image or ""
+	bannerLabel.Position = UDim2.fromOffset(image and 58 or 10, 0)
+	bannerLabel.Size = UDim2.new(1, image and -68 or -20, 1, 0)
 	bannerToken += 1
 	local token = bannerToken
 	bannerLabel.Text = message
@@ -4562,7 +5747,7 @@ AnnounceRemote.OnClientEvent:Connect(function(info)
 	end
 	local hex = tierOf(aura).Color:ToHex()
 	showBanner(("✦ <b>%s</b> rolled <font color='#%s'><b>%s</b></font> (%s) ✦"):format(
-		info.PlayerName, hex, aura.Name, AuraData.FormatChance(aura.Chance)), tierOf(aura).Color)
+		info.PlayerName, hex, aura.Name, AuraData.FormatChance(aura.Chance)), tierOf(aura).Color, AuraData.GetImage(aura.Name))
 	if info.UserId ~= player.UserId then
 		SoundFX.Play("Pop", { Volume = 0.7 })
 	end
@@ -4652,7 +5837,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="15">
+      <Item class="LocalScript" referent="17">
         <Properties>
           <string name="Name">StoreUI</string>
           <string name="Source"><![CDATA[-- StoreUI (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -5003,7 +6188,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="16">
+      <Item class="LocalScript" referent="18">
         <Properties>
           <string name="Name">WorldFX</string>
           <string name="Source"><![CDATA[-- WorldFX (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -5210,12 +6395,197 @@ if door then
 		end
 	end)
 end
+
+---------------------------------------------------------------------
+-- VIP TEMPLE + ROYAL ISLAND animations
+---------------------------------------------------------------------
+local Lighting = game:GetService("Lighting")
+
+-- things that spin around a fixed pivot: { Model, BaseCFrame, Function(t) -> CFrame offset }
+local spinners = {}
+local function addSpinner(model, offsetFn)
+	if model then
+		table.insert(spinners, { Model = model, Base = model.WorldPivot, Offset = offsetFn })
+	end
+end
+
+if lounge then
+	addSpinner(lounge:FindFirstChild("VIPPortalRing"), function(time)
+		return CFrame.Angles(0, 0, time * 0.8)
+	end)
+	addSpinner(lounge:FindFirstChild("VIPPortalRingOuter"), function(time)
+		return CFrame.Angles(0, 0, -time * 0.5)
+	end)
+	addSpinner(lounge:FindFirstChild("VIPChandelier"), function(time)
+		return CFrame.Angles(0, time * 0.3, 0)
+	end)
+	addSpinner(lounge:FindFirstChild("VIPCrown"), function(time)
+		return CFrame.new(0, math.sin(time * 1.5) * 0.6, 0) * CFrame.Angles(0, time * 0.6, 0)
+	end)
+end
+
+local royal = workspace:WaitForChild("VIPIsland", 30)
+local royalOrb, royalOrbBase
+local lanterns = {}
+if royal then
+	local royalCore = royal:FindFirstChild("RoyalCore")
+	if royalCore then
+		royalOrb = royalCore:FindFirstChild("VIPOrb")
+		royalOrbBase = royalOrb and royalOrb.Position
+		addSpinner(royalCore:FindFirstChild("VIPRing1"), function(time)
+			return CFrame.Angles(time * 0.8, time * 0.3, 0)
+		end)
+		addSpinner(royalCore:FindFirstChild("VIPRing2"), function(time)
+			return CFrame.Angles(0, time * 0.6, time * 0.9)
+		end)
+		addSpinner(royalCore:FindFirstChild("VIPRing3"), function(time)
+			return CFrame.Angles(time * 0.4, 0, time * 0.5)
+		end)
+	end
+	addSpinner(royal:FindFirstChild("ReturnPortalRing"), function(time)
+		return CFrame.Angles(0, 0, -time * 0.8)
+	end)
+	addSpinner(royal:FindFirstChild("ReturnPortalRingOuter"), function(time)
+		return CFrame.Angles(0, 0, time * 0.5)
+	end)
+	for _, child in ipairs(royal:GetChildren()) do
+		if child:IsA("BasePart") and child.Name == "VIPLantern" then
+			table.insert(lanterns, { Part = child, Base = child.Position, Phase = rand:NextNumber(0, 6) })
+		end
+	end
+end
+
+RunService.RenderStepped:Connect(function()
+	for _, s in ipairs(spinners) do
+		s.Model:PivotTo(s.Base * s.Offset(t))
+	end
+	if royalOrb and royalOrbBase then
+		royalOrb.Size = Vector3.one * (5.5 + math.sin(t * 2.2) * 0.4)
+		royalOrb.CFrame = CFrame.new(royalOrbBase + Vector3.new(0, math.sin(t * 1.1) * 0.5, 0))
+	end
+	for _, l in ipairs(lanterns) do
+		l.Part.CFrame = CFrame.new(l.Base + Vector3.new(0, math.sin(t * 0.9 + l.Phase) * 1.4, 0))
+			* CFrame.Angles(0, t * 0.5 + l.Phase, 0)
+	end
+end)
+
+---------------------------------------------------------------------
+-- Royal Island sky: pink + gold while you're there
+---------------------------------------------------------------------
+local savedSky
+local function setRoyalSky(on)
+	local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
+	local colorFx = Lighting:FindFirstChildOfClass("ColorCorrectionEffect")
+	local info = TweenInfo.new(2, Enum.EasingStyle.Sine)
+	if on then
+		savedSky = {
+			Ambient = Lighting.Ambient,
+			OutdoorAmbient = Lighting.OutdoorAmbient,
+			AtmosphereColor = atmosphere and atmosphere.Color,
+			AtmosphereDecay = atmosphere and atmosphere.Decay,
+			Tint = colorFx and colorFx.TintColor,
+			Saturation = colorFx and colorFx.Saturation,
+		}
+		TweenService:Create(Lighting, info, {
+			Ambient = Color3.fromRGB(120, 90, 100),
+			OutdoorAmbient = Color3.fromRGB(190, 140, 160),
+		}):Play()
+		if atmosphere then
+			TweenService:Create(atmosphere, info, {
+				Color = Color3.fromRGB(255, 170, 195),
+				Decay = Color3.fromRGB(140, 70, 110),
+			}):Play()
+		end
+		if colorFx then
+			TweenService:Create(colorFx, info, {
+				TintColor = Color3.fromRGB(255, 238, 225),
+				Saturation = 0.25,
+			}):Play()
+		end
+	elseif savedSky then
+		TweenService:Create(Lighting, info, {
+			Ambient = savedSky.Ambient,
+			OutdoorAmbient = savedSky.OutdoorAmbient,
+		}):Play()
+		if atmosphere and savedSky.AtmosphereColor then
+			TweenService:Create(atmosphere, info, {
+				Color = savedSky.AtmosphereColor,
+				Decay = savedSky.AtmosphereDecay,
+			}):Play()
+		end
+		if colorFx and savedSky.Tint then
+			TweenService:Create(colorFx, info, {
+				TintColor = savedSky.Tint,
+				Saturation = savedSky.Saturation,
+			}):Play()
+		end
+		savedSky = nil
+	end
+end
+
+local wasOnRoyal = false
+player:GetAttributeChangedSignal("OnVIPIsland"):Connect(function()
+	local on = player:GetAttribute("OnVIPIsland") == true
+	if on == wasOnRoyal then
+		return
+	end
+	wasOnRoyal = on
+	setRoyalSky(on)
+	if on then
+		UIKit.toast(("👑 Welcome to Royal Island! x%s luck here"):format(tostring(Config.VIPIsland.LuckMultiplier)), UIKit.Theme.Gold)
+		SoundFX.Chime(1, 5)
+	end
+end)
+
+---------------------------------------------------------------------
+-- Portal travel effect (the server teleports, we make it look good)
+---------------------------------------------------------------------
+local portalGui = UIKit.screen("CosmicPortal", 40)
+local portalFlash = UIKit.new("Frame", {
+	Size = UDim2.fromScale(1, 1),
+	BackgroundColor3 = Color3.fromRGB(255, 220, 160),
+	BackgroundTransparency = 1,
+	Parent = portalGui,
+}, {
+	UIKit.new("UIGradient", {
+		Color = ColorSequence.new(Color3.fromRGB(255, 240, 200), Color3.fromRGB(255, 150, 210)),
+		Rotation = 45,
+	}),
+})
+
+local remotes = ReplicatedStorage:WaitForChild("CosmicRemotes")
+local PortalFXRemote = remotes:WaitForChild("PortalFX", 30)
+local camera = workspace.CurrentCamera
+if PortalFXRemote then
+	PortalFXRemote.OnClientEvent:Connect(function(kind)
+		if kind == "Out" then
+			SoundFX.Play("Whoosh", { Speed = 0.7, Volume = 1.5 })
+			SoundFX.Play("RevealEpic", { Volume = 0.5 })
+			UIKit.tween(portalFlash, 0.3, { BackgroundTransparency = 0 })
+			local fov = camera.FieldOfView
+			UIKit.tween(camera, 0.3, { FieldOfView = fov + 25 }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+			task.delay(0.45, function()
+				camera.FieldOfView = fov
+			end)
+		elseif kind == "In" then
+			UIKit.tween(portalFlash, 0.8, { BackgroundTransparency = 1 })
+			UIKit.burst({ Color3.fromRGB(255, 220, 140), Color3.fromRGB(255, 150, 210), Color3.fromRGB(120, 230, 210) }, 30, 1.2, Vector2.new(0.5, 0.5))
+		elseif kind == "Denied" then
+			UIKit.toast("👑 The Royal Portal is for VIPs only!", UIKit.Theme.Gold)
+			SoundFX.Play("Thud")
+			local passId = Config.GamePasses.VIP
+			if passId and passId ~= 0 then
+				MarketplaceService:PromptGamePassPurchase(player, passId)
+			end
+		end
+	end)
+end
 ]]></string>
         </Properties>
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="17">
+  <Item class="Workspace" referent="19">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>
