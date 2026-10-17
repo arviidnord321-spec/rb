@@ -439,7 +439,7 @@ DuelFX.OnClientEvent:Connect(function(info)
 	local kind = info.Type
 	if kind == "Swing" then
 		local root = rootOf(info.Attacker)
-		local clip = (info.Combo == 3) and "Roundhouse" or ((info.Combo == 2) and "JabLeft" or "JabRight")
+		local clip = (info.Combo == 3) and "Roundhouse" or ((info.Combo == 2) and "CrossRight" or "JabLeft")
 		local mine = info.Attacker == localPlayer.Character -- your own swing already played instantly
 		if not mine then
 			CombatAnim.Play(info.Attacker, clip)

@@ -563,7 +563,7 @@ local function attack()
 	nextAttackAt = now + (heavy and DUEL.HeavyRecovery or DUEL.AttackCooldown)
 	faceOpponent(DUEL.AttackRange + 4)
 	DuelRequest:FireServer({ Action = "Attack", Aim = aimDirection() })
-	local clip = heavy and "Roundhouse" or ((localCombo == 2) and "JabLeft" or "JabRight")
+	local clip = heavy and "Roundhouse" or ((localCombo == 2) and "CrossRight" or "JabLeft")
 	CombatAnim.Play(player.Character, clip)
 	SoundFX.Play(heavy and "SwingHeavy" or "SwingLight")
 	attackButton:FindFirstChild("FeelScale").Scale = 0.88

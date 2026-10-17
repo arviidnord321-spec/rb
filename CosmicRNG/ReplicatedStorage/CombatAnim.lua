@@ -40,69 +40,94 @@ end
 -- Trail = which limb glows while the move plays.
 ---------------------------------------------------------------------
 local CLIPS = {
-	JabRight = {
-		Duration = 0.34,
-		Trail = "RightHand",
-		Keys = {
-			{ 0, {} },
-			{ 0.07, { RightShoulder = P(30, 0, 20), RightElbow = P(110), Waist = P(0, 22, 0) } },
-			{ 0.13, { RightShoulder = P(95, 0, 4), RightElbow = P(4), Waist = P(-8, -30, 0), Root = P(-10), LeftShoulder = P(50, 0, -20), LeftElbow = P(90) } },
-			{ 0.2, { RightShoulder = P(92, 0, 4), RightElbow = P(8), Waist = P(-6, -26, 0), Root = P(-8) } },
-			{ 0.34, {} },
-		},
-	},
+	-- 1st combo hit: a fast LEAD JAB with the left hand
 	JabLeft = {
-		Duration = 0.34,
+		Duration = 0.38,
 		Trail = "LeftHand",
 		Keys = {
 			{ 0, {} },
-			{ 0.07, { LeftShoulder = P(30, 0, -20), LeftElbow = P(110), Waist = P(0, -22, 0) } },
-			{ 0.13, { LeftShoulder = P(95, 0, -4), LeftElbow = P(4), Waist = P(-8, 30, 0), Root = P(-10), RightShoulder = P(50, 0, 20), RightElbow = P(90) } },
-			{ 0.2, { LeftShoulder = P(92, 0, -4), LeftElbow = P(8), Waist = P(-6, 26, 0), Root = P(-8) } },
-			{ 0.34, {} },
+			-- load up: elbow tucks back, shoulder turns a little
+			{ 0.07, { LeftShoulder = P(58, 0, 16), LeftElbow = P(128), Waist = P(-6, -12, 0) } },
+			-- SNAP: arm shoots straight out, body turns into it, small step forward
+			{ 0.14, { LeftShoulder = P(94, 0, -10), LeftElbow = P(2), Waist = P(-10, -34, 0), Root = P(-9, 0, 0, 0, -0.25, -0.35), LeftHip = P(30), LeftKnee = P(-12), RightKnee = P(-22), Neck = P(-12, 26, 0), RightShoulder = P(50, 0, -30), RightElbow = P(108) } },
+			{ 0.21, { LeftShoulder = P(92, 0, -8), LeftElbow = P(6), Waist = P(-9, -30, 0), Root = P(-8, 0, 0, 0, -0.25, -0.3), LeftHip = P(26), Neck = P(-10, 22, 0), RightShoulder = P(50, 0, -30), RightElbow = P(108) } },
+			-- pull the hand back to the face
+			{ 0.38, {} },
 		},
 	},
-	Roundhouse = { -- 3rd hit of the combo: a spinning kick
-		Duration = 0.62,
+	-- 2nd combo hit: a heavier REAR CROSS with the right hand
+	CrossRight = {
+		Duration = 0.44,
+		Trail = "RightHand",
+		Keys = {
+			{ 0, {} },
+			-- coil: right shoulder pulls back, weight on the back foot
+			{ 0.09, { RightShoulder = P(48, 0, 12), RightElbow = P(132), Waist = P(-4, -30, 0), Root = P(4, -8, 0, 0, -0.3, 0.1), RightKnee = P(-30) } },
+			-- the punch: hips and shoulders whip around, arm fully extended
+			{ 0.17, { RightShoulder = P(96, 0, -14), RightElbow = P(0), Waist = P(-12, 40, 0), Root = P(-12, 18, 0, 0, -0.3, -0.4), RightHip = P(-22), RightKnee = P(-28), LeftHip = P(22), LeftKnee = P(-18), Neck = P(-12, -32, 0), LeftShoulder = P(62, 0, 28), LeftElbow = P(96) } },
+			{ 0.25, { RightShoulder = P(94, 0, -12), RightElbow = P(4), Waist = P(-10, 36, 0), Root = P(-10, 16, 0, 0, -0.3, -0.35), RightHip = P(-20), LeftHip = P(20), Neck = P(-10, -28, 0), LeftShoulder = P(62, 0, 28), LeftElbow = P(96) } },
+			{ 0.44, {} },
+		},
+	},
+	-- (kept for bots/extra variety)
+	JabRight = {
+		Duration = 0.36,
+		Trail = "RightHand",
+		Keys = {
+			{ 0, {} },
+			{ 0.07, { RightShoulder = P(50, 0, 14), RightElbow = P(128), Waist = P(0, -14, 0) } },
+			{ 0.14, { RightShoulder = P(95, 0, -10), RightElbow = P(2), Waist = P(-8, 30, 0), Root = P(-9, 0, 0, 0, -0.25, -0.3), Neck = P(-10, -24, 0) } },
+			{ 0.36, {} },
+		},
+	},
+	-- 3rd combo hit: chambered ROUNDHOUSE KICK
+	Roundhouse = {
+		Duration = 0.66,
 		Trail = "RightFoot",
 		Keys = {
 			{ 0, {} },
-			{ 0.15, { Root = P(0, 25, 0, 0, -0.4, 0), RightHip = P(-20, 0, 20), RightKnee = P(-70), Waist = P(0, 25, 0), RightShoulder = P(20, 0, 45), LeftShoulder = P(20, 0, -45) } },
-			{ 0.27, { Root = P(-6, -55, 0, 0, -0.15, 0), RightHip = P(100, 0, 35), RightKnee = P(-5), LeftKnee = P(-18), Waist = P(0, -30, 0), LeftShoulder = P(40, 0, -75), RightShoulder = P(-20, 0, 60) } },
-			{ 0.42, { Root = P(-4, -50, 0, 0, -0.15, 0), RightHip = P(85, 0, 30), RightKnee = P(-15), LeftKnee = P(-15), Waist = P(0, -25, 0), LeftShoulder = P(35, 0, -70), RightShoulder = P(-15, 0, 55) } },
-			{ 0.62, {} },
+			-- chamber: knee comes up high, foot tucked
+			{ 0.15, { RightHip = P(80, 0, 30), RightKnee = P(-115), Root = P(-4, 15, 0, 0, -0.15, 0), Waist = P(-4, -12, 0), LeftKnee = P(-18), LeftShoulder = P(62, 0, 28), LeftElbow = P(96), RightShoulder = P(50, 0, -30), RightElbow = P(108) } },
+			-- snap the leg out while the hips turn through
+			{ 0.28, { RightHip = P(92, 0, 40), RightKnee = P(-4), Root = P(-10, 48, 0, 0, -0.1, 0), Waist = P(-6, -22, 0), LeftKnee = P(-22), RightShoulder = P(-35, 0, 40), RightElbow = P(40), LeftShoulder = P(62, 0, 28), LeftElbow = P(96), Neck = P(-6, -34, 0) } },
+			{ 0.42, { RightHip = P(88, 0, 38), RightKnee = P(-12), Root = P(-8, 45, 0, 0, -0.1, 0), Waist = P(-5, -20, 0), LeftKnee = P(-22), RightShoulder = P(-30, 0, 38), LeftShoulder = P(62, 0, 28), LeftElbow = P(96), Neck = P(-6, -32, 0) } },
+			-- re-chamber and step back down
+			{ 0.52, { RightHip = P(60, 0, 20), RightKnee = P(-95), Root = P(-2, 18, 0, 0, -0.2, 0), LeftKnee = P(-18) } },
+			{ 0.66, {} },
 		},
 	},
-	CastForward = { -- beams, projectiles, drains, freezes
-		Duration = 0.55,
+	CastForward = { -- beams, projectiles, drains, freezes, pulls
+		Duration = 0.58,
 		Trail = "BothHands",
 		Keys = {
 			{ 0, {} },
-			{ 0.13, { RightShoulder = P(40, 0, 35), LeftShoulder = P(40, 0, -35), RightElbow = P(95), LeftElbow = P(95), Root = P(6), Waist = P(0, 10, 0) } },
-			{ 0.23, { RightShoulder = P(96, 0, -12), LeftShoulder = P(96, 0, 12), RightElbow = P(0), LeftElbow = P(0), Root = P(-8), Waist = P(-6, 0, 0) } },
-			{ 0.36, { RightShoulder = P(92, 0, -10), LeftShoulder = P(92, 0, 10), Root = P(6), Neck = P(-6) } },
-			{ 0.55, {} },
+			-- gather energy at the hip
+			{ 0.13, { RightShoulder = P(20, 0, 30), LeftShoulder = P(20, 0, -30), RightElbow = P(110), LeftElbow = P(110), Root = P(6, 20, 0, 0, -0.3, 0.1), Waist = P(0, 25, 0), RightKnee = P(-25), LeftKnee = P(-25) } },
+			-- PUSH both palms forward
+			{ 0.23, { RightShoulder = P(96, 0, -14), LeftShoulder = P(96, 0, 14), RightElbow = P(0), LeftElbow = P(0), Root = P(-10, 0, 0, 0, -0.3, -0.3), Waist = P(-8, 0, 0), LeftHip = P(25), LeftKnee = P(-15), RightHip = P(-15), RightKnee = P(-25), Neck = P(-8) } },
+			{ 0.38, { RightShoulder = P(92, 0, -12), LeftShoulder = P(92, 0, 12), Root = P(6, 0, 0, 0, -0.25, 0.15), Neck = P(-6) } },
+			{ 0.58, {} },
 		},
 	},
 	CastUp = { -- meteors, heals, shields
-		Duration = 0.7,
+		Duration = 0.72,
 		Trail = "BothHands",
 		Keys = {
 			{ 0, {} },
-			{ 0.2, { RightShoulder = P(172, 0, -18), LeftShoulder = P(172, 0, 18), RightElbow = P(12), LeftElbow = P(12), Neck = P(22), Root = P(6) } },
-			{ 0.5, { RightShoulder = P(168, 0, -22), LeftShoulder = P(168, 0, 22), RightElbow = P(18), LeftElbow = P(18), Neck = P(18), Root = P(5) } },
-			{ 0.7, {} },
+			{ 0.2, { RightShoulder = P(172, 0, -18), LeftShoulder = P(172, 0, 18), RightElbow = P(12), LeftElbow = P(12), Neck = P(24), Root = P(6, 0, 0, 0, 0.1, 0) } },
+			{ 0.5, { RightShoulder = P(168, 0, -24), LeftShoulder = P(168, 0, 24), RightElbow = P(18), LeftElbow = P(18), Neck = P(20), Root = P(5, 0, 0, 0, 0.1, 0) } },
+			{ 0.72, {} },
 		},
 	},
-	Slam = { -- bursts / explosions
-		Duration = 0.65,
+	Slam = { -- bursts / explosions: jump up and smash the ground
+		Duration = 0.66,
 		Trail = "BothHands",
 		Keys = {
 			{ 0, {} },
-			{ 0.18, { RightShoulder = P(165, 0, -10), LeftShoulder = P(165, 0, 10), Root = P(8, 0, 0, 0, 0.25, 0), Neck = P(15) } },
-			{ 0.3, { RightShoulder = P(55, 0, 15), LeftShoulder = P(55, 0, -15), Root = P(-25, 0, 0, 0, -0.55, 0), RightKnee = P(-45), LeftKnee = P(-45), RightHip = P(35), LeftHip = P(35), Neck = P(-10) } },
-			{ 0.45, { RightShoulder = P(50, 0, 15), LeftShoulder = P(50, 0, -15), Root = P(-20, 0, 0, 0, -0.5, 0), RightKnee = P(-40), LeftKnee = P(-40), RightHip = P(30), LeftHip = P(30) } },
-			{ 0.65, {} },
+			{ 0.18, { RightShoulder = P(165, 0, -10), LeftShoulder = P(165, 0, 10), RightElbow = P(20), LeftElbow = P(20), Root = P(8, 0, 0, 0, 0.25, 0), Neck = P(18) } },
+			{ 0.3, { RightShoulder = P(40, 0, -12), LeftShoulder = P(40, 0, 12), RightElbow = P(8), LeftElbow = P(8), Root = P(-28, 0, 0, 0, -0.55, 0), RightKnee = P(-50), LeftKnee = P(-50), RightHip = P(38), LeftHip = P(38), Neck = P(-12) } },
+			{ 0.46, { RightShoulder = P(36, 0, -12), LeftShoulder = P(36, 0, 12), RightElbow = P(10), LeftElbow = P(10), Root = P(-22, 0, 0, 0, -0.5, 0), RightKnee = P(-45), LeftKnee = P(-45), RightHip = P(32), LeftHip = P(32) } },
+			{ 0.66, {} },
 		},
 	},
 	DashLean = {
@@ -110,53 +135,54 @@ local CLIPS = {
 		Trail = "BothHands",
 		Keys = {
 			{ 0, {} },
-			{ 0.08, { Root = P(-35), RightShoulder = P(-55, 0, 20), LeftShoulder = P(-55, 0, -20), Neck = P(12), RightHip = P(20), LeftHip = P(-25) } },
-			{ 0.28, { Root = P(-30), RightShoulder = P(-50, 0, 20), LeftShoulder = P(-50, 0, -20), Neck = P(10) } },
+			{ 0.08, { Root = P(-35, 0, 0, 0, -0.2, 0), RightShoulder = P(-55, 0, 20), LeftShoulder = P(-55, 0, -20), RightElbow = P(30), LeftElbow = P(30), Neck = P(14), RightHip = P(25), RightKnee = P(-40), LeftHip = P(-30) } },
+			{ 0.28, { Root = P(-30, 0, 0, 0, -0.2, 0), RightShoulder = P(-50, 0, 20), LeftShoulder = P(-50, 0, -20), Neck = P(12) } },
 			{ 0.4, {} },
 		},
 	},
-	Dodge = {
-		Duration = 0.4,
+	Dodge = { -- duck and slip to the side, hands still up
+		Duration = 0.42,
 		Keys = {
 			{ 0, {} },
-			{ 0.08, { Root = P(-20, 0, 18, 0, -0.45, 0), RightKnee = P(-50), LeftKnee = P(-50), RightHip = P(40), LeftHip = P(40), RightShoulder = P(60, 0, 10), LeftShoulder = P(60, 0, -10), RightElbow = P(90), LeftElbow = P(90) } },
-			{ 0.28, { Root = P(-15, 0, 12, 0, -0.35, 0), RightKnee = P(-40), LeftKnee = P(-40), RightHip = P(30), LeftHip = P(30) } },
-			{ 0.4, {} },
+			{ 0.08, { Root = P(-22, 0, 18, 0, -0.45, 0), RightKnee = P(-55), LeftKnee = P(-55), RightHip = P(42), LeftHip = P(42), RightShoulder = P(70, 0, -20), LeftShoulder = P(70, 0, 20), RightElbow = P(130), LeftElbow = P(130), Neck = P(-10) } },
+			{ 0.28, { Root = P(-15, 0, 12, 0, -0.35, 0), RightKnee = P(-40), LeftKnee = P(-40), RightHip = P(30), LeftHip = P(30), RightShoulder = P(65, 0, -18), LeftShoulder = P(65, 0, 18), RightElbow = P(125), LeftElbow = P(125) } },
+			{ 0.42, {} },
 		},
 	},
-	HitLight = {
-		Duration = 0.28,
+	HitLight = { -- head snaps back, hands loosen
+		Duration = 0.3,
 		Keys = {
 			{ 0, {} },
-			{ 0.05, { Waist = P(16, 0, 6), Neck = P(22, 0, 8), RightShoulder = P(20, 0, 35), LeftShoulder = P(20, 0, -35), Root = P(7) } },
-			{ 0.28, {} },
+			{ 0.05, { Neck = P(28, 12, 0), Waist = P(15, 8, 4), Root = P(8, 0, 0, 0, -0.2, 0.25), RightShoulder = P(35, 0, 28), LeftShoulder = P(40, 0, -28), RightElbow = P(70), LeftElbow = P(70) } },
+			{ 0.3, {} },
 		},
 	},
-	HitHeavy = {
-		Duration = 0.55,
+	HitHeavy = { -- knocked off balance, arms flung out
+		Duration = 0.58,
 		Keys = {
 			{ 0, {} },
-			{ 0.07, { Root = P(28, 0, 12, 0, -0.35, 0), Waist = P(22, 10, 0), Neck = P(28, 0, -10), RightShoulder = P(70, 0, 75), LeftShoulder = P(-25, 0, -75), RightKnee = P(-25), LeftKnee = P(-25) } },
-			{ 0.25, { Root = P(18, 0, 6, 0, -0.25, 0), Waist = P(14, 5, 0), Neck = P(15), RightShoulder = P(40, 0, 50), LeftShoulder = P(-10, 0, -50) } },
-			{ 0.55, {} },
+			{ 0.07, { Root = P(26, 0, 12, 0, -0.3, 0.55), Waist = P(22, 10, 0), Neck = P(32, 0, -12), RightShoulder = P(-30, 0, 65), LeftShoulder = P(-25, 0, -65), RightElbow = P(25), LeftElbow = P(25), RightKnee = P(-28), LeftKnee = P(-28), RightHip = P(-10), LeftHip = P(20) } },
+			{ 0.26, { Root = P(16, 0, 6, 0, -0.25, 0.35), Waist = P(14, 5, 0), Neck = P(16), RightShoulder = P(10, 0, 40), LeftShoulder = P(10, 0, -40), RightKnee = P(-20), LeftKnee = P(-20) } },
+			{ 0.58, {} },
 		},
 	},
-	BlockHit = {
-		Duration = 0.2,
+	BlockHit = { -- the guard gets pushed back a bit
+		Duration = 0.22,
 		Keys = {
 			{ 0, {} },
-			{ 0.05, { Root = P(10, 0, 0, 0, -0.1, 0), Waist = P(8) } },
-			{ 0.2, {} },
+			{ 0.05, { Root = P(10, 0, 0, 0, -0.35, 0.3), Waist = P(8), Neck = P(-18) } },
+			{ 0.22, {} },
 		},
 	},
-	Victory = {
+	Victory = { -- fist pump!
 		Duration = 1.6,
-		Trail = "BothHands",
+		Trail = "RightHand",
 		Keys = {
 			{ 0, {} },
-			{ 0.25, { RightShoulder = P(175, 0, -25), LeftShoulder = P(175, 0, 25), RightElbow = P(10), LeftElbow = P(10), Neck = P(18), Root = P(4, 0, 0, 0, 0.2, 0) } },
-			{ 0.6, { RightShoulder = P(160, 0, -40), LeftShoulder = P(160, 0, 40), Neck = P(12), Root = P(0, 0, 0, 0, 0, 0) } },
-			{ 0.95, { RightShoulder = P(175, 0, -25), LeftShoulder = P(175, 0, 25), Neck = P(18), Root = P(4, 0, 0, 0, 0.2, 0) } },
+			{ 0.22, { RightShoulder = P(172, 0, -12), RightElbow = P(25), LeftShoulder = P(-12, 0, -18), LeftElbow = P(95), Neck = P(20), Root = P(4, 0, 0, 0, 0.2, 0) } },
+			{ 0.45, { RightShoulder = P(150, 0, -12), RightElbow = P(70), LeftShoulder = P(-12, 0, -18), LeftElbow = P(95), Neck = P(12), Root = P(0) } },
+			{ 0.7, { RightShoulder = P(172, 0, -12), RightElbow = P(25), LeftShoulder = P(-12, 0, -18), LeftElbow = P(95), Neck = P(20), Root = P(4, 0, 0, 0, 0.2, 0) } },
+			{ 0.95, { RightShoulder = P(150, 0, -12), RightElbow = P(70), Neck = P(12) } },
 			{ 1.6, {} },
 		},
 	},
@@ -182,35 +208,48 @@ CombatAnim.PowerPose = {
 -- LOOPS: poses held while something is true (stance, block, stun)
 ---------------------------------------------------------------------
 local LOOPS = {
-	Stance = function(t) -- fists up, ready to fight
-		local bob = math.sin(t * 5) * 3
+	Stance = function(t) -- boxing guard: left side forward, fists up by the face
+		local bob = math.sin(t * 5)
 		return {
-			RightShoulder = P(48 + bob, 0, 14),
-			RightElbow = P(85),
-			LeftShoulder = P(58 - bob, 0, -14),
-			LeftElbow = P(95),
-			Waist = P(-4, 14, 0),
-			Root = P(0, -10, 0, 0, -0.22 + math.sin(t * 5) * 0.05, 0),
-			Neck = P(-4, -10, 0),
+			RightShoulder = P(50 + bob * 3, 0, -30),
+			RightElbow = P(108),
+			LeftShoulder = P(62 - bob * 3, 0, 28),
+			LeftElbow = P(96),
+			Waist = P(-6, -20, 0),
+			Root = P(0, 0, 0, 0, -0.25 + bob * 0.05, 0),
+			Neck = P(-8, 16, 0),
+			LeftHip = P(16),
+			RightHip = P(-12),
+			LeftKnee = P(-18),
+			RightKnee = P(-22),
 		}
 	end,
-	Block = function()
+	Block = function(t) -- high guard: both forearms up in front of the face, chin tucked
+		local shake = math.sin(t * 14) * 1.5
 		return {
-			RightShoulder = P(88, 0, -42),
-			RightElbow = P(112),
-			LeftShoulder = P(88, 0, 42),
-			LeftElbow = P(112),
-			Waist = P(-12),
-			Root = P(0, 0, 0, 0, -0.35, 0),
-			Neck = P(-10),
+			RightShoulder = P(86 + shake, 0, -52),
+			RightElbow = P(92),
+			LeftShoulder = P(90 - shake, 0, 50),
+			LeftElbow = P(92),
+			Waist = P(-14),
+			Root = P(0, 0, 0, 0, -0.38, 0),
+			Neck = P(-18),
+			RightHip = P(14),
+			LeftHip = P(18),
+			RightKnee = P(-26),
+			LeftKnee = P(-26),
 		}
 	end,
-	Stun = function(t)
+	Stun = function(t) -- dizzy: head lolls, arms hang
 		return {
 			Neck = P(math.sin(t * 9) * 16, math.sin(t * 5) * 20, 0),
 			Waist = P(8, math.sin(t * 6) * 10, math.cos(t * 6) * 8),
 			RightShoulder = P(10, 0, 20 + math.sin(t * 7) * 10),
 			LeftShoulder = P(10, 0, -20 - math.sin(t * 7) * 10),
+			RightElbow = P(15),
+			LeftElbow = P(15),
+			RightKnee = P(-15),
+			LeftKnee = P(-15),
 		}
 	end,
 }
