@@ -1,11 +1,15 @@
 -- Parkour (Script in ServerScriptService)
--- Builds two obby courses next to the main island and runs them:
+-- Builds the obby courses and runs them. Main island:
 --   STARSTEP TRAIL (medium) - a long curving trail of small platforms with
 --                             moving platforms, spinning laser bars,
 --                             vanishing platforms and a jump pad
 --   VOID TOWER (hard)       - a 42-step spiral around a tall tower: thin
 --                             beams, blinking platforms, spinners, movers,
 --                             half-deadly platforms and a jump pad
+-- Rebirth islands (harder, more luck):
+--   GLACIER CLIMB (Frostfall)  - slippery ice floes + a spiral up an ice spire
+--   MAGMA RUN     (Ember)      - over a lava sea: sinking rocks, fire bars
+--   PULSE GRID    (Neon Nexus) - a square spiral of platforms blinking in a wave
 -- Step on the start pad to begin. Checkpoints save your spot (falling puts
 -- you back there). Reaching the finish gives a luck boost (with a cooldown).
 -- Vanishing/moving platforms, spinners and jump pads are animated by the
@@ -145,12 +149,12 @@ local function platform(model, cf, size, topColor, rimColor)
 	return top
 end
 
-local function vanishPlatform(model, cf, size, period, onTime, offset)
+local function vanishPlatform(model, cf, size, period, onTime, offset, color3)
 	local p = part({
 		Name = "VanishPlatform",
 		Size = size,
 		CFrame = cf,
-		Color = Color3.fromRGB(255, 200, 80),
+		Color = color3 or Color3.fromRGB(255, 200, 80),
 		Material = Enum.Material.Neon,
 		Transparency = 0.15,
 		Parent = model,
@@ -187,12 +191,12 @@ local function jumpPad(model, cf, size, launch)
 	return p
 end
 
-local function killPad(course, model, cf, size)
+local function killPad(course, model, cf, size, color3)
 	local p = part({
 		Name = "KillPad",
 		Size = size,
 		CFrame = cf,
-		Color = Color3.fromRGB(255, 40, 70),
+		Color = color3 or Color3.fromRGB(255, 40, 70),
 		Material = Enum.Material.Neon,
 		Parent = model,
 	})
@@ -234,12 +238,12 @@ local function spinnerPlatform(course, model, cf, topColor, rimColor, speed, off
 end
 
 -- A platform that slides back and forth (it carries you, see ParkourClient)
-local function movingPlatform(model, cf, size, amplitude, period, offset)
+local function movingPlatform(model, cf, size, amplitude, period, offset, color3)
 	local p = part({
 		Name = "MovingPlatform",
 		Size = size,
 		CFrame = cf,
-		Color = Color3.fromRGB(90, 200, 255),
+		Color = color3 or Color3.fromRGB(90, 200, 255),
 		Material = Enum.Material.Neon,
 		Transparency = 0.1,
 		Parent = model,
@@ -247,6 +251,33 @@ local function movingPlatform(model, cf, size, amplitude, period, offset)
 	p:SetAttribute("MoveAmplitude", amplitude)
 	p:SetAttribute("MovePeriod", period)
 	p:SetAttribute("MoveOffset", offset)
+	return p
+end
+
+-- Slippery ice: you keep sliding (ParkourClient handles the sliding)
+local function icePlatform(model, cf, size)
+	local p = part({
+		Name = "IcePlatform",
+		Size = size,
+		CFrame = cf,
+		Color = Color3.fromRGB(170, 225, 255),
+		Material = Enum.Material.Ice,
+		Transparency = 0.1,
+		Reflectance = 0.2,
+		CustomPhysicalProperties = PhysicalProperties.new(0.9, 0, 0, 100, 1),
+		Parent = model,
+	})
+	p:SetAttribute("Slippery", true)
+	part({
+		Name = "Rim",
+		Size = size + Vector3.new(0.3, -0.6, 0.3),
+		CFrame = cf * CFrame.new(0, -0.15, 0),
+		Color = Color3.fromRGB(120, 230, 255),
+		Material = Enum.Material.Neon,
+		CanCollide = false,
+		CanQuery = false,
+		Parent = model,
+	})
 	return p
 end
 
@@ -508,6 +539,333 @@ do
 	addLight(beacon, RIM, 40, 3)
 end
 
+
+---------------------------------------------------------------------
+-- REBIRTH ISLAND COURSES
+-- Each starts at the far edge of its island and heads out over the void.
+---------------------------------------------------------------------
+local function islandGround(info)
+	return function(position)
+		local offset = position - info.Center
+		local flat = Vector3.new(offset.X, 0, offset.Z)
+		return flat.Magnitude < info.Radius - 2 and offset.Y < 6 and offset.Y > -3
+	end
+end
+
+local function islandInfo(key)
+	for _, info in ipairs(Config.RebirthIslands) do
+		if info.Key == key then
+			return info
+		end
+	end
+	return nil
+end
+
+-- start pad on the island edge + a little gateway behind it
+local function islandStart(course, model, info, color3)
+	local C = info.Center
+	local start = C + Vector3.new(0, 0, 62)
+	startPad(course, model, start, color3)
+	course.OnGround = islandGround(info)
+	for _, side in ipairs({ -1, 1 }) do
+		part({
+			Name = "StartGatePost",
+			Size = Vector3.new(0.8, 7, 0.8),
+			CFrame = CFrame.new(start + Vector3.new(side * 4.6, 3.5, -4.6)),
+			Color = color3,
+			Material = Enum.Material.Neon,
+			CanCollide = false,
+			Parent = model,
+		})
+	end
+	return start
+end
+
+---------------------------------------------------------------------
+-- ❄️ GLACIER CLIMB: slippery ice floes, then a spiral up an ice spire
+---------------------------------------------------------------------
+do
+	local info = islandInfo("Frostfall")
+	local model = Instance.new("Model")
+	model.Name = "GlacierClimb"
+	model.Parent = root
+	local course = newCourse("GlacierClimb", model)
+	local TOP = Color3.fromRGB(60, 90, 130)
+	local RIM = Color3.fromRGB(140, 230, 255)
+	local C = info.Center
+	local start = islandStart(course, model, info, RIM)
+
+	-- part 1: ice floes zig-zagging out over the void
+	local position = Vector3.new(start.X, C.Y + 1, start.Z + 4)
+	for i = 1, 12 do
+		local side = (i % 2 == 0) and 1 or -1
+		position = Vector3.new(C.X + side * 4.5, position.Y + 1, position.Z + 8.5)
+		local cf = CFrame.new(position) * CFrame.new(0, -0.5, 0)
+		if i == 12 then
+			checkpointPad(course, model, cf, 1, RIM)
+		elseif i == 4 or i == 9 then
+			movingPlatform(model, cf, Vector3.new(4, 1, 4), Vector3.new(6, 0, 0), 2.8, i * 0.5, Color3.fromRGB(150, 220, 255))
+		elseif i == 6 then
+			spinnerPlatform(course, model, cf, TOP, RIM, 2.6, 0.4)
+		elseif i % 3 == 2 then
+			vanishPlatform(model, cf, Vector3.new(3.6, 1, 3.6), 2.4, 1.4, i * 0.6, Color3.fromRGB(200, 240, 255))
+		else
+			icePlatform(model, cf, Vector3.new(4, 1, 4))
+		end
+	end
+
+	-- part 2: spiral around the ice spire
+	local spire = Vector3.new(C.X, 0, position.Z + 20)
+	local toCheckpoint = Vector3.new(position.X, 0, position.Z) - spire
+	local angle0 = math.atan2(toCheckpoint.Z, toCheckpoint.X)
+	local height = position.Y
+	local RADIUS = 14
+	local STEPS = 24
+	local finishY
+	for k = 1, STEPS do
+		local angle = angle0 + k * 0.55
+		if k == 17 then
+			height += 10
+		else
+			height += 2.4
+		end
+		local radial = Vector3.new(math.cos(angle), 0, math.sin(angle))
+		local tangent = Vector3.new(-math.sin(angle), 0, math.cos(angle))
+		local p = spire + radial * RADIUS + Vector3.new(0, height, 0)
+		local cf = CFrame.lookAt(p, p + tangent) * CFrame.new(0, -0.5, 0)
+		if k == STEPS then
+			finishY = height
+			finishPad(course, model, CFrame.new(spire + Vector3.new(0, height, 0)) * CFrame.lookAt(Vector3.zero, -tangent).Rotation, RIM)
+		elseif k == 12 then
+			checkpointPad(course, model, cf, 2, RIM)
+		elseif k == 16 then
+			jumpPad(model, cf, Vector3.new(3.5, 1, 3.5), Vector3.new(0, 80, 0))
+		elseif k == 5 or k == 14 or k == 21 then
+			spinnerPlatform(course, model, cf, TOP, RIM, 3, k * 0.6)
+		elseif k == 8 or k == 19 then
+			icePlatform(model, cf, Vector3.new(1.2, 0.6, 7)) -- thin icy beam
+		elseif k == 10 or k == 22 then
+			movingPlatform(model, cf, Vector3.new(3.4, 1, 3.4), radial * 4, 2.2, k * 0.4, Color3.fromRGB(150, 220, 255))
+		elseif k % 4 == 3 then
+			vanishPlatform(model, cf, Vector3.new(3.2, 1, 3.2), 2.2, 1.2, k * 0.45, Color3.fromRGB(200, 240, 255))
+		else
+			icePlatform(model, cf, Vector3.new(3.6, 1, 3.6))
+		end
+	end
+
+	-- the spire itself, with icicles
+	local spireHeight = finishY + 40
+	part({
+		Name = "IceSpire",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(spireHeight, 9, 9),
+		CFrame = CFrame.new(spire + Vector3.new(0, finishY - spireHeight / 2 - 0.6, 0)) * FLAT,
+		Color = Color3.fromRGB(120, 190, 240),
+		Material = Enum.Material.Glacier,
+		Parent = model,
+	})
+	for y = C.Y, finishY - 6, 12 do
+		part({
+			Name = "SpireRing",
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new(0.5, 9.6, 9.6),
+			CFrame = CFrame.new(spire + Vector3.new(0, y, 0)) * FLAT,
+			Color = RIM,
+			Material = Enum.Material.Neon,
+			CanCollide = false,
+			Parent = model,
+		})
+	end
+	local beacon = part({
+		Name = "Beacon",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.one * 3,
+		CFrame = CFrame.new(spire + Vector3.new(0, finishY + 12, 0)),
+		Color = RIM,
+		Material = Enum.Material.Neon,
+		CanCollide = false,
+		Parent = model,
+	})
+	addLight(beacon, RIM, 40, 3)
+end
+
+---------------------------------------------------------------------
+-- 🔥 MAGMA RUN: over a lava sea - sinking rocks, fire bars, lava halves
+---------------------------------------------------------------------
+do
+	local info = islandInfo("Ember")
+	local model = Instance.new("Model")
+	model.Name = "MagmaRun"
+	model.Parent = root
+	local course = newCourse("MagmaRun", model)
+	local TOP = Color3.fromRGB(50, 35, 35)
+	local RIM = Color3.fromRGB(255, 120, 40)
+	local LAVA = Color3.fromRGB(255, 100, 25)
+	local C = info.Center
+	local start = islandStart(course, model, info, RIM)
+
+	local STEPS = 38
+	local SPINNERS = { [6] = true, [15] = true, [24] = true, [33] = true }
+	local HALF_LAVA = { [4] = true, [13] = true, [28] = true, [35] = true }
+	local BEAMS = { [9] = true, [22] = true, [30] = true }
+	local SINKERS = { [3] = true, [10] = true, [17] = true, [21] = true, [31] = true, [36] = true }
+	local SLIDERS = { [11] = true, [25] = true }
+	local position = Vector3.new(start.X, C.Y + 1, start.Z + 4)
+	local lastZ
+	for i = 1, STEPS do
+		local x = math.sin(i * 0.38) * 14
+		local rise = (i == 20) and 10 or 1.1
+		position = Vector3.new(C.X + x, position.Y + rise, position.Z + 7.6)
+		local nextPos = Vector3.new(C.X + math.sin((i + 1) * 0.38) * 14, position.Y, position.Z + 7.6)
+		local direction = (nextPos - position).Unit
+		local across = Vector3.new(-direction.Z, 0, direction.X)
+		local cf = CFrame.lookAt(position, position + direction) * CFrame.new(0, -0.5, 0)
+		lastZ = position.Z
+		if i == STEPS then
+			finishPad(course, model, cf * CFrame.new(0, 0, -4), RIM)
+		elseif i == 12 or i == 26 then
+			checkpointPad(course, model, cf, (i == 12) and 1 or 2, RIM)
+		elseif i == 19 then
+			jumpPad(model, cf, Vector3.new(3.5, 1, 3.5), Vector3.new(0, 82, 0))
+		elseif SPINNERS[i] then
+			spinnerPlatform(course, model, cf, TOP, RIM, 3, i * 0.5)
+		elseif HALF_LAVA[i] then
+			local p = platform(model, cf * CFrame.new(-1.1, 0, 0), Vector3.new(2.2, 1, 3.6), TOP, RIM)
+			p.Material = Enum.Material.Basalt
+			killPad(course, model, cf * CFrame.new(1.1, 0, 0), Vector3.new(2.2, 1, 3.6), LAVA)
+		elseif BEAMS[i] then
+			local p = platform(model, cf, Vector3.new(1, 0.6, 7), TOP, RIM)
+			p.Material = Enum.Material.Basalt
+		elseif SINKERS[i] then
+			-- rocks that bob up and down out of the lava
+			movingPlatform(model, cf, Vector3.new(3.6, 1, 3.6), Vector3.new(0, 3, 0), 2.6, i * 0.7, Color3.fromRGB(110, 70, 60))
+		elseif SLIDERS[i] then
+			movingPlatform(model, cf, Vector3.new(3.4, 1, 3.4), across * 6, 2.2, i * 0.3, Color3.fromRGB(255, 160, 80))
+		elseif i % 4 == 2 then
+			vanishPlatform(model, cf, Vector3.new(3.4, 1, 3.4), 2.3, 1.3, i * 0.55, Color3.fromRGB(255, 150, 60))
+		else
+			local p = platform(model, cf, Vector3.new(3.4, 1, 3.4), TOP, RIM)
+			p.Material = Enum.Material.Basalt
+		end
+	end
+
+	-- the lava sea under the whole course (touch it = back to checkpoint)
+	local seaStart, seaEnd = start.Z + 8, lastZ + 14
+	local sea = part({
+		Name = "LavaSea",
+		Size = Vector3.new(60, 1, seaEnd - seaStart),
+		CFrame = CFrame.new(C.X, C.Y - 4, (seaStart + seaEnd) / 2),
+		Color = LAVA,
+		Material = Enum.Material.Neon,
+		Transparency = 0.05,
+		Parent = model,
+	})
+	table.insert(course.Kills, sea)
+	local fire = Instance.new("ParticleEmitter")
+	fire.Texture = Config.Textures.Fire
+	fire.Rate = 40
+	fire.Lifetime = NumberRange.new(0.8, 1.6)
+	fire.Speed = NumberRange.new(1, 4)
+	fire.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0) })
+	fire.Color = ColorSequence.new(Color3.fromRGB(255, 200, 80), LAVA)
+	fire.LightEmission = 1
+	fire.EmissionDirection = Enum.NormalId.Top
+	fire.Parent = sea
+	for z = seaStart + 10, seaEnd - 5, 30 do
+		local glow = part({ Name = "LavaGlow", Size = Vector3.one, CFrame = CFrame.new(C.X, C.Y - 2, z), Transparency = 1, CanCollide = false, Parent = model })
+		addLight(glow, LAVA, 40, 2)
+	end
+	-- dark rock walls along the sides of the sea
+	for _, side in ipairs({ -1, 1 }) do
+		part({
+			Name = "SeaWall",
+			Size = Vector3.new(3, 6, seaEnd - seaStart),
+			CFrame = CFrame.new(C.X + side * 31.5, C.Y - 2.5, (seaStart + seaEnd) / 2),
+			Color = Color3.fromRGB(40, 28, 28),
+			Material = Enum.Material.Basalt,
+			Parent = model,
+		})
+	end
+end
+
+---------------------------------------------------------------------
+-- 💠 PULSE GRID: a square spiral of platforms that pulse to a beat
+---------------------------------------------------------------------
+do
+	local info = islandInfo("Nexus")
+	local model = Instance.new("Model")
+	model.Name = "PulseGrid"
+	model.Parent = root
+	local course = newCourse("PulseGrid", model)
+	local TOP = Color3.fromRGB(25, 15, 45)
+	local RIM = Color3.fromRGB(255, 70, 220)
+	local CYAN = Color3.fromRGB(60, 230, 255)
+	local C = info.Center
+	local start = islandStart(course, model, info, RIM)
+
+	-- legs of the square spiral: direction + number of steps
+	local legs = {
+		{ Vector3.new(0, 0, 1), 10 },
+		{ Vector3.new(1, 0, 0), 8 },
+		{ Vector3.new(0, 0, 1), 8 },
+		{ Vector3.new(-1, 0, 0), 14 },
+	}
+	local SPINNERS = { [7] = true, [16] = true, [25] = true, [34] = true }
+	local BEAMS = { [4] = true, [19] = true, [29] = true }
+	local MOVERS = { [12] = true, [21] = true, [31] = true, [37] = true }
+	local HALF_DEADLY = { [9] = true, [33] = true }
+	local position = Vector3.new(start.X, C.Y + 1, start.Z + 2)
+	local i = 0
+	local total = 0
+	for _, leg in ipairs(legs) do
+		total += leg[2]
+	end
+	for _, leg in ipairs(legs) do
+		local direction = leg[1]
+		local across = Vector3.new(-direction.Z, 0, direction.X)
+		for _ = 1, leg[2] do
+			i += 1
+			local rise = (i == 24) and 10 or 1.3
+			position += direction * 8 + Vector3.new(0, rise, 0)
+			local cf = CFrame.lookAt(position, position + direction) * CFrame.new(0, -0.5, 0)
+			if i == total then
+				finishPad(course, model, cf * CFrame.new(0, 0, -4), RIM)
+			elseif i == 13 or i == 27 then
+				checkpointPad(course, model, cf, (i == 13) and 1 or 2, RIM)
+			elseif i == 23 then
+				jumpPad(model, cf, Vector3.new(3.5, 1, 3.5), Vector3.new(0, 82, 0))
+			elseif SPINNERS[i] then
+				spinnerPlatform(course, model, cf, TOP, RIM, 3.3, i * 0.45)
+			elseif BEAMS[i] then
+				platform(model, cf, Vector3.new(0.9, 0.6, 7), TOP, CYAN)
+			elseif MOVERS[i] then
+				movingPlatform(model, cf, Vector3.new(3.2, 1, 3.2), across * 6.5, 1.9, i * 0.33, CYAN)
+			elseif HALF_DEADLY[i] then
+				platform(model, cf * CFrame.new(-1.1, 0, 0), Vector3.new(2.2, 1, 3.4), TOP, RIM)
+				killPad(course, model, cf * CFrame.new(1.1, 0, 0), Vector3.new(2.2, 1, 3.4))
+			elseif i % 2 == 0 then
+				-- pulse platforms: they blink in a wave along the course
+				vanishPlatform(model, cf, Vector3.new(3.4, 1, 3.4), 2.4, 1.5, -i * 0.3, (i % 4 == 0) and RIM or CYAN)
+			else
+				platform(model, cf, Vector3.new(3.2, 1, 3.2), TOP, (i % 3 == 0) and CYAN or RIM)
+			end
+			-- neon grid posts under each step
+			if i % 2 == 1 then
+				part({
+					Name = "GridPost",
+					Size = Vector3.new(0.3, 14, 0.3),
+					CFrame = CFrame.new(position + Vector3.new(0, -8, 0)),
+					Color = (i % 4 == 1) and CYAN or RIM,
+					Material = Enum.Material.Neon,
+					CanCollide = false,
+					CanQuery = false,
+					Parent = model,
+				})
+			end
+		end
+	end
+end
+
 root.Parent = workspace
 
 ---------------------------------------------------------------------
@@ -657,7 +1015,7 @@ task.spawn(function()
 				if onPad(course.Finish, position, 6) then
 					finishRun(player, course)
 				-- walking around the island again ends the run
-				elseif onMainIslandGround(position) and not onPad(course.Start, position, 8) then
+				elseif (course.OnGround or onMainIslandGround)(position) and not onPad(course.Start, position, 8) then
 					stopRun(player, "Left")
 				end
 			end

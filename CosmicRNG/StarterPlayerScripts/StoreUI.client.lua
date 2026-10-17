@@ -30,7 +30,7 @@ local menu = new("Frame", {
 	Name = "SideMenu",
 	AnchorPoint = Vector2.new(0, 0.5),
 	Position = UDim2.new(0, 16, 0.5, 0),
-	Size = UDim2.fromOffset(84, 190),
+	Size = UDim2.fromOffset(84, 286), -- 3 buttons (the REBIRTH button is added by RebirthUI)
 	BackgroundTransparency = 1,
 	Parent = gui,
 }, {
@@ -62,7 +62,7 @@ local function menuButton(order, icon, text, color)
 end
 
 local storeButton, storeIcon = menuButton(1, "🛒", "STORE", THEME.Gold)
-local soundButton, soundIcon, soundText = menuButton(2, "🔊", "SOUND", THEME.Accent2)
+local soundButton, soundIcon, soundText = menuButton(3, "🔊", "SOUND", THEME.Accent2)
 
 -- the store icon gently wiggles to draw attention
 task.spawn(function()

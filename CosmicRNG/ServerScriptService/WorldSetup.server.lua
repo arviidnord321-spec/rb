@@ -26,6 +26,7 @@ local RESERVED = {
 	{ P.Pond, 11 },
 	{ P.StarstepStart, 8 },
 	{ P.VoidTowerStart, 8 },
+	{ P.RebirthGate, 14 },
 }
 
 local function isReserved(position, margin)
@@ -358,6 +359,14 @@ local function rescue(character, player)
 	elseif flat.Magnitude < lucky.Radius * 3 then
 		character:PivotTo(CFrame.new(lucky.Center + Vector3.new(0, 4, -45))) -- fell off Lucky Isle
 	else
+		-- fell off a rebirth island?
+		for _, info in ipairs(Config.RebirthIslands) do
+			local offset = Vector3.new(root.Position.X - info.Center.X, 0, root.Position.Z - info.Center.Z)
+			if offset.Magnitude < info.Radius * 3 then
+				character:PivotTo(CFrame.lookAt(info.Center + Vector3.new(0, 4, -44), info.Center + Vector3.new(0, 4, 0)))
+				return
+			end
+		end
 		character:PivotTo(CFrame.new(SPAWN_POSITION))
 	end
 end
@@ -797,6 +806,7 @@ path(toward(P.StarstepStart, -PATH_START + P.StarstepStart.Magnitude), toward(P.
 path(toward(P.VoidTowerStart, -PATH_START + P.VoidTowerStart.Magnitude), toward(P.VoidTowerStart, 4), 3.4)
 path(Vector3.new(0, 0, PATH_START), Vector3.new(0, 0, 66), 5) -- to the Duel Island bridge
 path(toward(P.Pond, -PATH_START + P.Pond.Magnitude), toward(P.Pond, 9), 3)
+path(toward(P.RebirthGate, -PATH_START + P.RebirthGate.Magnitude), toward(P.RebirthGate, 12.5), 4)
 
 ---------------------------------------------------------------------
 -- SIGNPOST at the spawn pointing to everything
@@ -816,9 +826,10 @@ local signTargets = {
 	{ "🏃 STARSTEP OBBY", P.StarstepStart, Color3.fromRGB(110, 230, 150) },
 	{ "🗼 VOID TOWER", P.VoidTowerStart, Color3.fromRGB(120, 200, 255) },
 	{ "🏆 TOP ROLLERS", BOARD_POSITION, Color3.fromRGB(255, 220, 120) },
+	{ "⭐ REBIRTH GATE", P.RebirthGate, Color3.fromRGB(140, 220, 255) },
 }
 for i, target in ipairs(signTargets) do
-	local height = 9.2 - i * 1.15
+	local height = 9.4 - i * 1.05
 	local postTop = SIGN_POST + Vector3.new(0, height, 0)
 	local dest = Vector3.new(target[2].X, height, target[2].Z)
 	local look = CFrame.lookAt(postTop, dest)

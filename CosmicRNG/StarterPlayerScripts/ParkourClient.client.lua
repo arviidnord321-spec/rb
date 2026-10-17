@@ -28,7 +28,7 @@ end
 ---------------------------------------------------------------------
 -- Collect vanishing platforms, jump pads and trophies
 ---------------------------------------------------------------------
-local vanishers, pads, trophies, spinners, movers = {}, {}, {}, {}, {}
+local vanishers, pads, trophies, spinners, movers, ices = {}, {}, {}, {}, {}, {}
 for _, item in ipairs(courses:GetDescendants()) do
 	if item:IsA("BasePart") then
 		if item:GetAttribute("Spinner") then
@@ -53,6 +53,8 @@ for _, item in ipairs(courses:GetDescendants()) do
 				On = item:GetAttribute("VanishOn") or 2,
 				Offset = item:GetAttribute("VanishOffset") or 0,
 			})
+		elseif item:GetAttribute("Slippery") then
+			table.insert(ices, item)
 		elseif item:GetAttribute("Launch") then
 			table.insert(pads, { Part = item, Launch = item:GetAttribute("Launch") })
 		elseif item.Name == "SpinGem" then
@@ -70,6 +72,7 @@ end
 
 local lastLaunch = 0
 local t = 0
+local slideVelocity -- your sliding speed while on ice
 RunService.RenderStepped:Connect(function(dt)
 	t += dt
 	local now = workspace:GetServerTimeNow()
@@ -92,6 +95,25 @@ RunService.RenderStepped:Connect(function(dt)
 			myRoot.CFrame += delta
 		end
 		mover.Part.CFrame = newCFrame
+	end
+
+	-- ice: you keep sliding, so speeding up and stopping is slow
+	local onIce = false
+	if myRoot then
+		for _, ice in ipairs(ices) do
+			if standingOn(ice, myRoot.Position) then
+				onIce = true
+				break
+			end
+		end
+	end
+	if onIce then
+		local velocity = myRoot.AssemblyLinearVelocity
+		local flat = Vector3.new(velocity.X, 0, velocity.Z)
+		slideVelocity = slideVelocity and slideVelocity:Lerp(flat, math.min(1, dt * 1.6)) or flat
+		myRoot.AssemblyLinearVelocity = Vector3.new(slideVelocity.X, velocity.Y, slideVelocity.Z)
+	else
+		slideVelocity = nil
 	end
 
 	-- vanishing platforms: solid, then blink, then gone

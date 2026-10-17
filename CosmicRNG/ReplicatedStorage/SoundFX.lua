@@ -373,6 +373,15 @@ function SoundFX.Jingle(name)
 		task.delay(0.7, function()
 			SoundFX.Play("Heartbeat", { Volume = 1 })
 		end)
+	elseif name == "Rebirth" then
+		-- rising riser, a big boom, then a bright fanfare
+		SoundFX.Riser(1.1, { Volume = 0.9 })
+		task.delay(1.1, function()
+			SoundFX.Play("Explosion", { Volume = 0.7, Speed = 0.8 })
+			SoundFX.Play("Gong", { Volume = 0.8, Speed = 1.1 })
+			SoundFX.Play("RevealMythic", { Volume = 0.7 })
+			SoundFX.Notes({ 1, 1.26, 1.5, 2, { 1.5, 2, 2.52 }, 2.52, { 2, 2.52, 3 } }, 0.09, { Volume = 0.9 })
+		end)
 	elseif name == "Countdown" then
 		SoundFX.Play("Beep")
 	end

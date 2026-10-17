@@ -67,7 +67,43 @@ Side menu with **STORE** and **SOUND** (mute) buttons.
   - **Starstep Trail** (medium): 26 small platforms with moving platforms (they carry you), spinning laser bars to jump over, vanishing platforms, a jump pad and 2 checkpoints. Finishing gives **x1.75 luck for 5 min**.
   - **Void Tower** (hard): a 42-step spiral with thin beams, fast-blinking platforms, spinning lasers, moving platforms, half-deadly platforms, a jump pad and 2 checkpoints. Finishing gives **x2.5 luck for 6 min**.
   - Each reward has a 10-minute cooldown. Lasers and red pads send you back to your checkpoint, and so does falling.
+- **Rebirth Gate** (west of the spawn): 3 portals to the rebirth islands, and the **Rebirth Altar** (press **E** to open the rebirth menu). A locked portal shows a force field until you have enough rebirths.
 - **Duel Island** (over the bridge south of the spawn): 2 arenas with force-field walls, spectator stands, braziers and live scoreboards.
+
+### Rebirths
+Open **⭐ REBIRTH** on the left (a green **!** shows when you're ready).
+- To rebirth you need enough **rolls since your last rebirth** AND **one rare aura rolled since your last rebirth**. Both get harder every time:
+
+  | Rebirth | Rolls | Rarest aura needed |
+  |---|---|---|
+  | 1 | 150 | 1 in 100 |
+  | 2 | 330 | 1 in 400 |
+  | 3 | 730 | 1 in 1,600 |
+  | 4 | 1,600 | 1 in 6,400 |
+  | 5 | 3,510 | 1 in 25,600 |
+
+- **You keep all your auras.** Only the rebirth counters start over.
+- Every rebirth gives **+25% luck forever**, **6% faster rolling** (up to 42%) and a star on your name tag and in chat.
+- **Unlocks:**
+
+  | Rebirth | Unlock |
+  |---|---|
+  | 1 | ❄️ **Frostfall Isle**: x2.5 luck, the Glacier Climb |
+  | 2 | 🔥 **Ember Isle**: x3 luck, the Magma Run; 🦘 **Double Jump** |
+  | 3 | 💠 **Neon Nexus**: x4 luck, the Pulse Grid; 🌠 **Rebirth Trail** |
+  | 4 | 🎯 **Lucky Streak**: lucky roll every 8 rolls |
+  | 5 | 🔁 **Free Auto Roll** |
+
+- Rebirthing plays a big celebration on your screen, and everyone in the server sees a pillar of light on you plus a banner.
+- **The islands**, each with its own sky color:
+  - **❄️ Frostfall Isle**: snow, pine trees, a slippery frozen lake, an igloo, snowmen, ice spikes, icicles under the island, an aurora in the sky and falling snow.
+  - **🔥 Ember Isle**: a smoking volcano that erupts now and then (the ground shakes), lava pools, fire geysers, obsidian spikes, burnt trees and floating embers.
+  - **💠 Neon Nexus**: a neon grid floor, glowing towers with blinking antennas and spinning holo rings, neon palm trees, floating cubes, a giant striped synthwave sun and falling neon sparkles.
+- **New parkour** (rewards have a 12-minute cooldown):
+  - **Glacier Climb** (Frostfall): slippery ice floes you keep sliding on, then a spiral up an ice spire. Gives **x3 luck for 6 min**.
+  - **Magma Run** (Ember): over a lava sea (touching it sends you back), with rocks that bob up and down, fire bars, half-lava platforms and a geyser jump pad. Gives **x4 luck for 7 min**.
+  - **Pulse Grid** (Neon Nexus): a square spiral of platforms that blink in a wave, fast lasers, sliding platforms and thin beams. Gives **x5 luck for 8 min**.
+- Every number is in `Config.Rebirth` and `Config.RebirthIslands`.
 
 ### Sprinting
 Hold **Shift** to sprint, or tap the **RUN** button on phones.
@@ -121,12 +157,12 @@ Hold **Shift** to sprint, or tap the **RUN** button on phones.
   | **E** | Dodge roll |
   | **Shift** | Sprint |
 
-- **Combos:** attack quickly to chain jab → jab → **spinning kick** (x1.8 damage plus knockback). A combo counter shows on screen.
+- **Combos:** attack quickly to chain a left jab → right cross → **roundhouse kick** (x1.8 damage plus knockback). A combo counter shows on screen.
 - **Block:** basic hits do only 20% damage and powers 50%, but blocking drains a guard meter (the blue line under your HP). A kick or an empty guard causes a **GUARD BREAK**, which stuns you.
 - **Dodge roll:** dash in the direction you're moving (backwards if you're standing still), untouchable for 0.35s, with a 2.2s cooldown.
 - **Powers** have a short casting wind-up with a glowing charge in your hands.
 - **Bots** now block and dodge too; harder bots do it more often.
-- **Animations** are made in code, with no uploaded assets: fighting stance, left/right jabs, roundhouse kick, a casting pose for each power type, hit recoils, block stance, dodge, stun wobble and a victory pose. Fists and feet leave trails in your aura colors, and bots get a proper walk cycle.
+- **Animations** are made in code, with no uploaded assets: a boxing guard with fists by the chin, a left jab and right cross that extend the arm all the way, a roundhouse kick, a high guard with both forearms in front of the face when blocking, a casting pose for each power type, hit recoils, block stance, dodge, stun wobble and a victory pose. Fists and feet leave trails in your aura colors, and bots get a proper walk cycle.
 - **Sounds** come from a layered sound designer, so hits never sound copy-pasted: punches, heavy smashes, whooshes, metal block clangs, guard-break shatters, dodges, hurt grunts, beams, explosions, ice shatters, heal shimmers, teleports, burn crackles, a countdown beep, a fight gong and victory/defeat tunes. A **battle drum beat** plays during fights and gets faster when someone is low or time is running out.
 - **Feel:** screen shake and a red flash when you get hit, a zoom punch when you land a heavy hit, and sparks and flashes at the point of impact.
 - **"💀 FINISH THEM!"** appears when your opponent is low, and the screen edges glow red when you are.
@@ -156,9 +192,9 @@ All sounds are made from Roblox's built-in sound files, so they always work:
 
 | Where in Studio | Type | Name |
 |---|---|---|
-| ReplicatedStorage | ModuleScript | `CosmicConfig`, `AuraData`, `AuraImages`, `AuraEffects`, `CombatAnim`, `Luck`, `SoundFX`, `UIKit` |
-| ServerScriptService | Script | `RollService`, `WorldSetup`, `LuckyIsland`, `Parkour`, `DuelService`, `Movement`, `Leaderboard` |
-| StarterPlayer > StarterPlayerScripts | LocalScript | `AuraRenderer`, `RollUI`, `StoreUI`, `WorldFX`, `ParkourClient`, `DuelClient`, `DuelFX`, `Sprint` |
+| ReplicatedStorage | ModuleScript | `CosmicConfig`, `AuraData`, `AuraImages`, `AuraEffects`, `CombatAnim`, `Luck`, `Rebirth`, `SoundFX`, `UIKit` |
+| ServerScriptService | Script | `RollService`, `WorldSetup`, `LuckyIsland`, `RebirthIslands`, `Parkour`, `DuelService`, `Movement`, `Leaderboard` |
+| StarterPlayer > StarterPlayerScripts | LocalScript | `AuraRenderer`, `RollUI`, `StoreUI`, `WorldFX`, `ParkourClient`, `DuelClient`, `DuelFX`, `Sprint`, `RebirthClient`, `IslandFX` |
 
 ## Adding the aura pictures
 Roblox can only show pictures that are uploaded to Roblox, so this is a one-time step:
@@ -196,6 +232,7 @@ Enable Studio Access to API Services**.
 - Press **R** to roll on PC.
 - In Studio all passes are free, so Studio luck shows **x2.5** (2x Luck + VIP), or **x5** on Lucky Isle. Boost buttons in the Store activate for free in Studio too.
 - To test player-vs-player duels in Studio: **Test > Clients and Servers**, pick 2 players, then **Start**.
+- To test rebirths fast, temporarily set `Config.Rebirth.BaseRolls = 5` and `Config.Rebirth.BaseRarity = 2`.
 - To test as a non-VIP, set `Config.FreePassesInStudio = false`.
 
 ## Coming in later parts

@@ -95,6 +95,7 @@ Config.Places = {
 	VoidTowerStart = Vector3.new(44, 0, -46), -- hard parkour
 	DuelIsland = Vector3.new(0, 0, 140), -- center of the duel island
 	DuelIslandRadius = 46,
+	RebirthGate = Vector3.new(-40, 0, 34), -- 3 portals to the rebirth islands
 }
 
 -- Lucky Isle: the island you reach through the portal
@@ -103,6 +104,53 @@ Config.LuckyIsland = {
 	Radius = 75,
 	LuckMultiplier = 2, -- extra luck while you stand on it
 	RequireVIP = false, -- true = only VIP pass owners may use the portal
+}
+
+---------------------------------------------------------------------
+-- REBIRTH
+-- Rebirthing needs rolls (since your last rebirth) AND one rare aura rolled
+-- since your last rebirth. Both get harder every time. You KEEP your auras.
+-- Every rebirth: more luck forever, faster rolling and a new star.
+---------------------------------------------------------------------
+Config.Rebirth = {
+	BaseRolls = 150, -- rolls needed for the 1st rebirth
+	RollGrowth = 2.2, -- each rebirth needs 2.2x more rolls (150, 330, 726, ...)
+	BaseRarity = 100, -- 1st rebirth: roll an aura of 1 in 100 or rarer
+	RarityGrowth = 4, -- then 1 in 400, 1 in 1,600, ...
+	MaxRarity = 1000000,
+	LuckPerRebirth = 0.25, -- +25% luck per rebirth (x1.25, x1.5, x1.75 ...)
+	RollSpeedPerRebirth = 0.06, -- 6% shorter roll cooldown per rebirth
+	MaxRollSpeed = 0.42, -- never more than 42% faster
+	-- Unlocks (Rebirths = how many you need)
+	Perks = {
+		{ Rebirths = 1, Icon = "❄️", Name = "Frostfall Isle", Description = "A frozen island with x2.5 luck and the Glacier Climb." },
+		{ Rebirths = 2, Icon = "🔥", Name = "Ember Isle", Description = "A volcano island with x3 luck and the Magma Run." },
+		{ Rebirths = 2, Icon = "🦘", Name = "Double Jump", Description = "Press jump again in the air (not on parkour courses)." },
+		{ Rebirths = 3, Icon = "💠", Name = "Neon Nexus", Description = "A neon city island with x4 luck and the Pulse Grid." },
+		{ Rebirths = 3, Icon = "🌠", Name = "Rebirth Trail", Description = "A glowing trail follows you everywhere." },
+		{ Rebirths = 4, Icon = "🎯", Name = "Lucky Streak", Description = "Lucky roll every 8 rolls instead of 10." },
+		{ Rebirths = 5, Icon = "🔁", Name = "Free Auto Roll", Description = "Auto Roll unlocked for free, forever." },
+	},
+	LuckyEveryAt4 = 8,
+}
+
+-- The rebirth islands (reached through the Rebirth Gate on the main island)
+Config.RebirthIslands = {
+	{
+		Key = "Frostfall", Name = "Frostfall Isle", Icon = "❄️", Rebirths = 1,
+		Center = Vector3.new(-1000, 30, 0), Radius = 70, LuckMultiplier = 2.5,
+		Color = Color3.fromRGB(140, 220, 255),
+	},
+	{
+		Key = "Ember", Name = "Ember Isle", Icon = "🔥", Rebirths = 2,
+		Center = Vector3.new(1000, 30, 0), Radius = 70, LuckMultiplier = 3,
+		Color = Color3.fromRGB(255, 120, 40),
+	},
+	{
+		Key = "Nexus", Name = "Neon Nexus", Icon = "💠", Rebirths = 3,
+		Center = Vector3.new(0, 30, -1000), Radius = 70, LuckMultiplier = 4,
+		Color = Color3.fromRGB(255, 70, 220),
+	},
 }
 
 ---------------------------------------------------------------------
@@ -124,6 +172,10 @@ Config.Movement = {
 Config.Parkour = {
 	Starstep = { Name = "Starstep Trail", LuckMultiplier = 1.75, BoostMinutes = 5, CooldownMinutes = 10 },
 	VoidTower = { Name = "Void Tower", LuckMultiplier = 2.5, BoostMinutes = 6, CooldownMinutes = 10 },
+	-- rebirth island courses (harder, bigger rewards)
+	GlacierClimb = { Name = "Glacier Climb", LuckMultiplier = 3, BoostMinutes = 6, CooldownMinutes = 12 },
+	MagmaRun = { Name = "Magma Run", LuckMultiplier = 4, BoostMinutes = 7, CooldownMinutes = 12 },
+	PulseGrid = { Name = "Pulse Grid", LuckMultiplier = 5, BoostMinutes = 8, CooldownMinutes = 12 },
 }
 
 ---------------------------------------------------------------------

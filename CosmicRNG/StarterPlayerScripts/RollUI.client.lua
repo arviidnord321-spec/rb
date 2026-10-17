@@ -13,6 +13,7 @@ local TextChatService = game:GetService("TextChatService")
 local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
 local AuraData = require(ReplicatedStorage:WaitForChild("AuraData"))
 local Luck = require(ReplicatedStorage:WaitForChild("Luck"))
+local Rebirth = require(ReplicatedStorage:WaitForChild("Rebirth"))
 local SoundFX = require(ReplicatedStorage:WaitForChild("SoundFX"))
 local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
 
@@ -498,7 +499,7 @@ end
 ---------------------------------------------------------------------
 -- LUCK LINE + STATS
 ---------------------------------------------------------------------
-local BONUS_ICONS = { ["2x Luck"] = "🍀", VIP = "👑", Potion = "🧪", Server = "🌌", Event = "☄️", ["Lucky Isle"] = "🏝", Parkour = "🏃" }
+local BONUS_ICONS = { ["2x Luck"] = "🍀", VIP = "👑", Potion = "🧪", Server = "🌌", Event = "☄️", ["Lucky Isle"] = "🏝", Parkour = "🏃", Rebirth = "⭐" }
 
 local function updateInfo()
 	local total = Luck.Get(player)
@@ -510,7 +511,7 @@ local function updateInfo()
 				BONUS_ICONS[bonus.Name] or "✦", Luck.FormatTime(bonus.EndsAt - now)))
 		elseif bonus.Show then
 			table.insert(parts, ("<font color='#ffb4dc'>%s %s x%s</font>"):format(
-				BONUS_ICONS[bonus.Name] or "✦", bonus.Name, Luck.Format(bonus.Multiplier)))
+				bonus.Icon or BONUS_ICONS[bonus.Name] or "✦", bonus.Name, Luck.Format(bonus.Multiplier)))
 		end
 	end
 	luckLine.Text = table.concat(parts, "   ")
@@ -712,6 +713,8 @@ local function playRollAnimation(result, fast)
 
 	-- 1) Spin through random auras, slowing down at the end
 	local steps = fast and 7 or 16
+	-- rebirths make rolling faster, the spin speeds up to match
+	local pace = Rebirth.CooldownScale(player:GetAttribute("Rebirths") or 0)
 	local showLuck = math.max(result.Luck or 1, 1) * 40 -- show exciting names while spinning
 	for i = 1, steps do
 		local progress = i / steps
@@ -723,7 +726,7 @@ local function playRollAnimation(result, fast)
 		tween(imageScale, 0.08, { Scale = 1 })
 		nameLabel.Rotation = rand:NextNumber(-3, 3)
 		SoundFX.Play("Tick", { Speed = 0.85 + progress * 0.9 })
-		task.wait((fast and 0.03 or 0.04) + progress ^ 3 * (fast and 0.12 or 0.28))
+		task.wait(((fast and 0.03 or 0.04) + progress ^ 3 * (fast and 0.12 or 0.28)) * pace)
 	end
 	nameLabel.Rotation = 0
 
@@ -1215,6 +1218,15 @@ AnnounceRemote.OnClientEvent:Connect(function(info)
 			info.Winner, info.Loser, aura and (" with <font color='#" .. tierOf(aura).Color:ToHex() .. "'>" .. aura.Name .. "</font>") or ""),
 			Color3.fromRGB(255, 90, 100), aura and AuraData.GetImage(aura.Name) or nil)
 		SoundFX.Play("Pop", { Volume = 0.7 })
+		return
+	end
+	if info.Type == "Rebirth" then
+		local color = Rebirth.Color(info.Rebirths)
+		showBanner(("⭐ <b>%s</b> just <font color='#%s'><b>REBIRTHED</b></font>! (Rebirth %d)"):format(
+			info.PlayerName, color:ToHex(), info.Rebirths), color)
+		if info.UserId ~= player.UserId then
+			SoundFX.Chime(1.1, 4)
+		end
 		return
 	end
 	if info.Type == "ServerLuck" then

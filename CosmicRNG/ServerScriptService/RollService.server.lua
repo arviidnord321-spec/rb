@@ -13,6 +13,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
 local AuraData = require(ReplicatedStorage:WaitForChild("AuraData"))
 local Luck = require(ReplicatedStorage:WaitForChild("Luck"))
+local Rebirth = require(ReplicatedStorage:WaitForChild("Rebirth"))
 
 ---------------------------------------------------------------------
 -- Remotes (created here so you don't have to make them by hand)
@@ -41,6 +42,7 @@ local DataUpdatedRemote = getRemote("RemoteEvent", "DataUpdated")
 local AnnounceRemote = getRemote("RemoteEvent", "Announce")
 local RollFXRemote = getRemote("RemoteEvent", "RollFX") -- server -> everyone: show roll effects
 local RevealRemote = getRemote("RemoteEvent", "Reveal") -- roller -> server: "my reveal animation finished"
+local RebirthRemote = getRemote("RemoteFunction", "Rebirth") -- player asks to rebirth
 
 ---------------------------------------------------------------------
 -- Data saving
@@ -72,6 +74,9 @@ local function newData()
 		BestChance = 0,
 		PersonalLuckEnd = 0, -- potion end time (seconds since 1970)
 		DuelWins = 0, -- player-vs-player duel wins
+		Rebirths = 0,
+		RebirthRolls = 0, -- rolls since your last rebirth
+		RebirthBest = 0, -- rarest aura (chance) rolled since your last rebirth
 		Receipts = {}, -- recent purchase IDs, so nothing is granted twice
 	}
 end
@@ -147,10 +152,19 @@ local function hasPass(player, key)
 	return player:GetAttribute("Pass_" .. key) == true
 end
 
+-- Things a pass gives that you can also earn by rebirthing
+local function rebirthGrants(player, key)
+	if key == "AutoRoll" then
+		return Rebirth.HasPerk(player:GetAttribute("Rebirths") or 0, "Free Auto Roll")
+	end
+	return false
+end
+
 MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, passId, purchased)
 	local key = passIdToKey[passId]
 	if purchased and key then
 		player:SetAttribute("Pass_" .. key, true)
+		player:SetAttribute("Owns_" .. key, true)
 	end
 end)
 
@@ -184,8 +198,18 @@ local function refreshStats(player)
 		stats.Rolls.Value = data.Rolls
 		stats.Aura.Value = data.Equipped ~= "" and data.Equipped or "-"
 		stats.Wins.Value = data.DuelWins or 0
+		stats.Rebirths.Value = data.Rebirths or 0
 	end
 	player:SetAttribute("Rolls", data.Rolls)
+	player:SetAttribute("Rebirths", data.Rebirths or 0)
+	player:SetAttribute("RebirthRolls", data.RebirthRolls or 0)
+	player:SetAttribute("RebirthBest", data.RebirthBest or 0)
+	-- perks that unlock passes
+	for key in pairs(Config.GamePasses) do
+		if rebirthGrants(player, key) and not player:GetAttribute("Pass_" .. key) then
+			player:SetAttribute("Pass_" .. key, true)
+		end
+	end
 	player:SetAttribute("EquippedAura", data.Equipped)
 	player:SetAttribute("BestChance", data.BestChance)
 end
@@ -203,6 +227,7 @@ RollRemote.OnServerInvoke = function(player)
 	end
 
 	local cooldown = hasPass(player, "QuickRoll") and Config.QuickRollCooldown or Config.RollCooldown
+	cooldown *= Rebirth.CooldownScale(data.Rebirths or 0)
 	local now = os.clock()
 	-- small grace window for network jitter
 	if now - (lastRollTime[player] or 0) < cooldown - 0.1 then
@@ -239,6 +264,10 @@ RollRemote.OnServerInvoke = function(player)
 	end)
 
 	data.Rolls = rollNumber
+	data.RebirthRolls = (data.RebirthRolls or 0) + 1
+	if best.Chance > (data.RebirthBest or 0) then
+		data.RebirthBest = best.Chance
+	end
 	local isNewBest = best.Chance > data.BestChance
 	if isNewBest then
 		data.BestChance = best.Chance
@@ -294,6 +323,46 @@ EquipRemote.OnServerEvent:Connect(function(player, auraName)
 	refreshStats(player)
 	DataUpdatedRemote:FireClient(player, snapshot(data))
 end)
+
+---------------------------------------------------------------------
+-- Rebirth: needs enough rolls + one rare aura since the last rebirth.
+-- You keep your auras; the rebirth counters start again from zero.
+---------------------------------------------------------------------
+local rebirthBusy = {}
+RebirthRemote.OnServerInvoke = function(player)
+	local data = sessions[player]
+	if not data then
+		return { Error = "Loading" }
+	end
+	if rebirthBusy[player] or player:GetAttribute("InDuel") then
+		return { Error = "Busy" }
+	end
+	local n = data.Rebirths or 0
+	local cost = Rebirth.Cost(n)
+	if (data.RebirthRolls or 0) < cost.Rolls or (data.RebirthBest or 0) < cost.Rarity then
+		return { Error = "NotReady" }
+	end
+	rebirthBusy[player] = true
+	data.Rebirths = n + 1
+	data.RebirthRolls = 0
+	data.RebirthBest = 0
+	refreshStats(player)
+	AnnounceRemote:FireAllClients({
+		Type = "Rebirth",
+		PlayerName = player.DisplayName,
+		UserId = player.UserId,
+		Rebirths = data.Rebirths,
+	})
+	task.spawn(saveData, player)
+	task.delay(1, function()
+		rebirthBusy[player] = nil
+	end)
+	local unlocked = {}
+	for _, perk in ipairs(Rebirth.PerksAt(data.Rebirths)) do
+		table.insert(unlocked, perk.Name)
+	end
+	return { Rebirths = data.Rebirths, Unlocked = unlocked }
+end
 
 ---------------------------------------------------------------------
 -- Developer products (luck potions, server luck)
@@ -404,11 +473,17 @@ local function onPlayerAdded(player)
 	local wins = Instance.new("IntValue")
 	wins.Name = "Wins"
 	wins.Parent = stats
+	local rebirths = Instance.new("IntValue")
+	rebirths.Name = "Rebirths"
+	rebirths.Parent = stats
 	stats.Parent = player
 
 	for key in pairs(Config.GamePasses) do
 		task.spawn(function()
-			player:SetAttribute("Pass_" .. key, checkPass(player, key))
+			local owns = checkPass(player, key)
+			player:SetAttribute("Owns_" .. key, owns)
+			-- a rebirth perk can give the same thing for free
+			player:SetAttribute("Pass_" .. key, owns or rebirthGrants(player, key))
 		end)
 	end
 
@@ -440,6 +515,7 @@ Players.PlayerRemoving:Connect(function(player)
 	canSave[player] = nil
 	lastRollTime[player] = nil
 	pendingReveal[player] = nil
+	rebirthBusy[player] = nil
 end)
 
 game:BindToClose(function()

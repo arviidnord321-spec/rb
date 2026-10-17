@@ -14,6 +14,7 @@ local TextChatService = game:GetService("TextChatService")
 
 local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
 local AuraData = require(ReplicatedStorage:WaitForChild("AuraData"))
+local Rebirth = require(ReplicatedStorage:WaitForChild("Rebirth"))
 local AuraEffects = require(ReplicatedStorage:WaitForChild("AuraEffects"))
 local SoundFX = require(ReplicatedStorage:WaitForChild("SoundFX"))
 
@@ -73,6 +74,11 @@ local function isVIP(character)
 	return player ~= nil and player:GetAttribute("Pass_VIP") == true
 end
 
+local function rebirthsOf(character)
+	local player = Players:GetPlayerFromCharacter(character)
+	return player and (player:GetAttribute("Rebirths") or 0) or 0
+end
+
 local function removeTag(character)
 	local tag = tags[character]
 	if tag then
@@ -90,7 +96,8 @@ local function buildTag(character)
 	end
 	local aura = AuraData.Get(character:GetAttribute("Aura") or "")
 	local vip = isVIP(character)
-	if not aura and not vip then
+	local rebirths = rebirthsOf(character)
+	if not aura and not vip and rebirths <= 0 then
 		return
 	end
 
@@ -128,8 +135,16 @@ local function buildTag(character)
 	end
 
 	local gradient
-	if vip then
-		line(1, "👑 VIP", 16, GOLD)
+	if vip or rebirths > 0 then
+		local parts = {}
+		if rebirths > 0 then
+			table.insert(parts, ("<font color='#%s'>%s Rebirth %d</font>"):format(Rebirth.Color(rebirths):ToHex(), Rebirth.Stars(rebirths), rebirths))
+		end
+		if vip then
+			table.insert(parts, "👑 VIP")
+		end
+		local top = line(1, table.concat(parts, "  "), 16, GOLD)
+		top.RichText = true
 	end
 	if aura then
 		local nameLine = line(2, aura.Name, 24, Color3.new(1, 1, 1))
@@ -147,6 +162,7 @@ local function buildTag(character)
 		Phase = math.random() * 6,
 		AuraName = aura and aura.Name or nil,
 		VIP = vip,
+		Rebirths = rebirths,
 	}
 end
 
@@ -178,9 +194,10 @@ local function reconcile(character, withBurst)
 	local tag = tags[character]
 	local head = character:FindFirstChild("Head")
 	local vip = isVIP(character)
-	if not head or (not desired and not vip) then
+	local rebirths = rebirthsOf(character)
+	if not head or (not desired and not vip and rebirths <= 0) then
 		removeTag(character)
-	elseif not tag or tag.AuraName ~= desired or tag.VIP ~= vip or tag.Gui.Adornee ~= head then
+	elseif not tag or tag.AuraName ~= desired or tag.VIP ~= vip or tag.Rebirths ~= rebirths or tag.Gui.Adornee ~= head then
 		buildTag(character)
 	end
 end
@@ -221,6 +238,11 @@ local function onPlayer(player)
 	end
 	player.CharacterAdded:Connect(track)
 	player:GetAttributeChangedSignal("Pass_VIP"):Connect(function()
+		if player.Character then
+			reconcile(player.Character, false)
+		end
+	end)
+	player:GetAttributeChangedSignal("Rebirths"):Connect(function()
 		if player.Character then
 			reconcile(player.Character, false)
 		end
@@ -463,6 +485,10 @@ TextChatService.OnIncomingMessage = function(message)
 		return nil
 	end
 	local prefix = ""
+	local rebirths = player:GetAttribute("Rebirths") or 0
+	if rebirths > 0 then
+		prefix ..= ("<font color='#%s'>[%s]</font> "):format(Rebirth.Color(rebirths):ToHex(), Rebirth.Stars(rebirths))
+	end
 	if player:GetAttribute("Pass_VIP") then
 		prefix ..= "<font color='#FFC846'>[VIP]</font> "
 	end

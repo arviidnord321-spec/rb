@@ -926,69 +926,94 @@ end
 -- Trail = which limb glows while the move plays.
 ---------------------------------------------------------------------
 local CLIPS = {
-	JabRight = {
-		Duration = 0.34,
-		Trail = "RightHand",
-		Keys = {
-			{ 0, {} },
-			{ 0.07, { RightShoulder = P(30, 0, 20), RightElbow = P(110), Waist = P(0, 22, 0) } },
-			{ 0.13, { RightShoulder = P(95, 0, 4), RightElbow = P(4), Waist = P(-8, -30, 0), Root = P(-10), LeftShoulder = P(50, 0, -20), LeftElbow = P(90) } },
-			{ 0.2, { RightShoulder = P(92, 0, 4), RightElbow = P(8), Waist = P(-6, -26, 0), Root = P(-8) } },
-			{ 0.34, {} },
-		},
-	},
+	-- 1st combo hit: a fast LEAD JAB with the left hand
 	JabLeft = {
-		Duration = 0.34,
+		Duration = 0.38,
 		Trail = "LeftHand",
 		Keys = {
 			{ 0, {} },
-			{ 0.07, { LeftShoulder = P(30, 0, -20), LeftElbow = P(110), Waist = P(0, -22, 0) } },
-			{ 0.13, { LeftShoulder = P(95, 0, -4), LeftElbow = P(4), Waist = P(-8, 30, 0), Root = P(-10), RightShoulder = P(50, 0, 20), RightElbow = P(90) } },
-			{ 0.2, { LeftShoulder = P(92, 0, -4), LeftElbow = P(8), Waist = P(-6, 26, 0), Root = P(-8) } },
-			{ 0.34, {} },
+			-- load up: elbow tucks back, shoulder turns a little
+			{ 0.07, { LeftShoulder = P(58, 0, 16), LeftElbow = P(128), Waist = P(-6, -12, 0) } },
+			-- SNAP: arm shoots straight out, body turns into it, small step forward
+			{ 0.14, { LeftShoulder = P(94, 0, -10), LeftElbow = P(2), Waist = P(-10, -34, 0), Root = P(-9, 0, 0, 0, -0.25, -0.35), LeftHip = P(30), LeftKnee = P(-12), RightKnee = P(-22), Neck = P(-12, 26, 0), RightShoulder = P(50, 0, -30), RightElbow = P(108) } },
+			{ 0.21, { LeftShoulder = P(92, 0, -8), LeftElbow = P(6), Waist = P(-9, -30, 0), Root = P(-8, 0, 0, 0, -0.25, -0.3), LeftHip = P(26), Neck = P(-10, 22, 0), RightShoulder = P(50, 0, -30), RightElbow = P(108) } },
+			-- pull the hand back to the face
+			{ 0.38, {} },
 		},
 	},
-	Roundhouse = { -- 3rd hit of the combo: a spinning kick
-		Duration = 0.62,
+	-- 2nd combo hit: a heavier REAR CROSS with the right hand
+	CrossRight = {
+		Duration = 0.44,
+		Trail = "RightHand",
+		Keys = {
+			{ 0, {} },
+			-- coil: right shoulder pulls back, weight on the back foot
+			{ 0.09, { RightShoulder = P(48, 0, 12), RightElbow = P(132), Waist = P(-4, -30, 0), Root = P(4, -8, 0, 0, -0.3, 0.1), RightKnee = P(-30) } },
+			-- the punch: hips and shoulders whip around, arm fully extended
+			{ 0.17, { RightShoulder = P(96, 0, -14), RightElbow = P(0), Waist = P(-12, 40, 0), Root = P(-12, 18, 0, 0, -0.3, -0.4), RightHip = P(-22), RightKnee = P(-28), LeftHip = P(22), LeftKnee = P(-18), Neck = P(-12, -32, 0), LeftShoulder = P(62, 0, 28), LeftElbow = P(96) } },
+			{ 0.25, { RightShoulder = P(94, 0, -12), RightElbow = P(4), Waist = P(-10, 36, 0), Root = P(-10, 16, 0, 0, -0.3, -0.35), RightHip = P(-20), LeftHip = P(20), Neck = P(-10, -28, 0), LeftShoulder = P(62, 0, 28), LeftElbow = P(96) } },
+			{ 0.44, {} },
+		},
+	},
+	-- (kept for bots/extra variety)
+	JabRight = {
+		Duration = 0.36,
+		Trail = "RightHand",
+		Keys = {
+			{ 0, {} },
+			{ 0.07, { RightShoulder = P(50, 0, 14), RightElbow = P(128), Waist = P(0, -14, 0) } },
+			{ 0.14, { RightShoulder = P(95, 0, -10), RightElbow = P(2), Waist = P(-8, 30, 0), Root = P(-9, 0, 0, 0, -0.25, -0.3), Neck = P(-10, -24, 0) } },
+			{ 0.36, {} },
+		},
+	},
+	-- 3rd combo hit: chambered ROUNDHOUSE KICK
+	Roundhouse = {
+		Duration = 0.66,
 		Trail = "RightFoot",
 		Keys = {
 			{ 0, {} },
-			{ 0.15, { Root = P(0, 25, 0, 0, -0.4, 0), RightHip = P(-20, 0, 20), RightKnee = P(-70), Waist = P(0, 25, 0), RightShoulder = P(20, 0, 45), LeftShoulder = P(20, 0, -45) } },
-			{ 0.27, { Root = P(-6, -55, 0, 0, -0.15, 0), RightHip = P(100, 0, 35), RightKnee = P(-5), LeftKnee = P(-18), Waist = P(0, -30, 0), LeftShoulder = P(40, 0, -75), RightShoulder = P(-20, 0, 60) } },
-			{ 0.42, { Root = P(-4, -50, 0, 0, -0.15, 0), RightHip = P(85, 0, 30), RightKnee = P(-15), LeftKnee = P(-15), Waist = P(0, -25, 0), LeftShoulder = P(35, 0, -70), RightShoulder = P(-15, 0, 55) } },
-			{ 0.62, {} },
+			-- chamber: knee comes up high, foot tucked
+			{ 0.15, { RightHip = P(80, 0, 30), RightKnee = P(-115), Root = P(-4, 15, 0, 0, -0.15, 0), Waist = P(-4, -12, 0), LeftKnee = P(-18), LeftShoulder = P(62, 0, 28), LeftElbow = P(96), RightShoulder = P(50, 0, -30), RightElbow = P(108) } },
+			-- snap the leg out while the hips turn through
+			{ 0.28, { RightHip = P(92, 0, 40), RightKnee = P(-4), Root = P(-10, 48, 0, 0, -0.1, 0), Waist = P(-6, -22, 0), LeftKnee = P(-22), RightShoulder = P(-35, 0, 40), RightElbow = P(40), LeftShoulder = P(62, 0, 28), LeftElbow = P(96), Neck = P(-6, -34, 0) } },
+			{ 0.42, { RightHip = P(88, 0, 38), RightKnee = P(-12), Root = P(-8, 45, 0, 0, -0.1, 0), Waist = P(-5, -20, 0), LeftKnee = P(-22), RightShoulder = P(-30, 0, 38), LeftShoulder = P(62, 0, 28), LeftElbow = P(96), Neck = P(-6, -32, 0) } },
+			-- re-chamber and step back down
+			{ 0.52, { RightHip = P(60, 0, 20), RightKnee = P(-95), Root = P(-2, 18, 0, 0, -0.2, 0), LeftKnee = P(-18) } },
+			{ 0.66, {} },
 		},
 	},
-	CastForward = { -- beams, projectiles, drains, freezes
-		Duration = 0.55,
+	CastForward = { -- beams, projectiles, drains, freezes, pulls
+		Duration = 0.58,
 		Trail = "BothHands",
 		Keys = {
 			{ 0, {} },
-			{ 0.13, { RightShoulder = P(40, 0, 35), LeftShoulder = P(40, 0, -35), RightElbow = P(95), LeftElbow = P(95), Root = P(6), Waist = P(0, 10, 0) } },
-			{ 0.23, { RightShoulder = P(96, 0, -12), LeftShoulder = P(96, 0, 12), RightElbow = P(0), LeftElbow = P(0), Root = P(-8), Waist = P(-6, 0, 0) } },
-			{ 0.36, { RightShoulder = P(92, 0, -10), LeftShoulder = P(92, 0, 10), Root = P(6), Neck = P(-6) } },
-			{ 0.55, {} },
+			-- gather energy at the hip
+			{ 0.13, { RightShoulder = P(20, 0, 30), LeftShoulder = P(20, 0, -30), RightElbow = P(110), LeftElbow = P(110), Root = P(6, 20, 0, 0, -0.3, 0.1), Waist = P(0, 25, 0), RightKnee = P(-25), LeftKnee = P(-25) } },
+			-- PUSH both palms forward
+			{ 0.23, { RightShoulder = P(96, 0, -14), LeftShoulder = P(96, 0, 14), RightElbow = P(0), LeftElbow = P(0), Root = P(-10, 0, 0, 0, -0.3, -0.3), Waist = P(-8, 0, 0), LeftHip = P(25), LeftKnee = P(-15), RightHip = P(-15), RightKnee = P(-25), Neck = P(-8) } },
+			{ 0.38, { RightShoulder = P(92, 0, -12), LeftShoulder = P(92, 0, 12), Root = P(6, 0, 0, 0, -0.25, 0.15), Neck = P(-6) } },
+			{ 0.58, {} },
 		},
 	},
 	CastUp = { -- meteors, heals, shields
-		Duration = 0.7,
+		Duration = 0.72,
 		Trail = "BothHands",
 		Keys = {
 			{ 0, {} },
-			{ 0.2, { RightShoulder = P(172, 0, -18), LeftShoulder = P(172, 0, 18), RightElbow = P(12), LeftElbow = P(12), Neck = P(22), Root = P(6) } },
-			{ 0.5, { RightShoulder = P(168, 0, -22), LeftShoulder = P(168, 0, 22), RightElbow = P(18), LeftElbow = P(18), Neck = P(18), Root = P(5) } },
-			{ 0.7, {} },
+			{ 0.2, { RightShoulder = P(172, 0, -18), LeftShoulder = P(172, 0, 18), RightElbow = P(12), LeftElbow = P(12), Neck = P(24), Root = P(6, 0, 0, 0, 0.1, 0) } },
+			{ 0.5, { RightShoulder = P(168, 0, -24), LeftShoulder = P(168, 0, 24), RightElbow = P(18), LeftElbow = P(18), Neck = P(20), Root = P(5, 0, 0, 0, 0.1, 0) } },
+			{ 0.72, {} },
 		},
 	},
-	Slam = { -- bursts / explosions
-		Duration = 0.65,
+	Slam = { -- bursts / explosions: jump up and smash the ground
+		Duration = 0.66,
 		Trail = "BothHands",
 		Keys = {
 			{ 0, {} },
-			{ 0.18, { RightShoulder = P(165, 0, -10), LeftShoulder = P(165, 0, 10), Root = P(8, 0, 0, 0, 0.25, 0), Neck = P(15) } },
-			{ 0.3, { RightShoulder = P(55, 0, 15), LeftShoulder = P(55, 0, -15), Root = P(-25, 0, 0, 0, -0.55, 0), RightKnee = P(-45), LeftKnee = P(-45), RightHip = P(35), LeftHip = P(35), Neck = P(-10) } },
-			{ 0.45, { RightShoulder = P(50, 0, 15), LeftShoulder = P(50, 0, -15), Root = P(-20, 0, 0, 0, -0.5, 0), RightKnee = P(-40), LeftKnee = P(-40), RightHip = P(30), LeftHip = P(30) } },
-			{ 0.65, {} },
+			{ 0.18, { RightShoulder = P(165, 0, -10), LeftShoulder = P(165, 0, 10), RightElbow = P(20), LeftElbow = P(20), Root = P(8, 0, 0, 0, 0.25, 0), Neck = P(18) } },
+			{ 0.3, { RightShoulder = P(40, 0, -12), LeftShoulder = P(40, 0, 12), RightElbow = P(8), LeftElbow = P(8), Root = P(-28, 0, 0, 0, -0.55, 0), RightKnee = P(-50), LeftKnee = P(-50), RightHip = P(38), LeftHip = P(38), Neck = P(-12) } },
+			{ 0.46, { RightShoulder = P(36, 0, -12), LeftShoulder = P(36, 0, 12), RightElbow = P(10), LeftElbow = P(10), Root = P(-22, 0, 0, 0, -0.5, 0), RightKnee = P(-45), LeftKnee = P(-45), RightHip = P(32), LeftHip = P(32) } },
+			{ 0.66, {} },
 		},
 	},
 	DashLean = {
@@ -996,53 +1021,54 @@ local CLIPS = {
 		Trail = "BothHands",
 		Keys = {
 			{ 0, {} },
-			{ 0.08, { Root = P(-35), RightShoulder = P(-55, 0, 20), LeftShoulder = P(-55, 0, -20), Neck = P(12), RightHip = P(20), LeftHip = P(-25) } },
-			{ 0.28, { Root = P(-30), RightShoulder = P(-50, 0, 20), LeftShoulder = P(-50, 0, -20), Neck = P(10) } },
+			{ 0.08, { Root = P(-35, 0, 0, 0, -0.2, 0), RightShoulder = P(-55, 0, 20), LeftShoulder = P(-55, 0, -20), RightElbow = P(30), LeftElbow = P(30), Neck = P(14), RightHip = P(25), RightKnee = P(-40), LeftHip = P(-30) } },
+			{ 0.28, { Root = P(-30, 0, 0, 0, -0.2, 0), RightShoulder = P(-50, 0, 20), LeftShoulder = P(-50, 0, -20), Neck = P(12) } },
 			{ 0.4, {} },
 		},
 	},
-	Dodge = {
-		Duration = 0.4,
+	Dodge = { -- duck and slip to the side, hands still up
+		Duration = 0.42,
 		Keys = {
 			{ 0, {} },
-			{ 0.08, { Root = P(-20, 0, 18, 0, -0.45, 0), RightKnee = P(-50), LeftKnee = P(-50), RightHip = P(40), LeftHip = P(40), RightShoulder = P(60, 0, 10), LeftShoulder = P(60, 0, -10), RightElbow = P(90), LeftElbow = P(90) } },
-			{ 0.28, { Root = P(-15, 0, 12, 0, -0.35, 0), RightKnee = P(-40), LeftKnee = P(-40), RightHip = P(30), LeftHip = P(30) } },
-			{ 0.4, {} },
+			{ 0.08, { Root = P(-22, 0, 18, 0, -0.45, 0), RightKnee = P(-55), LeftKnee = P(-55), RightHip = P(42), LeftHip = P(42), RightShoulder = P(70, 0, -20), LeftShoulder = P(70, 0, 20), RightElbow = P(130), LeftElbow = P(130), Neck = P(-10) } },
+			{ 0.28, { Root = P(-15, 0, 12, 0, -0.35, 0), RightKnee = P(-40), LeftKnee = P(-40), RightHip = P(30), LeftHip = P(30), RightShoulder = P(65, 0, -18), LeftShoulder = P(65, 0, 18), RightElbow = P(125), LeftElbow = P(125) } },
+			{ 0.42, {} },
 		},
 	},
-	HitLight = {
-		Duration = 0.28,
+	HitLight = { -- head snaps back, hands loosen
+		Duration = 0.3,
 		Keys = {
 			{ 0, {} },
-			{ 0.05, { Waist = P(16, 0, 6), Neck = P(22, 0, 8), RightShoulder = P(20, 0, 35), LeftShoulder = P(20, 0, -35), Root = P(7) } },
-			{ 0.28, {} },
+			{ 0.05, { Neck = P(28, 12, 0), Waist = P(15, 8, 4), Root = P(8, 0, 0, 0, -0.2, 0.25), RightShoulder = P(35, 0, 28), LeftShoulder = P(40, 0, -28), RightElbow = P(70), LeftElbow = P(70) } },
+			{ 0.3, {} },
 		},
 	},
-	HitHeavy = {
-		Duration = 0.55,
+	HitHeavy = { -- knocked off balance, arms flung out
+		Duration = 0.58,
 		Keys = {
 			{ 0, {} },
-			{ 0.07, { Root = P(28, 0, 12, 0, -0.35, 0), Waist = P(22, 10, 0), Neck = P(28, 0, -10), RightShoulder = P(70, 0, 75), LeftShoulder = P(-25, 0, -75), RightKnee = P(-25), LeftKnee = P(-25) } },
-			{ 0.25, { Root = P(18, 0, 6, 0, -0.25, 0), Waist = P(14, 5, 0), Neck = P(15), RightShoulder = P(40, 0, 50), LeftShoulder = P(-10, 0, -50) } },
-			{ 0.55, {} },
+			{ 0.07, { Root = P(26, 0, 12, 0, -0.3, 0.55), Waist = P(22, 10, 0), Neck = P(32, 0, -12), RightShoulder = P(-30, 0, 65), LeftShoulder = P(-25, 0, -65), RightElbow = P(25), LeftElbow = P(25), RightKnee = P(-28), LeftKnee = P(-28), RightHip = P(-10), LeftHip = P(20) } },
+			{ 0.26, { Root = P(16, 0, 6, 0, -0.25, 0.35), Waist = P(14, 5, 0), Neck = P(16), RightShoulder = P(10, 0, 40), LeftShoulder = P(10, 0, -40), RightKnee = P(-20), LeftKnee = P(-20) } },
+			{ 0.58, {} },
 		},
 	},
-	BlockHit = {
-		Duration = 0.2,
+	BlockHit = { -- the guard gets pushed back a bit
+		Duration = 0.22,
 		Keys = {
 			{ 0, {} },
-			{ 0.05, { Root = P(10, 0, 0, 0, -0.1, 0), Waist = P(8) } },
-			{ 0.2, {} },
+			{ 0.05, { Root = P(10, 0, 0, 0, -0.35, 0.3), Waist = P(8), Neck = P(-18) } },
+			{ 0.22, {} },
 		},
 	},
-	Victory = {
+	Victory = { -- fist pump!
 		Duration = 1.6,
-		Trail = "BothHands",
+		Trail = "RightHand",
 		Keys = {
 			{ 0, {} },
-			{ 0.25, { RightShoulder = P(175, 0, -25), LeftShoulder = P(175, 0, 25), RightElbow = P(10), LeftElbow = P(10), Neck = P(18), Root = P(4, 0, 0, 0, 0.2, 0) } },
-			{ 0.6, { RightShoulder = P(160, 0, -40), LeftShoulder = P(160, 0, 40), Neck = P(12), Root = P(0, 0, 0, 0, 0, 0) } },
-			{ 0.95, { RightShoulder = P(175, 0, -25), LeftShoulder = P(175, 0, 25), Neck = P(18), Root = P(4, 0, 0, 0, 0.2, 0) } },
+			{ 0.22, { RightShoulder = P(172, 0, -12), RightElbow = P(25), LeftShoulder = P(-12, 0, -18), LeftElbow = P(95), Neck = P(20), Root = P(4, 0, 0, 0, 0.2, 0) } },
+			{ 0.45, { RightShoulder = P(150, 0, -12), RightElbow = P(70), LeftShoulder = P(-12, 0, -18), LeftElbow = P(95), Neck = P(12), Root = P(0) } },
+			{ 0.7, { RightShoulder = P(172, 0, -12), RightElbow = P(25), LeftShoulder = P(-12, 0, -18), LeftElbow = P(95), Neck = P(20), Root = P(4, 0, 0, 0, 0.2, 0) } },
+			{ 0.95, { RightShoulder = P(150, 0, -12), RightElbow = P(70), Neck = P(12) } },
 			{ 1.6, {} },
 		},
 	},
@@ -1068,35 +1094,48 @@ CombatAnim.PowerPose = {
 -- LOOPS: poses held while something is true (stance, block, stun)
 ---------------------------------------------------------------------
 local LOOPS = {
-	Stance = function(t) -- fists up, ready to fight
-		local bob = math.sin(t * 5) * 3
+	Stance = function(t) -- boxing guard: left side forward, fists up by the face
+		local bob = math.sin(t * 5)
 		return {
-			RightShoulder = P(48 + bob, 0, 14),
-			RightElbow = P(85),
-			LeftShoulder = P(58 - bob, 0, -14),
-			LeftElbow = P(95),
-			Waist = P(-4, 14, 0),
-			Root = P(0, -10, 0, 0, -0.22 + math.sin(t * 5) * 0.05, 0),
-			Neck = P(-4, -10, 0),
+			RightShoulder = P(50 + bob * 3, 0, -30),
+			RightElbow = P(108),
+			LeftShoulder = P(62 - bob * 3, 0, 28),
+			LeftElbow = P(96),
+			Waist = P(-6, -20, 0),
+			Root = P(0, 0, 0, 0, -0.25 + bob * 0.05, 0),
+			Neck = P(-8, 16, 0),
+			LeftHip = P(16),
+			RightHip = P(-12),
+			LeftKnee = P(-18),
+			RightKnee = P(-22),
 		}
 	end,
-	Block = function()
+	Block = function(t) -- high guard: both forearms up in front of the face, chin tucked
+		local shake = math.sin(t * 14) * 1.5
 		return {
-			RightShoulder = P(88, 0, -42),
-			RightElbow = P(112),
-			LeftShoulder = P(88, 0, 42),
-			LeftElbow = P(112),
-			Waist = P(-12),
-			Root = P(0, 0, 0, 0, -0.35, 0),
-			Neck = P(-10),
+			RightShoulder = P(86 + shake, 0, -52),
+			RightElbow = P(92),
+			LeftShoulder = P(90 - shake, 0, 50),
+			LeftElbow = P(92),
+			Waist = P(-14),
+			Root = P(0, 0, 0, 0, -0.38, 0),
+			Neck = P(-18),
+			RightHip = P(14),
+			LeftHip = P(18),
+			RightKnee = P(-26),
+			LeftKnee = P(-26),
 		}
 	end,
-	Stun = function(t)
+	Stun = function(t) -- dizzy: head lolls, arms hang
 		return {
 			Neck = P(math.sin(t * 9) * 16, math.sin(t * 5) * 20, 0),
 			Waist = P(8, math.sin(t * 6) * 10, math.cos(t * 6) * 8),
 			RightShoulder = P(10, 0, 20 + math.sin(t * 7) * 10),
 			LeftShoulder = P(10, 0, -20 - math.sin(t * 7) * 10),
+			RightElbow = P(15),
+			LeftElbow = P(15),
+			RightKnee = P(-15),
+			LeftKnee = P(-15),
 		}
 	end,
 }
@@ -1455,6 +1494,7 @@ Config.Places = {
 	VoidTowerStart = Vector3.new(44, 0, -46), -- hard parkour
 	DuelIsland = Vector3.new(0, 0, 140), -- center of the duel island
 	DuelIslandRadius = 46,
+	RebirthGate = Vector3.new(-40, 0, 34), -- 3 portals to the rebirth islands
 }
 
 -- Lucky Isle: the island you reach through the portal
@@ -1463,6 +1503,53 @@ Config.LuckyIsland = {
 	Radius = 75,
 	LuckMultiplier = 2, -- extra luck while you stand on it
 	RequireVIP = false, -- true = only VIP pass owners may use the portal
+}
+
+---------------------------------------------------------------------
+-- REBIRTH
+-- Rebirthing needs rolls (since your last rebirth) AND one rare aura rolled
+-- since your last rebirth. Both get harder every time. You KEEP your auras.
+-- Every rebirth: more luck forever, faster rolling and a new star.
+---------------------------------------------------------------------
+Config.Rebirth = {
+	BaseRolls = 150, -- rolls needed for the 1st rebirth
+	RollGrowth = 2.2, -- each rebirth needs 2.2x more rolls (150, 330, 726, ...)
+	BaseRarity = 100, -- 1st rebirth: roll an aura of 1 in 100 or rarer
+	RarityGrowth = 4, -- then 1 in 400, 1 in 1,600, ...
+	MaxRarity = 1000000,
+	LuckPerRebirth = 0.25, -- +25% luck per rebirth (x1.25, x1.5, x1.75 ...)
+	RollSpeedPerRebirth = 0.06, -- 6% shorter roll cooldown per rebirth
+	MaxRollSpeed = 0.42, -- never more than 42% faster
+	-- Unlocks (Rebirths = how many you need)
+	Perks = {
+		{ Rebirths = 1, Icon = "❄️", Name = "Frostfall Isle", Description = "A frozen island with x2.5 luck and the Glacier Climb." },
+		{ Rebirths = 2, Icon = "🔥", Name = "Ember Isle", Description = "A volcano island with x3 luck and the Magma Run." },
+		{ Rebirths = 2, Icon = "🦘", Name = "Double Jump", Description = "Press jump again in the air (not on parkour courses)." },
+		{ Rebirths = 3, Icon = "💠", Name = "Neon Nexus", Description = "A neon city island with x4 luck and the Pulse Grid." },
+		{ Rebirths = 3, Icon = "🌠", Name = "Rebirth Trail", Description = "A glowing trail follows you everywhere." },
+		{ Rebirths = 4, Icon = "🎯", Name = "Lucky Streak", Description = "Lucky roll every 8 rolls instead of 10." },
+		{ Rebirths = 5, Icon = "🔁", Name = "Free Auto Roll", Description = "Auto Roll unlocked for free, forever." },
+	},
+	LuckyEveryAt4 = 8,
+}
+
+-- The rebirth islands (reached through the Rebirth Gate on the main island)
+Config.RebirthIslands = {
+	{
+		Key = "Frostfall", Name = "Frostfall Isle", Icon = "❄️", Rebirths = 1,
+		Center = Vector3.new(-1000, 30, 0), Radius = 70, LuckMultiplier = 2.5,
+		Color = Color3.fromRGB(140, 220, 255),
+	},
+	{
+		Key = "Ember", Name = "Ember Isle", Icon = "🔥", Rebirths = 2,
+		Center = Vector3.new(1000, 30, 0), Radius = 70, LuckMultiplier = 3,
+		Color = Color3.fromRGB(255, 120, 40),
+	},
+	{
+		Key = "Nexus", Name = "Neon Nexus", Icon = "💠", Rebirths = 3,
+		Center = Vector3.new(0, 30, -1000), Radius = 70, LuckMultiplier = 4,
+		Color = Color3.fromRGB(255, 70, 220),
+	},
 }
 
 ---------------------------------------------------------------------
@@ -1484,6 +1571,10 @@ Config.Movement = {
 Config.Parkour = {
 	Starstep = { Name = "Starstep Trail", LuckMultiplier = 1.75, BoostMinutes = 5, CooldownMinutes = 10 },
 	VoidTower = { Name = "Void Tower", LuckMultiplier = 2.5, BoostMinutes = 6, CooldownMinutes = 10 },
+	-- rebirth island courses (harder, bigger rewards)
+	GlacierClimb = { Name = "Glacier Climb", LuckMultiplier = 3, BoostMinutes = 6, CooldownMinutes = 12 },
+	MagmaRun = { Name = "Magma Run", LuckMultiplier = 4, BoostMinutes = 7, CooldownMinutes = 12 },
+	PulseGrid = { Name = "Pulse Grid", LuckMultiplier = 5, BoostMinutes = 8, CooldownMinutes = 12 },
 }
 
 ---------------------------------------------------------------------
@@ -1617,6 +1708,22 @@ function Luck.GetBonuses(player)
 		table.insert(bonuses, { Name = "Lucky Isle", Multiplier = Config.LuckyIsland.LuckMultiplier, Show = true })
 	end
 
+	-- Rebirths: permanent luck
+	local rebirths = player:GetAttribute("Rebirths") or 0
+	if rebirths > 0 then
+		table.insert(bonuses, { Name = "Rebirth", Multiplier = 1 + rebirths * Config.Rebirth.LuckPerRebirth })
+	end
+
+	-- Standing on a rebirth island (set by the RebirthIslands script)
+	local islandKey = player:GetAttribute("OnRebirthIsland")
+	if islandKey then
+		for _, islandInfo in ipairs(Config.RebirthIslands) do
+			if islandInfo.Key == islandKey then
+				table.insert(bonuses, { Name = islandInfo.Name, Icon = islandInfo.Icon, Multiplier = islandInfo.LuckMultiplier, Show = true })
+			end
+		end
+	end
+
 	-- Parkour reward (finish a course)
 	local parkourEnd = player:GetAttribute("ParkourLuckEnd") or 0
 	if parkourEnd > now then
@@ -1644,6 +1751,9 @@ function Luck.LuckyEvery(player)
 	if player:GetAttribute("Pass_LuckyCharm") then
 		return Config.LuckyCharmEvery
 	end
+	if (player:GetAttribute("Rebirths") or 0) >= 4 then
+		return Config.Rebirth.LuckyEveryAt4
+	end
 	return Config.LuckyRollEvery
 end
 
@@ -1666,6 +1776,104 @@ return Luck
       </Properties>
     </Item>
     <Item class="ModuleScript" referent="7">
+      <Properties>
+        <string name="Name">Rebirth</string>
+        <string name="Source"><![CDATA[-- Rebirth (ModuleScript in ReplicatedStorage)
+-- The rebirth rules in one place, used by the server (to check and grant
+-- rebirths) and by the screen (to show progress), so they always match.
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
+
+local R = Config.Rebirth
+local Rebirth = {}
+
+-- What rebirth number n+1 costs when you have n rebirths
+function Rebirth.Cost(n)
+	n = n or 0
+	local rolls = math.floor(R.BaseRolls * R.RollGrowth ^ n / 10 + 0.5) * 10
+	local rarity = math.min(R.MaxRarity, R.BaseRarity * R.RarityGrowth ^ n)
+	return { Rolls = rolls, Rarity = rarity }
+end
+
+-- Permanent luck from rebirths (1 = none)
+function Rebirth.LuckMultiplier(n)
+	return 1 + (n or 0) * R.LuckPerRebirth
+end
+
+-- Roll cooldown is multiplied by this (1 = normal, 0.7 = 30% faster)
+function Rebirth.CooldownScale(n)
+	return 1 - math.min(R.MaxRollSpeed, (n or 0) * R.RollSpeedPerRebirth)
+end
+
+function Rebirth.HasPerk(n, perkName)
+	for _, perk in ipairs(R.Perks) do
+		if perk.Name == perkName then
+			return (n or 0) >= perk.Rebirths
+		end
+	end
+	return false
+end
+
+-- Perks you get on exactly this rebirth number
+function Rebirth.PerksAt(n)
+	local list = {}
+	for _, perk in ipairs(R.Perks) do
+		if perk.Rebirths == n then
+			table.insert(list, perk)
+		end
+	end
+	return list
+end
+
+-- Progress for the screen: rolls done / needed, best aura since last rebirth
+function Rebirth.Progress(player)
+	local n = player:GetAttribute("Rebirths") or 0
+	local cost = Rebirth.Cost(n)
+	local rolls = player:GetAttribute("RebirthRolls") or 0
+	local best = player:GetAttribute("RebirthBest") or 0
+	return {
+		Rebirths = n,
+		Cost = cost,
+		Rolls = rolls,
+		Best = best,
+		RollsDone = rolls >= cost.Rolls,
+		RarityDone = best >= cost.Rarity,
+		Ready = rolls >= cost.Rolls and best >= cost.Rarity,
+	}
+end
+
+-- ⭐ text for name tags: "★3"
+function Rebirth.Stars(n)
+	if not n or n <= 0 then
+		return ""
+	end
+	if n <= 3 then
+		return string.rep("★", n)
+	end
+	return "★" .. n
+end
+
+-- Each rebirth level gets its own color (tags, trail)
+local COLORS = {
+	Color3.fromRGB(140, 220, 255), -- 1 ice
+	Color3.fromRGB(255, 140, 50), -- 2 ember
+	Color3.fromRGB(255, 80, 220), -- 3 neon
+	Color3.fromRGB(120, 255, 150), -- 4 emerald
+	Color3.fromRGB(255, 215, 80), -- 5+ gold
+}
+function Rebirth.Color(n)
+	if not n or n <= 0 then
+		return Color3.new(1, 1, 1)
+	end
+	return COLORS[math.min(n, #COLORS)]
+end
+
+return Rebirth
+]]></string>
+      </Properties>
+    </Item>
+    <Item class="ModuleScript" referent="8">
       <Properties>
         <string name="Name">SoundFX</string>
         <string name="Source"><![CDATA[-- SoundFX (ModuleScript in ReplicatedStorage) - used by LocalScripts only
@@ -2043,6 +2251,15 @@ function SoundFX.Jingle(name)
 		task.delay(0.7, function()
 			SoundFX.Play("Heartbeat", { Volume = 1 })
 		end)
+	elseif name == "Rebirth" then
+		-- rising riser, a big boom, then a bright fanfare
+		SoundFX.Riser(1.1, { Volume = 0.9 })
+		task.delay(1.1, function()
+			SoundFX.Play("Explosion", { Volume = 0.7, Speed = 0.8 })
+			SoundFX.Play("Gong", { Volume = 0.8, Speed = 1.1 })
+			SoundFX.Play("RevealMythic", { Volume = 0.7 })
+			SoundFX.Notes({ 1, 1.26, 1.5, 2, { 1.5, 2, 2.52 }, 2.52, { 2, 2.52, 3 } }, 0.09, { Volume = 0.9 })
+		end)
 	elseif name == "Countdown" then
 		SoundFX.Play("Beep")
 	end
@@ -2092,7 +2309,7 @@ return SoundFX
 ]]></string>
       </Properties>
     </Item>
-    <Item class="ModuleScript" referent="8">
+    <Item class="ModuleScript" referent="9">
       <Properties>
         <string name="Name">UIKit</string>
         <string name="Source"><![CDATA[-- UIKit (ModuleScript in ReplicatedStorage) - used by LocalScripts only
@@ -2390,11 +2607,11 @@ return UIKit
       </Properties>
     </Item>
   </Item>
-  <Item class="ServerScriptService" referent="9">
+  <Item class="ServerScriptService" referent="10">
     <Properties>
       <string name="Name">ServerScriptService</string>
     </Properties>
-    <Item class="Script" referent="10">
+    <Item class="Script" referent="11">
       <Properties>
         <string name="Name">DuelService</string>
         <token name="RunContext">0</token>
@@ -3928,7 +4145,7 @@ end)
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="11">
+    <Item class="Script" referent="12">
       <Properties>
         <string name="Name">Leaderboard</string>
         <token name="RunContext">0</token>
@@ -4082,7 +4299,7 @@ end
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="12">
+    <Item class="Script" referent="13">
       <Properties>
         <string name="Name">LuckyIsland</string>
         <token name="RunContext">0</token>
@@ -4808,7 +5025,7 @@ end)
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="13">
+    <Item class="Script" referent="14">
       <Properties>
         <string name="Name">Movement</string>
         <token name="RunContext">0</token>
@@ -4878,18 +5095,22 @@ end
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="14">
+    <Item class="Script" referent="15">
       <Properties>
         <string name="Name">Parkour</string>
         <token name="RunContext">0</token>
         <string name="Source"><![CDATA[-- Parkour (Script in ServerScriptService)
--- Builds two obby courses next to the main island and runs them:
+-- Builds the obby courses and runs them. Main island:
 --   STARSTEP TRAIL (medium) - a long curving trail of small platforms with
 --                             moving platforms, spinning laser bars,
 --                             vanishing platforms and a jump pad
 --   VOID TOWER (hard)       - a 42-step spiral around a tall tower: thin
 --                             beams, blinking platforms, spinners, movers,
 --                             half-deadly platforms and a jump pad
+-- Rebirth islands (harder, more luck):
+--   GLACIER CLIMB (Frostfall)  - slippery ice floes + a spiral up an ice spire
+--   MAGMA RUN     (Ember)      - over a lava sea: sinking rocks, fire bars
+--   PULSE GRID    (Neon Nexus) - a square spiral of platforms blinking in a wave
 -- Step on the start pad to begin. Checkpoints save your spot (falling puts
 -- you back there). Reaching the finish gives a luck boost (with a cooldown).
 -- Vanishing/moving platforms, spinners and jump pads are animated by the
@@ -5029,12 +5250,12 @@ local function platform(model, cf, size, topColor, rimColor)
 	return top
 end
 
-local function vanishPlatform(model, cf, size, period, onTime, offset)
+local function vanishPlatform(model, cf, size, period, onTime, offset, color3)
 	local p = part({
 		Name = "VanishPlatform",
 		Size = size,
 		CFrame = cf,
-		Color = Color3.fromRGB(255, 200, 80),
+		Color = color3 or Color3.fromRGB(255, 200, 80),
 		Material = Enum.Material.Neon,
 		Transparency = 0.15,
 		Parent = model,
@@ -5071,12 +5292,12 @@ local function jumpPad(model, cf, size, launch)
 	return p
 end
 
-local function killPad(course, model, cf, size)
+local function killPad(course, model, cf, size, color3)
 	local p = part({
 		Name = "KillPad",
 		Size = size,
 		CFrame = cf,
-		Color = Color3.fromRGB(255, 40, 70),
+		Color = color3 or Color3.fromRGB(255, 40, 70),
 		Material = Enum.Material.Neon,
 		Parent = model,
 	})
@@ -5118,12 +5339,12 @@ local function spinnerPlatform(course, model, cf, topColor, rimColor, speed, off
 end
 
 -- A platform that slides back and forth (it carries you, see ParkourClient)
-local function movingPlatform(model, cf, size, amplitude, period, offset)
+local function movingPlatform(model, cf, size, amplitude, period, offset, color3)
 	local p = part({
 		Name = "MovingPlatform",
 		Size = size,
 		CFrame = cf,
-		Color = Color3.fromRGB(90, 200, 255),
+		Color = color3 or Color3.fromRGB(90, 200, 255),
 		Material = Enum.Material.Neon,
 		Transparency = 0.1,
 		Parent = model,
@@ -5131,6 +5352,33 @@ local function movingPlatform(model, cf, size, amplitude, period, offset)
 	p:SetAttribute("MoveAmplitude", amplitude)
 	p:SetAttribute("MovePeriod", period)
 	p:SetAttribute("MoveOffset", offset)
+	return p
+end
+
+-- Slippery ice: you keep sliding (ParkourClient handles the sliding)
+local function icePlatform(model, cf, size)
+	local p = part({
+		Name = "IcePlatform",
+		Size = size,
+		CFrame = cf,
+		Color = Color3.fromRGB(170, 225, 255),
+		Material = Enum.Material.Ice,
+		Transparency = 0.1,
+		Reflectance = 0.2,
+		CustomPhysicalProperties = PhysicalProperties.new(0.9, 0, 0, 100, 1),
+		Parent = model,
+	})
+	p:SetAttribute("Slippery", true)
+	part({
+		Name = "Rim",
+		Size = size + Vector3.new(0.3, -0.6, 0.3),
+		CFrame = cf * CFrame.new(0, -0.15, 0),
+		Color = Color3.fromRGB(120, 230, 255),
+		Material = Enum.Material.Neon,
+		CanCollide = false,
+		CanQuery = false,
+		Parent = model,
+	})
 	return p
 end
 
@@ -5392,6 +5640,333 @@ do
 	addLight(beacon, RIM, 40, 3)
 end
 
+
+---------------------------------------------------------------------
+-- REBIRTH ISLAND COURSES
+-- Each starts at the far edge of its island and heads out over the void.
+---------------------------------------------------------------------
+local function islandGround(info)
+	return function(position)
+		local offset = position - info.Center
+		local flat = Vector3.new(offset.X, 0, offset.Z)
+		return flat.Magnitude < info.Radius - 2 and offset.Y < 6 and offset.Y > -3
+	end
+end
+
+local function islandInfo(key)
+	for _, info in ipairs(Config.RebirthIslands) do
+		if info.Key == key then
+			return info
+		end
+	end
+	return nil
+end
+
+-- start pad on the island edge + a little gateway behind it
+local function islandStart(course, model, info, color3)
+	local C = info.Center
+	local start = C + Vector3.new(0, 0, 62)
+	startPad(course, model, start, color3)
+	course.OnGround = islandGround(info)
+	for _, side in ipairs({ -1, 1 }) do
+		part({
+			Name = "StartGatePost",
+			Size = Vector3.new(0.8, 7, 0.8),
+			CFrame = CFrame.new(start + Vector3.new(side * 4.6, 3.5, -4.6)),
+			Color = color3,
+			Material = Enum.Material.Neon,
+			CanCollide = false,
+			Parent = model,
+		})
+	end
+	return start
+end
+
+---------------------------------------------------------------------
+-- ❄️ GLACIER CLIMB: slippery ice floes, then a spiral up an ice spire
+---------------------------------------------------------------------
+do
+	local info = islandInfo("Frostfall")
+	local model = Instance.new("Model")
+	model.Name = "GlacierClimb"
+	model.Parent = root
+	local course = newCourse("GlacierClimb", model)
+	local TOP = Color3.fromRGB(60, 90, 130)
+	local RIM = Color3.fromRGB(140, 230, 255)
+	local C = info.Center
+	local start = islandStart(course, model, info, RIM)
+
+	-- part 1: ice floes zig-zagging out over the void
+	local position = Vector3.new(start.X, C.Y + 1, start.Z + 4)
+	for i = 1, 12 do
+		local side = (i % 2 == 0) and 1 or -1
+		position = Vector3.new(C.X + side * 4.5, position.Y + 1, position.Z + 8.5)
+		local cf = CFrame.new(position) * CFrame.new(0, -0.5, 0)
+		if i == 12 then
+			checkpointPad(course, model, cf, 1, RIM)
+		elseif i == 4 or i == 9 then
+			movingPlatform(model, cf, Vector3.new(4, 1, 4), Vector3.new(6, 0, 0), 2.8, i * 0.5, Color3.fromRGB(150, 220, 255))
+		elseif i == 6 then
+			spinnerPlatform(course, model, cf, TOP, RIM, 2.6, 0.4)
+		elseif i % 3 == 2 then
+			vanishPlatform(model, cf, Vector3.new(3.6, 1, 3.6), 2.4, 1.4, i * 0.6, Color3.fromRGB(200, 240, 255))
+		else
+			icePlatform(model, cf, Vector3.new(4, 1, 4))
+		end
+	end
+
+	-- part 2: spiral around the ice spire
+	local spire = Vector3.new(C.X, 0, position.Z + 20)
+	local toCheckpoint = Vector3.new(position.X, 0, position.Z) - spire
+	local angle0 = math.atan2(toCheckpoint.Z, toCheckpoint.X)
+	local height = position.Y
+	local RADIUS = 14
+	local STEPS = 24
+	local finishY
+	for k = 1, STEPS do
+		local angle = angle0 + k * 0.55
+		if k == 17 then
+			height += 10
+		else
+			height += 2.4
+		end
+		local radial = Vector3.new(math.cos(angle), 0, math.sin(angle))
+		local tangent = Vector3.new(-math.sin(angle), 0, math.cos(angle))
+		local p = spire + radial * RADIUS + Vector3.new(0, height, 0)
+		local cf = CFrame.lookAt(p, p + tangent) * CFrame.new(0, -0.5, 0)
+		if k == STEPS then
+			finishY = height
+			finishPad(course, model, CFrame.new(spire + Vector3.new(0, height, 0)) * CFrame.lookAt(Vector3.zero, -tangent).Rotation, RIM)
+		elseif k == 12 then
+			checkpointPad(course, model, cf, 2, RIM)
+		elseif k == 16 then
+			jumpPad(model, cf, Vector3.new(3.5, 1, 3.5), Vector3.new(0, 80, 0))
+		elseif k == 5 or k == 14 or k == 21 then
+			spinnerPlatform(course, model, cf, TOP, RIM, 3, k * 0.6)
+		elseif k == 8 or k == 19 then
+			icePlatform(model, cf, Vector3.new(1.2, 0.6, 7)) -- thin icy beam
+		elseif k == 10 or k == 22 then
+			movingPlatform(model, cf, Vector3.new(3.4, 1, 3.4), radial * 4, 2.2, k * 0.4, Color3.fromRGB(150, 220, 255))
+		elseif k % 4 == 3 then
+			vanishPlatform(model, cf, Vector3.new(3.2, 1, 3.2), 2.2, 1.2, k * 0.45, Color3.fromRGB(200, 240, 255))
+		else
+			icePlatform(model, cf, Vector3.new(3.6, 1, 3.6))
+		end
+	end
+
+	-- the spire itself, with icicles
+	local spireHeight = finishY + 40
+	part({
+		Name = "IceSpire",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(spireHeight, 9, 9),
+		CFrame = CFrame.new(spire + Vector3.new(0, finishY - spireHeight / 2 - 0.6, 0)) * FLAT,
+		Color = Color3.fromRGB(120, 190, 240),
+		Material = Enum.Material.Glacier,
+		Parent = model,
+	})
+	for y = C.Y, finishY - 6, 12 do
+		part({
+			Name = "SpireRing",
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new(0.5, 9.6, 9.6),
+			CFrame = CFrame.new(spire + Vector3.new(0, y, 0)) * FLAT,
+			Color = RIM,
+			Material = Enum.Material.Neon,
+			CanCollide = false,
+			Parent = model,
+		})
+	end
+	local beacon = part({
+		Name = "Beacon",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.one * 3,
+		CFrame = CFrame.new(spire + Vector3.new(0, finishY + 12, 0)),
+		Color = RIM,
+		Material = Enum.Material.Neon,
+		CanCollide = false,
+		Parent = model,
+	})
+	addLight(beacon, RIM, 40, 3)
+end
+
+---------------------------------------------------------------------
+-- 🔥 MAGMA RUN: over a lava sea - sinking rocks, fire bars, lava halves
+---------------------------------------------------------------------
+do
+	local info = islandInfo("Ember")
+	local model = Instance.new("Model")
+	model.Name = "MagmaRun"
+	model.Parent = root
+	local course = newCourse("MagmaRun", model)
+	local TOP = Color3.fromRGB(50, 35, 35)
+	local RIM = Color3.fromRGB(255, 120, 40)
+	local LAVA = Color3.fromRGB(255, 100, 25)
+	local C = info.Center
+	local start = islandStart(course, model, info, RIM)
+
+	local STEPS = 38
+	local SPINNERS = { [6] = true, [15] = true, [24] = true, [33] = true }
+	local HALF_LAVA = { [4] = true, [13] = true, [28] = true, [35] = true }
+	local BEAMS = { [9] = true, [22] = true, [30] = true }
+	local SINKERS = { [3] = true, [10] = true, [17] = true, [21] = true, [31] = true, [36] = true }
+	local SLIDERS = { [11] = true, [25] = true }
+	local position = Vector3.new(start.X, C.Y + 1, start.Z + 4)
+	local lastZ
+	for i = 1, STEPS do
+		local x = math.sin(i * 0.38) * 14
+		local rise = (i == 20) and 10 or 1.1
+		position = Vector3.new(C.X + x, position.Y + rise, position.Z + 7.6)
+		local nextPos = Vector3.new(C.X + math.sin((i + 1) * 0.38) * 14, position.Y, position.Z + 7.6)
+		local direction = (nextPos - position).Unit
+		local across = Vector3.new(-direction.Z, 0, direction.X)
+		local cf = CFrame.lookAt(position, position + direction) * CFrame.new(0, -0.5, 0)
+		lastZ = position.Z
+		if i == STEPS then
+			finishPad(course, model, cf * CFrame.new(0, 0, -4), RIM)
+		elseif i == 12 or i == 26 then
+			checkpointPad(course, model, cf, (i == 12) and 1 or 2, RIM)
+		elseif i == 19 then
+			jumpPad(model, cf, Vector3.new(3.5, 1, 3.5), Vector3.new(0, 82, 0))
+		elseif SPINNERS[i] then
+			spinnerPlatform(course, model, cf, TOP, RIM, 3, i * 0.5)
+		elseif HALF_LAVA[i] then
+			local p = platform(model, cf * CFrame.new(-1.1, 0, 0), Vector3.new(2.2, 1, 3.6), TOP, RIM)
+			p.Material = Enum.Material.Basalt
+			killPad(course, model, cf * CFrame.new(1.1, 0, 0), Vector3.new(2.2, 1, 3.6), LAVA)
+		elseif BEAMS[i] then
+			local p = platform(model, cf, Vector3.new(1, 0.6, 7), TOP, RIM)
+			p.Material = Enum.Material.Basalt
+		elseif SINKERS[i] then
+			-- rocks that bob up and down out of the lava
+			movingPlatform(model, cf, Vector3.new(3.6, 1, 3.6), Vector3.new(0, 3, 0), 2.6, i * 0.7, Color3.fromRGB(110, 70, 60))
+		elseif SLIDERS[i] then
+			movingPlatform(model, cf, Vector3.new(3.4, 1, 3.4), across * 6, 2.2, i * 0.3, Color3.fromRGB(255, 160, 80))
+		elseif i % 4 == 2 then
+			vanishPlatform(model, cf, Vector3.new(3.4, 1, 3.4), 2.3, 1.3, i * 0.55, Color3.fromRGB(255, 150, 60))
+		else
+			local p = platform(model, cf, Vector3.new(3.4, 1, 3.4), TOP, RIM)
+			p.Material = Enum.Material.Basalt
+		end
+	end
+
+	-- the lava sea under the whole course (touch it = back to checkpoint)
+	local seaStart, seaEnd = start.Z + 8, lastZ + 14
+	local sea = part({
+		Name = "LavaSea",
+		Size = Vector3.new(60, 1, seaEnd - seaStart),
+		CFrame = CFrame.new(C.X, C.Y - 4, (seaStart + seaEnd) / 2),
+		Color = LAVA,
+		Material = Enum.Material.Neon,
+		Transparency = 0.05,
+		Parent = model,
+	})
+	table.insert(course.Kills, sea)
+	local fire = Instance.new("ParticleEmitter")
+	fire.Texture = Config.Textures.Fire
+	fire.Rate = 40
+	fire.Lifetime = NumberRange.new(0.8, 1.6)
+	fire.Speed = NumberRange.new(1, 4)
+	fire.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0) })
+	fire.Color = ColorSequence.new(Color3.fromRGB(255, 200, 80), LAVA)
+	fire.LightEmission = 1
+	fire.EmissionDirection = Enum.NormalId.Top
+	fire.Parent = sea
+	for z = seaStart + 10, seaEnd - 5, 30 do
+		local glow = part({ Name = "LavaGlow", Size = Vector3.one, CFrame = CFrame.new(C.X, C.Y - 2, z), Transparency = 1, CanCollide = false, Parent = model })
+		addLight(glow, LAVA, 40, 2)
+	end
+	-- dark rock walls along the sides of the sea
+	for _, side in ipairs({ -1, 1 }) do
+		part({
+			Name = "SeaWall",
+			Size = Vector3.new(3, 6, seaEnd - seaStart),
+			CFrame = CFrame.new(C.X + side * 31.5, C.Y - 2.5, (seaStart + seaEnd) / 2),
+			Color = Color3.fromRGB(40, 28, 28),
+			Material = Enum.Material.Basalt,
+			Parent = model,
+		})
+	end
+end
+
+---------------------------------------------------------------------
+-- 💠 PULSE GRID: a square spiral of platforms that pulse to a beat
+---------------------------------------------------------------------
+do
+	local info = islandInfo("Nexus")
+	local model = Instance.new("Model")
+	model.Name = "PulseGrid"
+	model.Parent = root
+	local course = newCourse("PulseGrid", model)
+	local TOP = Color3.fromRGB(25, 15, 45)
+	local RIM = Color3.fromRGB(255, 70, 220)
+	local CYAN = Color3.fromRGB(60, 230, 255)
+	local C = info.Center
+	local start = islandStart(course, model, info, RIM)
+
+	-- legs of the square spiral: direction + number of steps
+	local legs = {
+		{ Vector3.new(0, 0, 1), 10 },
+		{ Vector3.new(1, 0, 0), 8 },
+		{ Vector3.new(0, 0, 1), 8 },
+		{ Vector3.new(-1, 0, 0), 14 },
+	}
+	local SPINNERS = { [7] = true, [16] = true, [25] = true, [34] = true }
+	local BEAMS = { [4] = true, [19] = true, [29] = true }
+	local MOVERS = { [12] = true, [21] = true, [31] = true, [37] = true }
+	local HALF_DEADLY = { [9] = true, [33] = true }
+	local position = Vector3.new(start.X, C.Y + 1, start.Z + 2)
+	local i = 0
+	local total = 0
+	for _, leg in ipairs(legs) do
+		total += leg[2]
+	end
+	for _, leg in ipairs(legs) do
+		local direction = leg[1]
+		local across = Vector3.new(-direction.Z, 0, direction.X)
+		for _ = 1, leg[2] do
+			i += 1
+			local rise = (i == 24) and 10 or 1.3
+			position += direction * 8 + Vector3.new(0, rise, 0)
+			local cf = CFrame.lookAt(position, position + direction) * CFrame.new(0, -0.5, 0)
+			if i == total then
+				finishPad(course, model, cf * CFrame.new(0, 0, -4), RIM)
+			elseif i == 13 or i == 27 then
+				checkpointPad(course, model, cf, (i == 13) and 1 or 2, RIM)
+			elseif i == 23 then
+				jumpPad(model, cf, Vector3.new(3.5, 1, 3.5), Vector3.new(0, 82, 0))
+			elseif SPINNERS[i] then
+				spinnerPlatform(course, model, cf, TOP, RIM, 3.3, i * 0.45)
+			elseif BEAMS[i] then
+				platform(model, cf, Vector3.new(0.9, 0.6, 7), TOP, CYAN)
+			elseif MOVERS[i] then
+				movingPlatform(model, cf, Vector3.new(3.2, 1, 3.2), across * 6.5, 1.9, i * 0.33, CYAN)
+			elseif HALF_DEADLY[i] then
+				platform(model, cf * CFrame.new(-1.1, 0, 0), Vector3.new(2.2, 1, 3.4), TOP, RIM)
+				killPad(course, model, cf * CFrame.new(1.1, 0, 0), Vector3.new(2.2, 1, 3.4))
+			elseif i % 2 == 0 then
+				-- pulse platforms: they blink in a wave along the course
+				vanishPlatform(model, cf, Vector3.new(3.4, 1, 3.4), 2.4, 1.5, -i * 0.3, (i % 4 == 0) and RIM or CYAN)
+			else
+				platform(model, cf, Vector3.new(3.2, 1, 3.2), TOP, (i % 3 == 0) and CYAN or RIM)
+			end
+			-- neon grid posts under each step
+			if i % 2 == 1 then
+				part({
+					Name = "GridPost",
+					Size = Vector3.new(0.3, 14, 0.3),
+					CFrame = CFrame.new(position + Vector3.new(0, -8, 0)),
+					Color = (i % 4 == 1) and CYAN or RIM,
+					Material = Enum.Material.Neon,
+					CanCollide = false,
+					CanQuery = false,
+					Parent = model,
+				})
+			end
+		end
+	end
+end
+
 root.Parent = workspace
 
 ---------------------------------------------------------------------
@@ -5541,7 +6116,7 @@ task.spawn(function()
 				if onPad(course.Finish, position, 6) then
 					finishRun(player, course)
 				-- walking around the island again ends the run
-				elseif onMainIslandGround(position) and not onPad(course.Start, position, 8) then
+				elseif (course.OnGround or onMainIslandGround)(position) and not onPad(course.Start, position, 8) then
 					stopRun(player, "Left")
 				end
 			end
@@ -5565,7 +6140,1395 @@ end)
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="15">
+    <Item class="Script" referent="16">
+      <Properties>
+        <string name="Name">RebirthIslands</string>
+        <token name="RunContext">0</token>
+        <string name="Source"><![CDATA[-- RebirthIslands (Script in ServerScriptService)
+-- Builds the REBIRTH GATE on the main island and the three rebirth islands:
+--   ❄️ FROSTFALL ISLE (Rebirth 1) - snow, pines, a frozen lake, an igloo,
+--                                   snowmen, icicles and an aurora sky
+--   🔥 EMBER ISLE     (Rebirth 2) - a smoking volcano, lava pools, geysers,
+--                                   obsidian spikes and burnt trees
+--   💠 NEON NEXUS     (Rebirth 3) - a synthwave city: neon grid floor, holo
+--                                   towers, neon palms, floating cubes, a
+--                                   giant striped sun
+-- Each island has more luck while you stand on it, its own parkour course
+-- (built by the Parkour script) and a return portal.
+-- The portals are checked by position (plus a "Press E" prompt), like the
+-- Lucky Isle portal. Things marked with FX_ attributes are animated by the
+-- IslandFX script on each player's screen.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
+
+local rand = Random.new(2024)
+local FLAT = CFrame.Angles(0, 0, math.rad(90)) -- turns a cylinder upright
+
+---------------------------------------------------------------------
+-- Remotes
+---------------------------------------------------------------------
+local remotes = ReplicatedStorage:FindFirstChild("CosmicRemotes")
+if not remotes then
+	remotes = Instance.new("Folder")
+	remotes.Name = "CosmicRemotes"
+	remotes.Parent = ReplicatedStorage
+end
+local PortalFXRemote = remotes:FindFirstChild("PortalFX")
+if not PortalFXRemote then
+	PortalFXRemote = Instance.new("RemoteEvent")
+	PortalFXRemote.Name = "PortalFX"
+	PortalFXRemote.Parent = remotes
+end
+
+---------------------------------------------------------------------
+-- Build helpers
+---------------------------------------------------------------------
+local old = workspace:FindFirstChild("RebirthIslands")
+if old then
+	old:Destroy()
+end
+local folder = Instance.new("Folder")
+folder.Name = "RebirthIslands"
+
+local currentParent -- the model that new parts go into
+
+local function part(props)
+	local className = props.ClassName or "Part"
+	local p = Instance.new(className)
+	p.Anchored = true
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	for key, value in pairs(props) do
+		if key ~= "Parent" and key ~= "ClassName" then
+			p[key] = value
+		end
+	end
+	p.Parent = props.Parent or currentParent
+	return p
+end
+
+local function decor(props)
+	props.CanCollide = false
+	props.CanQuery = false
+	props.CastShadow = false
+	return part(props)
+end
+
+local function addLight(target, color3, range, brightness)
+	local light = Instance.new("PointLight")
+	light.Color = color3
+	light.Range = range
+	light.Brightness = brightness
+	light.Shadows = false
+	light.Parent = target
+	return light
+end
+
+local function emitter(target, props)
+	local e = Instance.new("ParticleEmitter")
+	e.Texture = props.Texture or Config.Textures.Sparkle
+	e.Rate = props.Rate or 5
+	e.Lifetime = props.Lifetime or NumberRange.new(1.5, 3)
+	e.Speed = props.Speed or NumberRange.new(0.5, 2)
+	e.SpreadAngle = props.Spread or Vector2.new(180, 180)
+	e.Size = props.Size or NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 0),
+		NumberSequenceKeypoint.new(0.5, 0.4),
+		NumberSequenceKeypoint.new(1, 0),
+	})
+	e.Transparency = props.Transparency or NumberSequence.new(0)
+	e.Acceleration = props.Acceleration or Vector3.zero
+	e.LightEmission = props.LightEmission or 1
+	e.LightInfluence = 0
+	e.Color = props.Color or ColorSequence.new(Color3.new(1, 1, 1))
+	e.Rotation = props.Rotation or NumberRange.new(0, 360)
+	e.RotSpeed = props.RotSpeed or NumberRange.new(-40, 40)
+	if props.Drag then
+		e.Drag = props.Drag
+	end
+	if props.EmissionDirection then
+		e.EmissionDirection = props.EmissionDirection
+	end
+	e.Parent = target
+	return e
+end
+
+local function sizeSeq(a, b, c)
+	return NumberSequence.new({
+		NumberSequenceKeypoint.new(0, a),
+		NumberSequenceKeypoint.new(0.5, b),
+		NumberSequenceKeypoint.new(1, c),
+	})
+end
+
+-- upright cylinder, top surface at topY
+local function disc(name, center, radius, thickness, topY, color3, material, extra)
+	local props = {
+		Name = name,
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(thickness, radius * 2, radius * 2),
+		CFrame = CFrame.new(center.X, topY - thickness / 2, center.Z) * FLAT,
+		Color = color3,
+		Material = material,
+	}
+	for key, value in pairs(extra or {}) do
+		props[key] = value
+	end
+	return part(props)
+end
+
+-- flat ring of pieces (its own Model, so it can spin)
+local function ringModel(name, center, radius, segments, thickness, color3, parent, material)
+	local model = Instance.new("Model")
+	model.Name = name
+	local length = (2 * math.pi * radius / segments) * 1.06
+	for i = 1, segments do
+		local a = (i / segments) * math.pi * 2
+		local p = center + Vector3.new(math.cos(a) * radius, 0, math.sin(a) * radius)
+		decor({
+			Name = "Segment",
+			Size = Vector3.new(thickness, thickness, length),
+			CFrame = CFrame.lookAt(p, center) * CFrame.Angles(0, math.pi / 2, 0),
+			Color = color3,
+			Material = material or Enum.Material.Neon,
+			Parent = model,
+		})
+	end
+	model.WorldPivot = CFrame.new(center)
+	model.Parent = parent or currentParent
+	return model
+end
+
+-- upright ring facing portalCF's look direction
+local function portalRing(name, portalCF, radius, segments, thickness, color3, parent)
+	local model = Instance.new("Model")
+	model.Name = name
+	local length = (2 * math.pi * radius / segments) * 1.08
+	for i = 1, segments do
+		local a = (i / segments) * math.pi * 2
+		local radial = Vector3.new(math.cos(a), math.sin(a), 0)
+		decor({
+			Name = "Segment",
+			Size = Vector3.new(thickness, thickness, length),
+			CFrame = portalCF * CFrame.fromMatrix(radial * radius, radial, Vector3.new(0, 0, 1)),
+			Color = color3,
+			Material = Enum.Material.Neon,
+			Parent = model,
+		})
+	end
+	model.WorldPivot = portalCF
+	model.Parent = parent or currentParent
+	return model
+end
+
+local function billboard(target, text, color3, offset, size, maxDistance)
+	local gui = Instance.new("BillboardGui")
+	gui.Name = "Sign"
+	gui.Size = size or UDim2.fromOffset(420, 70)
+	gui.StudsOffset = offset or Vector3.new(0, 6, 0)
+	gui.MaxDistance = maxDistance or 220
+	gui.LightInfluence = 0
+	gui.Parent = target
+	local label = Instance.new("TextLabel")
+	label.Name = "Text"
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.fromScale(1, 1)
+	label.Font = Enum.Font.FredokaOne
+	label.TextScaled = true
+	label.RichText = true
+	label.Text = text
+	label.TextColor3 = color3
+	label.Parent = gui
+	local outline = Instance.new("UIStroke")
+	outline.Thickness = 2.5
+	outline.Transparency = 0.2
+	outline.Parent = label
+	return gui
+end
+
+-- spike pointing up (or down with flip = true), made of two wedges
+local function spike(position, width, height, color3, material, flip, collide)
+	local base = CFrame.new(position) * CFrame.Angles(0, rand:NextNumber(0, math.pi), 0)
+	if flip then
+		base *= CFrame.Angles(math.pi, 0, 0)
+	end
+	for k = 0, 1 do
+		local cf = base * CFrame.Angles(0, k * math.pi, 0) * CFrame.new(0, height / 2, -width / 4)
+		part({
+			ClassName = "WedgePart",
+			Name = "Spike",
+			Size = Vector3.new(width, height, width / 2),
+			CFrame = cf,
+			Color = color3,
+			Material = material,
+			CanCollide = collide == true,
+			CastShadow = false,
+		})
+	end
+end
+
+-- 4-sided pointy tier (pines, volcano tops), made of wedges
+local function pyramid(position, base, height, color3, material, collide)
+	for k = 0, 3 do
+		part({
+			ClassName = "WedgePart",
+			Name = "Tier",
+			Size = Vector3.new(base, height, base / 2),
+			CFrame = CFrame.new(position) * CFrame.Angles(0, k * math.pi / 2, 0) * CFrame.new(0, height / 2, -base / 4),
+			Color = color3,
+			Material = material,
+			CanCollide = collide == true,
+		})
+	end
+end
+
+-- marks something for IslandFX to animate
+local function fx(instance, attributes)
+	for key, value in pairs(attributes) do
+		instance:SetAttribute(key, value)
+	end
+	return instance
+end
+
+---------------------------------------------------------------------
+-- Shared island pieces
+---------------------------------------------------------------------
+-- keep-out zones on every island: return portal path, parkour start, core
+local function makeIsland(info, style)
+	local model = Instance.new("Model")
+	model.Name = info.Key .. "Isle"
+	model.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
+	model:SetAttribute("IslandKey", info.Key)
+	model.Parent = folder
+	currentParent = model
+
+	local C = info.Center
+	local R = info.Radius
+	local function at(x, y, z)
+		return C + Vector3.new(x, y, z)
+	end
+	local function free(x, z, margin)
+		margin = margin or 0
+		local flat = Vector3.new(x, 0, z)
+		if flat.Magnitude > R - 6 - margin then
+			return false
+		end
+		if flat.Magnitude < 13 + margin then
+			return false -- the core
+		end
+		if math.abs(x) < 10 + margin and z < -32 then
+			return false -- portal + arrival path
+		end
+		if math.abs(x) < 10 + margin and z > 36 then
+			return false -- parkour start
+		end
+		for _, zone in ipairs(style.Reserved or {}) do
+			if (flat - zone[1]).Magnitude < zone[2] + margin then
+				return false
+			end
+		end
+		return true
+	end
+	local function randomSpot(minR, maxR, margin, tries)
+		for _ = 1, tries or 40 do
+			local a = rand:NextNumber(0, math.pi * 2)
+			local r = rand:NextNumber(minR, maxR)
+			local x, z = math.cos(a) * r, math.sin(a) * r
+			if free(x, z, margin) then
+				return x, z
+			end
+		end
+		return nil
+	end
+
+	-- ground + layered rock underneath
+	disc("Ground", C, R, 4, C.Y, style.Ground, style.GroundMaterial)
+	disc("EdgeGlow", C, R + 0.7, 0.7, C.Y - 0.2, style.Edge, Enum.Material.Neon, { CanCollide = false })
+	local layers = {
+		{ r = R - 6, y = -4, t = 6 },
+		{ r = R - 18, y = -10, t = 7 },
+		{ r = R - 32, y = -17, t = 8 },
+		{ r = R - 46, y = -25, t = 9 },
+		{ r = R - 58, y = -34, t = 10 },
+	}
+	for i, layer in ipairs(layers) do
+		disc("Underside" .. i, C, layer.r, layer.t, C.Y + layer.y, (i % 2 == 0) and style.RockDark or style.Rock,
+			style.RockMaterial, { CanCollide = false })
+	end
+
+	-- return portal (behind where you arrive)
+	local portalCF = CFrame.lookAt(at(0, 6, -56), at(0, 6, -80)) -- faces away from the island
+	disc("PortalStep", at(0, 0, -55), 8, 0.6, C.Y + 0.3, style.Accent2, style.TrimMaterial or Enum.Material.Slate)
+	portalRing("ReturnPortalRing", portalCF, 4.6, 36, 0.7, style.Edge)
+	local outer = portalRing("ReturnPortalRingOuter", portalCF, 5.6, 40, 0.35, style.Accent)
+	fx(outer, { FX_Spin = Vector3.new(0, 0, 0.6) })
+	local swirl = decor({
+		Name = "ReturnSwirl",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.2, 9, 9),
+		CFrame = portalCF * CFrame.Angles(0, math.rad(90), 0),
+		Color = style.Edge,
+		Material = Enum.Material.Neon,
+		Transparency = 0.45,
+	})
+	emitter(swirl, { Rate = 14, Color = ColorSequence.new(style.Edge, style.Accent), Size = sizeSeq(0, 0.6, 0) })
+	addLight(swirl, style.Edge, 22, 2)
+	local zone = part({
+		Name = "ReturnPortalZone",
+		Size = Vector3.new(8, 9, 3),
+		CFrame = portalCF,
+		Transparency = 1,
+		CanCollide = false,
+		CanQuery = false,
+	})
+	billboard(swirl, "🏠 BACK TO COSMIC ISLAND", Color3.new(1, 1, 1), Vector3.new(0, 7.5, 0), UDim2.fromOffset(380, 50))
+
+	-- welcome sign
+	local signPost = part({
+		Name = "WelcomeSign",
+		Size = Vector3.new(10, 4, 0.6),
+		CFrame = CFrame.lookAt(at(-11, 5, -40), at(-11, 5, -60)),
+		Color = style.RockDark,
+		Material = style.RockMaterial,
+	})
+	for _, side in ipairs({ -4.2, 4.2 }) do
+		part({
+			Name = "SignLeg",
+			Size = Vector3.new(0.6, 3, 0.6),
+			CFrame = signPost.CFrame * CFrame.new(side, -3.5, 0),
+			Color = style.RockDark,
+			Material = style.RockMaterial,
+		})
+	end
+	local signGui = Instance.new("SurfaceGui")
+	signGui.Face = Enum.NormalId.Front
+	signGui.LightInfluence = 0
+	signGui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	signGui.PixelsPerStud = 40
+	signGui.Parent = signPost
+	local signText = Instance.new("TextLabel")
+	signText.BackgroundTransparency = 1
+	signText.Size = UDim2.fromScale(1, 1)
+	signText.Font = Enum.Font.FredokaOne
+	signText.TextScaled = true
+	signText.RichText = true
+	signText.Text = ("%s %s\n<font size='60'>x%s LUCK HERE</font>"):format(info.Icon, info.Name:upper(), tostring(info.LuckMultiplier))
+	signText.TextColor3 = info.Color
+	signText.Parent = signGui
+
+	return {
+		Model = model,
+		Center = C,
+		Radius = R,
+		At = at,
+		Free = free,
+		RandomSpot = randomSpot,
+		ReturnZone = zone,
+		Arrival = CFrame.lookAt(at(0, 4, -44), at(0, 4, 0)),
+	}
+end
+
+-- floating islands' core: discs + an object that spins + rings
+local function islandCore(island, style, buildCenterpiece)
+	local at = island.At
+	local C = island.Center
+	local core = Instance.new("Model")
+	core.Name = "IslandCore"
+	core.Parent = island.Model
+	disc("CoreBase", C, 11, 0.8, C.Y + 0.6, style.RockDark, style.RockMaterial, { Parent = core })
+	disc("CoreRim", C, 11.4, 0.4, C.Y + 0.25, style.Edge, Enum.Material.Neon, { Parent = core, CanCollide = false })
+	disc("CoreStep", C, 7, 0.8, C.Y + 1.4, style.Rock, style.RockMaterial, { Parent = core })
+	disc("CoreTop", C, 4, 0.8, C.Y + 2.2, style.Accent2, style.TrimMaterial or Enum.Material.Slate, { Parent = core })
+	local center = at(0, 9, 0)
+	local piece = buildCenterpiece(center, core)
+	addLight(piece, style.Edge, 40, 3)
+	emitter(piece, { Rate = 10, Color = ColorSequence.new(style.Edge, style.Accent), Size = sizeSeq(0, 0.7, 0), Speed = NumberRange.new(1, 3) })
+	billboard(piece, ("%s %s"):format(style.CoreIcon or "✦", style.CoreName), style.Edge, Vector3.new(0, 7, 0), UDim2.fromOffset(340, 56))
+	fx(ringModel("CoreRing1", center, 6, 28, 0.3, style.Edge, core), { FX_Spin = Vector3.new(0.8, 0.3, 0) })
+	fx(ringModel("CoreRing2", center, 7.5, 34, 0.3, style.Accent, core), { FX_Spin = Vector3.new(0, 0.6, 0.9) })
+	fx(ringModel("CoreRing3", center, 9, 40, 0.3, style.Accent2, core), { FX_Spin = Vector3.new(0.4, 0, 0.5) })
+	-- 4 pillars around the core
+	for i = 1, 4 do
+		local a = (i / 4) * math.pi * 2 + math.pi / 4
+		local p = at(math.cos(a) * 9.5, 0, math.sin(a) * 9.5)
+		part({
+			Name = "CorePillar",
+			Size = Vector3.new(1.4, 7, 1.4),
+			CFrame = CFrame.new(p + Vector3.new(0, 4, 0)),
+			Color = style.RockDark,
+			Material = style.RockMaterial,
+			Parent = core,
+		})
+		local cap = decor({
+			Name = "CorePillarCap",
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.one * 1.6,
+			CFrame = CFrame.new(p + Vector3.new(0, 8.2, 0)),
+			Color = style.Edge,
+			Material = Enum.Material.Neon,
+			Parent = core,
+		})
+		addLight(cap, style.Edge, 14, 1.2)
+	end
+	return core
+end
+
+-- lantern posts along the arrival path
+local function pathLanterns(island, style)
+	for _, side in ipairs({ -1, 1 }) do
+		for _, z in ipairs({ -40, -28, -16 }) do
+			local p = island.At(side * 6.5, 0, z)
+			part({
+				Name = "LanternPost",
+				Size = Vector3.new(0.7, 6, 0.7),
+				CFrame = CFrame.new(p + Vector3.new(0, 3, 0)),
+				Color = style.RockDark,
+				Material = style.RockMaterial,
+			})
+			local lamp = decor({
+				Name = "Lantern",
+				Size = Vector3.one * 1.3,
+				CFrame = CFrame.new(p + Vector3.new(0, 6.8, 0)) * CFrame.Angles(math.rad(45), 0, math.rad(45)),
+				Color = style.Edge,
+				Material = Enum.Material.Neon,
+			})
+			fx(lamp, { FX_Spin = Vector3.new(0, 1.2, 0) })
+			addLight(lamp, style.Edge, 16, 1.3)
+		end
+	end
+	-- path tiles from the portal to the core
+	for z = -50, -12, 3 do
+		part({
+			Name = "PathTile",
+			Size = Vector3.new(5 + rand:NextNumber(-0.3, 0.3), 0.3, 2.8),
+			CFrame = CFrame.new(island.At(0, 0.12, z)) * CFrame.Angles(0, rand:NextNumber(-0.05, 0.05), 0),
+			Color = style.Path,
+			Material = style.PathMaterial or style.RockMaterial,
+		})
+	end
+	-- and from the core to the parkour start
+	for z = 13, 42, 3 do
+		part({
+			Name = "PathTile",
+			Size = Vector3.new(4.2 + rand:NextNumber(-0.3, 0.3), 0.3, 2.8),
+			CFrame = CFrame.new(island.At(0, 0.12, z)) * CFrame.Angles(0, rand:NextNumber(-0.05, 0.05), 0),
+			Color = style.Path,
+			Material = style.PathMaterial or style.RockMaterial,
+		})
+	end
+end
+
+-- a big invisible box above the island that rains particles (snow, embers...)
+local function weather(island, props)
+	local box = part({
+		Name = "Weather",
+		Size = Vector3.new(island.Radius * 2, 1, island.Radius * 2),
+		CFrame = CFrame.new(island.At(0, 40, 0)),
+		Transparency = 1,
+		CanCollide = false,
+		CanQuery = false,
+		CanTouch = false,
+	})
+	props.EmissionDirection = props.EmissionDirection or Enum.NormalId.Bottom
+	emitter(box, props)
+	return box
+end
+
+local builtIslands = {} -- [key] = island table
+
+---------------------------------------------------------------------
+-- ❄️ FROSTFALL ISLE
+---------------------------------------------------------------------
+do
+	local info = Config.RebirthIslands[1]
+	local SNOW = Color3.fromRGB(236, 244, 255)
+	local ICE = Color3.fromRGB(150, 215, 255)
+	local PINE = Color3.fromRGB(40, 95, 80)
+	local style = {
+		Ground = SNOW, GroundMaterial = Enum.Material.Snow,
+		Rock = Color3.fromRGB(120, 170, 220), RockDark = Color3.fromRGB(70, 105, 160), RockMaterial = Enum.Material.Glacier,
+		Edge = Color3.fromRGB(140, 230, 255), Accent = Color3.fromRGB(190, 160, 255), Accent2 = Color3.fromRGB(215, 235, 255),
+		TrimMaterial = Enum.Material.Ice,
+		Path = Color3.fromRGB(190, 215, 240), PathMaterial = Enum.Material.Ice,
+		CoreName = "FROST CORE", CoreIcon = "❄️",
+		Reserved = {
+			{ Vector3.new(-32, 0, 10), 17 }, -- frozen lake
+			{ Vector3.new(32, 0, -12), 10 }, -- igloo
+		},
+	}
+	local island = makeIsland(info, style)
+	local at = island.At
+	local C = island.Center
+
+	-- icicles hanging under the island
+	for i = 1, 26 do
+		local a = (i / 26) * math.pi * 2 + rand:NextNumber(-0.1, 0.1)
+		local r = rand:NextNumber(14, info.Radius - 10)
+		local layerY = -6 - (1 - r / info.Radius) * 26
+		spike(at(math.cos(a) * r, layerY, math.sin(a) * r), rand:NextNumber(1.5, 3.2), rand:NextNumber(6, 16),
+			(i % 3 == 0) and ICE or Color3.fromRGB(200, 235, 255), Enum.Material.Ice, true)
+	end
+
+	-- the core: a giant spinning snowflake
+	islandCore(island, style, function(center, core)
+		local flake = Instance.new("Model")
+		flake.Name = "Snowflake"
+		local hub = decor({
+			Name = "Hub",
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.one * 2.2,
+			CFrame = CFrame.new(center),
+			Color = Color3.new(1, 1, 1),
+			Material = Enum.Material.Neon,
+			Parent = flake,
+		})
+		for k = 0, 5 do
+			local arm = CFrame.new(center) * CFrame.Angles(0, 0, k * math.pi / 3)
+			decor({ Name = "Arm", Size = Vector3.new(0.6, 9, 0.6), CFrame = arm, Color = ICE, Material = Enum.Material.Neon, Parent = flake })
+			for _, s in ipairs({ -1, 1 }) do
+				for _, y in ipairs({ 2.4, 3.6 }) do
+					decor({
+						Name = "Branch",
+						Size = Vector3.new(0.4, y == 2.4 and 2.2 or 1.4, 0.4),
+						CFrame = arm * CFrame.new(0, y, 0) * CFrame.Angles(0, 0, s * math.rad(45)) * CFrame.new(0, (y == 2.4 and 1.1 or 0.7), 0),
+						Color = Color3.fromRGB(220, 245, 255),
+						Material = Enum.Material.Neon,
+						Parent = flake,
+					})
+				end
+			end
+		end
+		flake.WorldPivot = CFrame.new(center)
+		flake.Parent = core
+		fx(flake, { FX_Spin = Vector3.new(0, 0.7, 0), FX_Bob = 0.6 })
+		return hub
+	end)
+	pathLanterns(island, style)
+
+	-- frozen lake with cracks, ice blocks and a fishing hole
+	local lakeCenter = at(-32, 0, 10)
+	disc("FrozenLake", lakeCenter, 15, 0.4, C.Y + 0.18, Color3.fromRGB(165, 220, 255), Enum.Material.Ice,
+		{ Reflectance = 0.25, CustomPhysicalProperties = PhysicalProperties.new(0.9, 0.02, 0.5, 100, 1) })
+	disc("LakeRim", lakeCenter, 16, 0.5, C.Y + 0.1, Color3.fromRGB(230, 240, 255), Enum.Material.Snow)
+	for i = 1, 7 do
+		local a = rand:NextNumber(0, math.pi * 2)
+		local p = lakeCenter + Vector3.new(math.cos(a) * 5, 0, math.sin(a) * 5)
+		decor({
+			Name = "IceCrack",
+			Size = Vector3.new(0.15, 0.06, rand:NextNumber(5, 10)),
+			CFrame = CFrame.new(p.X, C.Y + 0.4, p.Z) * CFrame.Angles(0, a + rand:NextNumber(-0.6, 0.6), 0),
+			Color = Color3.fromRGB(220, 250, 255),
+			Material = Enum.Material.Neon,
+			Transparency = 0.3,
+		})
+	end
+	disc("FishingHole", lakeCenter + Vector3.new(4, 0, -3), 1.6, 0.1, C.Y + 0.43, Color3.fromRGB(20, 60, 110), Enum.Material.Water, { CanCollide = false })
+	for i = 1, 5 do
+		local a = (i / 5) * math.pi * 2
+		part({
+			Name = "IceBlock",
+			Size = Vector3.new(rand:NextNumber(1.6, 3), rand:NextNumber(1.2, 2.4), rand:NextNumber(1.6, 3)),
+			CFrame = CFrame.new(lakeCenter.X + math.cos(a) * 12, C.Y + 1, lakeCenter.Z + math.sin(a) * 12) * CFrame.Angles(rand:NextNumber(-0.3, 0.3), a, rand:NextNumber(-0.3, 0.3)),
+			Color = ICE,
+			Material = Enum.Material.Ice,
+			Transparency = 0.25,
+		})
+	end
+	-- a little sign
+	local lakeSign = part({ Name = "LakeSign", Size = Vector3.new(0.4, 3.5, 0.4), CFrame = CFrame.new(lakeCenter + Vector3.new(14, 1.75, -9)), Color = Color3.fromRGB(110, 80, 60), Material = Enum.Material.Wood })
+	billboard(lakeSign, "⛸ SLIPPERY!", ICE, Vector3.new(0, 3, 0), UDim2.fromOffset(200, 40), 60)
+
+	-- igloo (dome + tunnel)
+	local iglooCenter = at(32, 0, -12)
+	part({
+		Name = "Igloo",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.one * 12,
+		CFrame = CFrame.new(iglooCenter + Vector3.new(0, -0.5, 0)),
+		Color = Color3.fromRGB(240, 248, 255),
+		Material = Enum.Material.Snow,
+	})
+	part({
+		Name = "IglooTunnel",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(4, 4.5, 4.5),
+		CFrame = CFrame.lookAt(iglooCenter + Vector3.new(0, 0.9, 0), iglooCenter + Vector3.new(-1, 0.9, 0)) * CFrame.new(0, 0, -6) * CFrame.Angles(0, math.rad(90), 0),
+		Color = Color3.fromRGB(230, 240, 252),
+		Material = Enum.Material.Snow,
+	})
+	local door = decor({
+		Name = "IglooDoor",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.2, 3.2, 3.2),
+		CFrame = CFrame.lookAt(iglooCenter + Vector3.new(0, 0.9, 0), iglooCenter + Vector3.new(-1, 0.9, 0)) * CFrame.new(0, 0, -8.05) * CFrame.Angles(0, math.rad(90), 0),
+		Color = Color3.fromRGB(255, 190, 110),
+		Material = Enum.Material.Neon,
+	})
+	addLight(door, Color3.fromRGB(255, 180, 100), 14, 1.5)
+	for row = 0, 3 do -- block lines on the dome
+		decor({
+			Name = "IglooLine",
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new(0.12, 12.1 * math.cos(math.asin(math.min(0.95, (row * 1.4 + 0.6) / 6))), 12.1 * math.cos(math.asin(math.min(0.95, (row * 1.4 + 0.6) / 6)))),
+			CFrame = CFrame.new(iglooCenter + Vector3.new(0, row * 1.4 + 0.1, 0)) * FLAT,
+			Color = Color3.fromRGB(200, 220, 245),
+			Material = Enum.Material.SmoothPlastic,
+		})
+	end
+
+	-- pine trees with snowy tops
+	local function pine(x, z)
+		local base = at(x, 0, z)
+		local height = rand:NextNumber(0.85, 1.3)
+		part({
+			Name = "PineTrunk",
+			Size = Vector3.new(1.2, 3 * height, 1.2),
+			CFrame = CFrame.new(base + Vector3.new(0, 1.5 * height, 0)),
+			Color = Color3.fromRGB(90, 60, 45),
+			Material = Enum.Material.Wood,
+		})
+		local y = 2.2 * height
+		for tier = 1, 3 do
+			local w = (7 - tier * 1.7) * height
+			local h = 3.6 * height
+			pyramid(base + Vector3.new(0, y, 0), w, h, PINE:Lerp(Color3.fromRGB(70, 130, 110), tier * 0.12), Enum.Material.Grass, tier == 1)
+			pyramid(base + Vector3.new(0, y + h * 0.55, 0), w * 0.5, h * 0.45, SNOW, Enum.Material.Snow)
+			y += 2.3 * height
+		end
+		local star = decor({
+			Name = "PineLight",
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.one * 0.6,
+			CFrame = CFrame.new(base + Vector3.new(0, y + 1.6 * height, 0)),
+			Color = ICE,
+			Material = Enum.Material.Neon,
+		})
+		addLight(star, ICE, 10, 0.8)
+	end
+	local pines = 0
+	for _ = 1, 80 do
+		if pines >= 18 then
+			break
+		end
+		local x, z = island.RandomSpot(18, info.Radius - 7, 3)
+		if x then
+			pine(x, z)
+			pines += 1
+		end
+	end
+
+	-- snowmen
+	local function snowman(x, z, facing)
+		local base = at(x, 0, z)
+		local look = CFrame.lookAt(base, base + facing)
+		part({ Name = "SnowBall", Shape = Enum.PartType.Ball, Size = Vector3.one * 3.4, CFrame = look * CFrame.new(0, 1.4, 0), Color = SNOW, Material = Enum.Material.Snow })
+		part({ Name = "SnowBall", Shape = Enum.PartType.Ball, Size = Vector3.one * 2.5, CFrame = look * CFrame.new(0, 3.6, 0), Color = SNOW, Material = Enum.Material.Snow })
+		local head = part({ Name = "SnowHead", Shape = Enum.PartType.Ball, Size = Vector3.one * 1.8, CFrame = look * CFrame.new(0, 5.3, 0), Color = SNOW, Material = Enum.Material.Snow })
+		decor({ Name = "Carrot", Shape = Enum.PartType.Cylinder, Size = Vector3.new(1.1, 0.3, 0.3), CFrame = head.CFrame * CFrame.new(0, 0, -1.2) * CFrame.Angles(0, math.rad(90), 0), Color = Color3.fromRGB(255, 140, 40), Material = Enum.Material.SmoothPlastic })
+		for _, s in ipairs({ -0.35, 0.35 }) do
+			decor({ Name = "Eye", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.25, CFrame = head.CFrame * CFrame.new(s, 0.25, -0.82), Color = Color3.fromRGB(20, 20, 30), Material = Enum.Material.SmoothPlastic })
+		end
+		decor({ Name = "Scarf", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.5, 2.1, 2.1), CFrame = look * CFrame.new(0, 4.5, 0) * FLAT, Color = Color3.fromRGB(230, 60, 80), Material = Enum.Material.Fabric })
+		decor({ Name = "ScarfTail", Size = Vector3.new(0.5, 1.4, 0.2), CFrame = look * CFrame.new(0.5, 3.9, -1) * CFrame.Angles(0.2, 0, 0.15), Color = Color3.fromRGB(230, 60, 80), Material = Enum.Material.Fabric })
+		decor({ Name = "Hat", Shape = Enum.PartType.Cylinder, Size = Vector3.new(1.2, 1.3, 1.3), CFrame = look * CFrame.new(0, 6.6, 0) * FLAT, Color = Color3.fromRGB(30, 30, 45), Material = Enum.Material.SmoothPlastic })
+		decor({ Name = "HatBrim", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.15, 2, 2), CFrame = look * CFrame.new(0, 6.05, 0) * FLAT, Color = Color3.fromRGB(30, 30, 45), Material = Enum.Material.SmoothPlastic })
+		for _, s in ipairs({ -1, 1 }) do
+			decor({ Name = "StickArm", Size = Vector3.new(0.18, 0.18, 2.6), CFrame = look * CFrame.new(s * 1.9, 3.9, 0) * CFrame.Angles(0, math.rad(90), s * 0.5), Color = Color3.fromRGB(90, 60, 40), Material = Enum.Material.Wood })
+		end
+	end
+	snowman(-14, -24, Vector3.new(0.5, 0, -1))
+	snowman(20, 22, Vector3.new(-1, 0, -0.3))
+	snowman(-44, 30, Vector3.new(1, 0, -0.5))
+
+	-- ice crystal spikes
+	for _ = 1, 9 do
+		local x, z = island.RandomSpot(20, info.Radius - 8, 2)
+		if x then
+			for k = 1, rand:NextInteger(3, 5) do
+				local off = (k == 1) and Vector3.zero or Vector3.new(rand:NextNumber(-2, 2), 0, rand:NextNumber(-2, 2))
+				spike(at(x, 0, z) + off, rand:NextNumber(1.2, 2), (k == 1) and rand:NextNumber(6, 9) or rand:NextNumber(2.5, 5), ICE, Enum.Material.Ice, false, k == 1)
+			end
+			local glow = decor({ Name = "CrystalGlow", Size = Vector3.one * 0.5, CFrame = CFrame.new(at(x, 1, z)), Transparency = 1 })
+			addLight(glow, ICE, 14, 1.2)
+		end
+	end
+
+	-- aurora ribbons high in the sky (IslandFX makes them shimmer)
+	local auroraColors = { Color3.fromRGB(90, 255, 170), Color3.fromRGB(110, 200, 255), Color3.fromRGB(190, 120, 255) }
+	for band = 1, 3 do
+		local ribbon = Instance.new("Model")
+		ribbon.Name = "Aurora"
+		local z0 = 40 + band * 22
+		for i = -10, 10 do
+			local x = i * 9
+			local y = 75 + band * 6 + math.sin(i * 0.5 + band) * 6
+			local z = z0 + math.cos(i * 0.35 + band) * 10
+			decor({
+				Name = "AuroraPanel",
+				Size = Vector3.new(9.4, 26, 0.2),
+				CFrame = CFrame.lookAt(at(x, y, z), at(x, y, z - 10)) * CFrame.Angles(0, math.sin(i * 0.4) * 0.3, 0),
+				Color = auroraColors[band],
+				Material = Enum.Material.Neon,
+				Transparency = 0.7,
+				Parent = ribbon,
+			}):SetAttribute("Phase", i * 0.45 + band)
+		end
+		ribbon.Parent = island.Model
+		fx(ribbon, { FX_Aurora = true })
+	end
+
+	-- falling snow
+	weather(island, {
+		Rate = 70,
+		Lifetime = NumberRange.new(8, 11),
+		Speed = NumberRange.new(4, 6),
+		Spread = Vector2.new(25, 25),
+		Size = sizeSeq(0.25, 0.35, 0.2),
+		Color = ColorSequence.new(Color3.new(1, 1, 1)),
+		LightEmission = 0.4,
+		Acceleration = Vector3.new(1.5, 0, 0.6),
+		RotSpeed = NumberRange.new(-90, 90),
+	})
+	builtIslands[info.Key] = island
+end
+
+---------------------------------------------------------------------
+-- 🔥 EMBER ISLE
+---------------------------------------------------------------------
+do
+	local info = Config.RebirthIslands[2]
+	local BASALT = Color3.fromRGB(55, 42, 42)
+	local LAVA = Color3.fromRGB(255, 110, 30)
+	local LAVA_HOT = Color3.fromRGB(255, 200, 70)
+	local OBSIDIAN = Color3.fromRGB(25, 15, 30)
+	local style = {
+		Ground = Color3.fromRGB(70, 52, 48), GroundMaterial = Enum.Material.Basalt,
+		Rock = Color3.fromRGB(60, 40, 38), RockDark = Color3.fromRGB(35, 24, 26), RockMaterial = Enum.Material.Basalt,
+		Edge = LAVA, Accent = Color3.fromRGB(255, 60, 60), Accent2 = Color3.fromRGB(90, 60, 55),
+		Path = Color3.fromRGB(105, 85, 78), PathMaterial = Enum.Material.Cobblestone,
+		CoreName = "EMBER CORE", CoreIcon = "🔥",
+		Reserved = {
+			{ Vector3.new(-34, 0, 6), 22 }, -- volcano
+		},
+	}
+	local island = makeIsland(info, style)
+	local at = island.At
+	local C = island.Center
+
+	-- glowing lava drips under the island
+	for i = 1, 18 do
+		local a = (i / 18) * math.pi * 2
+		local r = rand:NextNumber(12, info.Radius - 14)
+		decor({
+			Name = "LavaDrip",
+			Size = Vector3.new(0.7, rand:NextNumber(10, 22), 0.7),
+			CFrame = CFrame.new(at(math.cos(a) * r, -16, math.sin(a) * r)),
+			Color = LAVA,
+			Material = Enum.Material.Neon,
+		})
+	end
+
+	-- the core: a burning orb above a fire pit
+	islandCore(island, style, function(center, core)
+		local orb = decor({
+			Name = "FireOrb",
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.one * 4,
+			CFrame = CFrame.new(center),
+			Color = LAVA_HOT,
+			Material = Enum.Material.Neon,
+			Parent = core,
+		})
+		local fire = Instance.new("Fire")
+		fire.Size = 9
+		fire.Heat = 12
+		fire.Color = LAVA
+		fire.SecondaryColor = Color3.fromRGB(255, 40, 20)
+		fire.Parent = orb
+		fx(orb, { FX_Bob = 0.6, FX_Pulse = 0.4 })
+		return orb
+	end)
+	pathLanterns(island, style)
+
+	-- cracked lava patches in the ground
+	for _ = 1, 10 do
+		local x, z = island.RandomSpot(16, info.Radius - 8, 1)
+		if x then
+			disc("LavaCrack", at(x, 0, z), rand:NextNumber(2.5, 5), 0.2, C.Y + 0.1, Color3.fromRGB(200, 90, 40), Enum.Material.CrackedLava)
+		end
+	end
+
+	-- the volcano: stacked rock rings with a lava crater and smoke
+	local volcano = Instance.new("Model")
+	volcano.Name = "Volcano"
+	volcano.Parent = island.Model
+	local vBase = at(-34, 0, 6)
+	local rings = { { 18, 4 }, { 15, 5 }, { 12, 5 }, { 9.5, 5 }, { 7.5, 4 } }
+	local y = 0
+	for i, ring in ipairs(rings) do
+		disc("VolcanoRock", vBase, ring[1], ring[2], C.Y + y + ring[2], (i % 2 == 0) and BASALT or Color3.fromRGB(70, 50, 46), Enum.Material.Basalt, { Parent = volcano })
+		y += ring[2]
+	end
+	local crater = disc("Crater", vBase, 5.8, 1, C.Y + y + 0.3, LAVA, Enum.Material.Neon, { Parent = volcano, CanCollide = false })
+	addLight(crater, LAVA, 50, 4)
+	local craterFire = Instance.new("Fire")
+	craterFire.Size = 14
+	craterFire.Heat = 20
+	craterFire.Color = LAVA
+	craterFire.SecondaryColor = Color3.fromRGB(255, 50, 20)
+	craterFire.Parent = crater
+	emitter(crater, {
+		Texture = Config.Textures.Smoke,
+		Rate = 6,
+		Lifetime = NumberRange.new(6, 9),
+		Speed = NumberRange.new(5, 8),
+		Spread = Vector2.new(12, 12),
+		Size = sizeSeq(4, 10, 16),
+		Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.4), NumberSequenceKeypoint.new(1, 1) }),
+		Color = ColorSequence.new(Color3.fromRGB(90, 70, 70), Color3.fromRGB(40, 35, 40)),
+		LightEmission = 0,
+		EmissionDirection = Enum.NormalId.Right, -- the disc is turned on its side; Right = up
+	})
+	emitter(crater, {
+		Texture = Config.Textures.Spark,
+		Rate = 25,
+		Lifetime = NumberRange.new(1.5, 3),
+		Speed = NumberRange.new(12, 22),
+		Spread = Vector2.new(30, 30),
+		Size = sizeSeq(0.3, 0.5, 0),
+		Acceleration = Vector3.new(0, -18, 0),
+		Color = ColorSequence.new(LAVA_HOT, LAVA),
+		EmissionDirection = Enum.NormalId.Right,
+	}):SetAttribute("Eruption", true)
+	crater:SetAttribute("FX_Eruption", true)
+	-- lava streams down the sides
+	for k = 1, 5 do
+		local a = (k / 5) * math.pi * 2 + 0.4
+		local top = vBase + Vector3.new(math.cos(a) * 6, y - 0.5, math.sin(a) * 6)
+		local bottom = vBase + Vector3.new(math.cos(a) * 18.6, 0.6, math.sin(a) * 18.6)
+		local mid = (top + bottom) / 2
+		decor({
+			Name = "LavaStream",
+			Size = Vector3.new(1.4, 0.4, (top - bottom).Magnitude + 1),
+			CFrame = CFrame.lookAt(mid, bottom),
+			Color = LAVA,
+			Material = Enum.Material.Neon,
+			Parent = volcano,
+		})
+	end
+	billboard(crater, "🌋 MOUNT EMBER", LAVA_HOT, Vector3.new(0, 12, 0), UDim2.fromOffset(300, 50))
+
+	-- lava pools with rock rims
+	for _ = 1, 3 do
+		local x, z = island.RandomSpot(22, info.Radius - 12, 5)
+		if x then
+			local p = at(x, 0, z)
+			local r = rand:NextNumber(3.5, 5)
+			disc("PoolRim", p, r + 1.2, 1, C.Y + 0.6, BASALT, Enum.Material.Basalt)
+			local pool = disc("LavaPool", p, r, 0.2, C.Y + 0.65, LAVA, Enum.Material.Neon, { CanCollide = false })
+			addLight(pool, LAVA, 18, 2)
+			emitter(pool, { Texture = Config.Textures.Fire, Rate = 6, Lifetime = NumberRange.new(0.6, 1.2), Speed = NumberRange.new(1, 3), Size = sizeSeq(0.5, 1.4, 0), Color = ColorSequence.new(LAVA_HOT, LAVA), EmissionDirection = Enum.NormalId.Right })
+		end
+	end
+
+	-- geysers: vents that blast fire every few seconds (timed in IslandFX)
+	for g = 1, 4 do
+		local x, z = island.RandomSpot(16, info.Radius - 9, 3)
+		if x then
+			local p = at(x, 0, z)
+			disc("GeyserVent", p, 1.8, 1, C.Y + 0.7, OBSIDIAN, Enum.Material.Glass)
+			local hole = disc("GeyserHole", p, 1, 0.2, C.Y + 0.75, LAVA, Enum.Material.Neon, { CanCollide = false })
+			local blast = emitter(hole, {
+				Texture = Config.Textures.Fire,
+				Rate = 0,
+				Lifetime = NumberRange.new(0.8, 1.2),
+				Speed = NumberRange.new(30, 40),
+				Spread = Vector2.new(6, 6),
+				Size = sizeSeq(1.2, 2.4, 0.5),
+				Color = ColorSequence.new(LAVA_HOT, Color3.fromRGB(255, 60, 20)),
+				EmissionDirection = Enum.NormalId.Right,
+			})
+			blast.Name = "Blast"
+			fx(hole, { FX_Geyser = true, Phase = g * 1.3 })
+		end
+	end
+
+	-- obsidian spikes
+	for _ = 1, 10 do
+		local x, z = island.RandomSpot(18, info.Radius - 7, 2)
+		if x then
+			for k = 1, rand:NextInteger(2, 4) do
+				local off = (k == 1) and Vector3.zero or Vector3.new(rand:NextNumber(-2, 2), 0, rand:NextNumber(-2, 2))
+				spike(at(x, 0, z) + off, rand:NextNumber(1.4, 2.4), (k == 1) and rand:NextNumber(5, 9) or rand:NextNumber(2, 4), OBSIDIAN, Enum.Material.Glass, false, k == 1)
+			end
+		end
+	end
+
+	-- burnt trees with glowing ember tips
+	for _ = 1, 9 do
+		local x, z = island.RandomSpot(18, info.Radius - 7, 3)
+		if x then
+			local base = at(x, 0, z)
+			local h = rand:NextNumber(5, 8)
+			part({ Name = "BurntTrunk", Size = Vector3.new(0.9, h, 0.9), CFrame = CFrame.new(base + Vector3.new(0, h / 2, 0)) * CFrame.Angles(rand:NextNumber(-0.1, 0.1), 0, rand:NextNumber(-0.1, 0.1)), Color = Color3.fromRGB(35, 25, 22), Material = Enum.Material.Wood })
+			for b = 1, 3 do
+				local a = rand:NextNumber(0, math.pi * 2)
+				local by = h * (0.45 + b * 0.15)
+				local branch = part({
+					Name = "BurntBranch",
+					Size = Vector3.new(0.4, 0.4, rand:NextNumber(2, 3.5)),
+					CFrame = CFrame.new(base + Vector3.new(0, by, 0)) * CFrame.Angles(0, a, 0) * CFrame.Angles(math.rad(35), 0, 0) * CFrame.new(0, 0, -1.2),
+					Color = Color3.fromRGB(35, 25, 22),
+					Material = Enum.Material.Wood,
+					CanCollide = false,
+				})
+				decor({ Name = "EmberTip", Size = Vector3.one * 0.35, CFrame = branch.CFrame * CFrame.new(0, 0, -branch.Size.Z / 2), Color = LAVA, Material = Enum.Material.Neon })
+			end
+		end
+	end
+
+	-- obsidian arch over the arrival path
+	for _, s in ipairs({ -1, 1 }) do
+		part({ Name = "ArchLeg", Size = Vector3.new(1.6, 11, 1.6), CFrame = CFrame.new(at(s * 5, 5.5, -32)), Color = OBSIDIAN, Material = Enum.Material.Glass })
+		decor({ Name = "ArchVein", Size = Vector3.new(0.3, 10, 0.3), CFrame = CFrame.new(at(s * 5, 5.5, -32.85)), Color = LAVA, Material = Enum.Material.Neon })
+	end
+	part({ Name = "ArchTop", Size = Vector3.new(12, 1.6, 1.8), CFrame = CFrame.new(at(0, 11.5, -32)), Color = OBSIDIAN, Material = Enum.Material.Glass })
+	local skull = decor({ Name = "ArchGem", Shape = Enum.PartType.Ball, Size = Vector3.one * 1.6, CFrame = CFrame.new(at(0, 12.9, -32)), Color = LAVA_HOT, Material = Enum.Material.Neon })
+	addLight(skull, LAVA, 18, 2)
+
+	-- floating embers everywhere
+	local embers = weather(island, {
+		Texture = Config.Textures.Spark,
+		Rate = 30,
+		Lifetime = NumberRange.new(6, 9),
+		Speed = NumberRange.new(1, 3),
+		Spread = Vector2.new(60, 60),
+		Size = sizeSeq(0.15, 0.3, 0),
+		Color = ColorSequence.new(LAVA_HOT, LAVA),
+		Acceleration = Vector3.new(0.5, 1.2, 0),
+		EmissionDirection = Enum.NormalId.Top,
+	})
+	embers.CFrame = CFrame.new(at(0, 2, 0))
+	builtIslands[info.Key] = island
+end
+
+---------------------------------------------------------------------
+-- 💠 NEON NEXUS
+---------------------------------------------------------------------
+do
+	local info = Config.RebirthIslands[3]
+	local PINK = Color3.fromRGB(255, 70, 220)
+	local CYAN = Color3.fromRGB(60, 230, 255)
+	local PURPLE = Color3.fromRGB(140, 80, 255)
+	local DARK = Color3.fromRGB(18, 12, 32)
+	local style = {
+		Ground = DARK, GroundMaterial = Enum.Material.SmoothPlastic,
+		Rock = Color3.fromRGB(35, 22, 60), RockDark = Color3.fromRGB(22, 14, 40), RockMaterial = Enum.Material.SmoothPlastic,
+		Edge = PINK, Accent = CYAN, Accent2 = Color3.fromRGB(60, 40, 100),
+		TrimMaterial = Enum.Material.Glass,
+		Path = Color3.fromRGB(45, 30, 80), PathMaterial = Enum.Material.Glass,
+		CoreName = "NEXUS CORE", CoreIcon = "💠",
+	}
+	local island = makeIsland(info, style)
+	local at = island.At
+
+	-- neon grid floor (lines clipped to the circle)
+	for i = -6, 6 do
+		local d = i * 10
+		local half = math.sqrt(math.max(0, (info.Radius - 1) ^ 2 - d * d))
+		if half > 2 then
+			decor({ Name = "GridX", Size = Vector3.new(half * 2, 0.06, 0.18), CFrame = CFrame.new(at(0, 0.04, d)), Color = (i % 2 == 0) and CYAN or PURPLE, Material = Enum.Material.Neon })
+			decor({ Name = "GridZ", Size = Vector3.new(0.18, 0.06, half * 2), CFrame = CFrame.new(at(d, 0.04, 0)), Color = (i % 2 == 0) and PINK or PURPLE, Material = Enum.Material.Neon })
+		end
+	end
+	-- neon rings on the underside
+	for k = 1, 4 do
+		ringModel("UnderRing", at(0, -4 - k * 7, 0), info.Radius - 8 - k * 12, 60, 0.5, (k % 2 == 0) and PINK or CYAN, island.Model)
+	end
+
+	-- the core: a spinning crystal (two pyramids) in a cage of rings
+	islandCore(island, style, function(center, core)
+		local gem = Instance.new("Model")
+		gem.Name = "NexusGem"
+		local heart = decor({ Name = "Heart", Shape = Enum.PartType.Ball, Size = Vector3.one * 1.6, CFrame = CFrame.new(center), Color = Color3.new(1, 1, 1), Material = Enum.Material.Neon, Parent = gem })
+		for k = 0, 3 do
+			for _, flip in ipairs({ false, true }) do
+				local cf = CFrame.new(center) * (flip and CFrame.Angles(math.pi, 0, 0) or CFrame.new()) * CFrame.Angles(0, k * math.pi / 2, 0) * CFrame.new(0, 2, -1)
+				decor({ ClassName = "WedgePart", Name = "Facet", Size = Vector3.new(4, 4, 2), CFrame = cf, Color = flip and PURPLE or PINK, Material = Enum.Material.Glass, Transparency = 0.2, Parent = gem })
+			end
+		end
+		gem.WorldPivot = CFrame.new(center)
+		gem.Parent = core
+		fx(gem, { FX_Spin = Vector3.new(0, 1.1, 0), FX_Bob = 0.8 })
+		return heart
+	end)
+	pathLanterns(island, style)
+
+	-- holo towers
+	local towerSpots = { { 30, -30 }, { 44, 8 }, { -44, -12 }, { -30, 30 }, { 22, 40 }, { -48, 16 } }
+	for i, spot in ipairs(towerSpots) do
+		local x, z = spot[1], spot[2]
+		if island.Free(x, z, 2) then
+			local h = rand:NextNumber(18, 34)
+			local w = rand:NextNumber(5, 7)
+			local base = at(x, 0, z)
+			local color = (i % 2 == 0) and PINK or CYAN
+			part({ Name = "Tower", Size = Vector3.new(w, h, w), CFrame = CFrame.new(base + Vector3.new(0, h / 2, 0)), Color = Color3.fromRGB(25, 18, 45), Material = Enum.Material.Glass, Reflectance = 0.15 })
+			for row = 3, h - 2, 3 do -- window strips
+				for _, face in ipairs({ 0, 1, 2, 3 }) do
+					decor({
+						Name = "Window",
+						Size = Vector3.new(w * 0.7, 0.35, 0.1),
+						CFrame = CFrame.new(base + Vector3.new(0, row, 0)) * CFrame.Angles(0, face * math.pi / 2, 0) * CFrame.new(0, 0, -w / 2 - 0.06),
+						Color = (rand:NextNumber() < 0.75) and color or Color3.fromRGB(255, 240, 150),
+						Material = Enum.Material.Neon,
+					})
+				end
+			end
+			decor({ Name = "TowerEdge", Size = Vector3.new(w + 0.3, 0.4, w + 0.3), CFrame = CFrame.new(base + Vector3.new(0, h, 0)), Color = color, Material = Enum.Material.Neon })
+			local antenna = decor({ Name = "Antenna", Size = Vector3.new(0.3, 6, 0.3), CFrame = CFrame.new(base + Vector3.new(0, h + 3, 0)), Color = Color3.fromRGB(80, 80, 100), Material = Enum.Material.Metal })
+			local blink = decor({ Name = "AntennaLight", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.8, CFrame = antenna.CFrame * CFrame.new(0, 3.2, 0), Color = Color3.fromRGB(255, 60, 60), Material = Enum.Material.Neon })
+			fx(blink, { FX_Blink = true, Phase = i })
+			fx(ringModel("HoloRing", base + Vector3.new(0, h + 2.5, 0), w * 0.8, 24, 0.25, color, island.Model), { FX_Spin = Vector3.new(0, (i % 2 == 0) and 1 or -1, 0) })
+			addLight(blink, color, 30, 2)
+		end
+	end
+
+	-- neon palm trees
+	for _ = 1, 8 do
+		local x, z = island.RandomSpot(16, info.Radius - 8, 3)
+		if x then
+			local base = at(x, 0, z)
+			local lean = rand:NextNumber(-0.25, 0.25)
+			local cf = CFrame.new(base) * CFrame.Angles(lean, rand:NextNumber(0, 6), 0)
+			for seg = 0, 5 do
+				decor({ Name = "PalmTrunk", Size = Vector3.new(0.9, 1.4, 0.9), CFrame = cf * CFrame.new(0, 0.7 + seg * 1.35, 0) * CFrame.Angles(0, seg * 0.4, 0), Color = Color3.fromRGB(40, 25, 70), Material = Enum.Material.SmoothPlastic })
+				decor({ Name = "PalmRing", Size = Vector3.new(1, 0.12, 1), CFrame = cf * CFrame.new(0, 1.35 + seg * 1.35, 0), Color = CYAN, Material = Enum.Material.Neon })
+			end
+			local top = cf * CFrame.new(0, 8.3, 0)
+			for leaf = 1, 6 do
+				decor({
+					Name = "PalmLeaf",
+					Size = Vector3.new(0.9, 0.15, 4.5),
+					CFrame = top * CFrame.Angles(0, leaf * math.pi / 3, 0) * CFrame.Angles(math.rad(-25), 0, 0) * CFrame.new(0, 0, -2.1),
+					Color = PINK,
+					Material = Enum.Material.Neon,
+				})
+			end
+			part({ Name = "PalmHitbox", Size = Vector3.new(1, 8, 1), CFrame = cf * CFrame.new(0, 4, 0), Transparency = 1 })
+		end
+	end
+
+	-- floating cubes
+	for i = 1, 12 do
+		local a = (i / 12) * math.pi * 2
+		local r = rand:NextNumber(22, 55)
+		local s = rand:NextNumber(1.5, 3)
+		local cube = decor({
+			Name = "FloatCube",
+			Size = Vector3.one * s,
+			CFrame = CFrame.new(at(math.cos(a) * r, rand:NextNumber(12, 24), math.sin(a) * r)),
+			Color = ({ PINK, CYAN, PURPLE })[(i % 3) + 1],
+			Material = Enum.Material.Neon,
+			Transparency = 0.15,
+		})
+		fx(cube, { FX_Spin = Vector3.new(rand:NextNumber(-1, 1), rand:NextNumber(0.5, 1.5), rand:NextNumber(-1, 1)), FX_Bob = 1.5 })
+	end
+
+	-- the giant striped synthwave sun behind the parkour
+	local sunCF = CFrame.lookAt(at(0, 60, 230), at(0, 60, 0))
+	local sun = decor({
+		Name = "SynthSun",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(1, 110, 110),
+		CFrame = sunCF * CFrame.Angles(0, math.rad(90), 0),
+		Color = Color3.fromRGB(255, 120, 90),
+		Material = Enum.Material.Neon,
+	})
+	local glow = Instance.new("SurfaceLight") -- warm glow on the island
+	glow.Face = Enum.NormalId.Right
+	glow.Range = 60
+	glow.Brightness = 0.5
+	glow.Color = Color3.fromRGB(255, 120, 160)
+	glow.Parent = sun
+	for k = 1, 6 do
+		local y = -10 - k * 6.5
+		local half = math.sqrt(math.max(0, 55 ^ 2 - y ^ 2))
+		decor({
+			Name = "SunStripe",
+			Size = Vector3.new(half * 2 + 2, 1 + k * 0.5, 0.5),
+			CFrame = sunCF * CFrame.new(0, y, -1),
+			Color = Color3.fromRGB(30, 10, 45),
+			Material = Enum.Material.SmoothPlastic,
+		})
+	end
+	decor({ Name = "SunTop", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.9, 112, 112), CFrame = sunCF * CFrame.new(0, 0, 0.6) * CFrame.Angles(0, math.rad(90), 0), Color = Color3.fromRGB(255, 220, 90), Material = Enum.Material.Neon, Transparency = 0.6 })
+
+	-- digital rain of sparkles
+	weather(island, {
+		Rate = 40,
+		Lifetime = NumberRange.new(4, 6),
+		Speed = NumberRange.new(8, 12),
+		Spread = Vector2.new(0, 0),
+		Size = sizeSeq(0.2, 0.25, 0.1),
+		Color = ColorSequence.new(CYAN, PINK),
+		RotSpeed = NumberRange.new(0, 0),
+	})
+	builtIslands[info.Key] = island
+end
+
+---------------------------------------------------------------------
+-- ⭐ THE REBIRTH GATE (on the main island)
+---------------------------------------------------------------------
+local gate = Instance.new("Model")
+gate.Name = "RebirthGate"
+gate.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
+gate.Parent = folder
+currentParent = gate
+
+local G = Config.Places.RebirthGate
+local GOLD = Color3.fromRGB(255, 210, 90)
+local toSpawn = Vector3.new(-G.X, 0, -G.Z).Unit
+local baseAngle = math.atan2(-toSpawn.Z, -toSpawn.X) -- portals stand on the far side
+
+disc("GateFloor", G, 13, 0.6, 0.3, Color3.fromRGB(45, 38, 75), Enum.Material.Marble)
+ringModel("GateRing", G + Vector3.new(0, 0.36, 0), 12.4, 72, 0.35, GOLD, gate)
+ringModel("GateRingInner", G + Vector3.new(0, 0.36, 0), 7, 48, 0.25, Color3.fromRGB(150, 120, 255), gate)
+
+-- center: a pedestal with a floating star (press E to open the rebirth menu)
+local pedestal = part({
+	Name = "RebirthPedestal",
+	Shape = Enum.PartType.Cylinder,
+	Size = Vector3.new(3, 2.6, 2.6),
+	CFrame = CFrame.new(G + Vector3.new(0, 1.8, 0)) * FLAT,
+	Color = Color3.fromRGB(70, 60, 110),
+	Material = Enum.Material.Marble,
+})
+local prompt = Instance.new("ProximityPrompt")
+prompt.Name = "RebirthAltarPrompt"
+prompt.ActionText = "Rebirth"
+prompt.ObjectText = "Rebirth Altar"
+prompt.HoldDuration = 0
+prompt.MaxActivationDistance = 10
+prompt.RequiresLineOfSight = false
+prompt.Parent = pedestal
+local star = Instance.new("Model")
+star.Name = "RebirthStar"
+local starCenter = G + Vector3.new(0, 9, 0)
+local starCore = decor({ Name = "StarCore", Shape = Enum.PartType.Ball, Size = Vector3.one * 2, CFrame = CFrame.new(starCenter), Color = Color3.new(1, 1, 1), Material = Enum.Material.Neon, Parent = star })
+for k = 0, 4 do
+	decor({
+		ClassName = "WedgePart",
+		Name = "StarPoint",
+		Size = Vector3.new(0.6, 3, 1.6),
+		CFrame = CFrame.new(starCenter) * CFrame.Angles(0, 0, k * math.pi * 2 / 5) * CFrame.new(0, 2.2, 0),
+		Color = GOLD,
+		Material = Enum.Material.Neon,
+		Parent = star,
+	})
+end
+star.WorldPivot = CFrame.new(starCenter)
+star.Parent = gate
+fx(star, { FX_Spin = Vector3.new(0, 1, 0), FX_Bob = 0.5 })
+addLight(starCore, GOLD, 30, 2.5)
+emitter(starCore, { Rate = 12, Color = ColorSequence.new(GOLD, Color3.fromRGB(150, 120, 255)), Size = sizeSeq(0, 0.6, 0), Speed = NumberRange.new(1, 3) })
+billboard(starCore, "⭐ REBIRTH ALTAR", GOLD, Vector3.new(0, 4.5, 0), UDim2.fromOffset(320, 52))
+
+-- the three portals
+local gatePortals = {} -- { Zone, Island info, Exit }
+for index, info in ipairs(Config.RebirthIslands) do
+	local angle = baseAngle + (index - 2) * math.rad(60)
+	local spot = G + Vector3.new(math.cos(angle) * 10, 0, math.sin(angle) * 10)
+	local portalCF = CFrame.lookAt(spot + Vector3.new(0, 5.4, 0), G + Vector3.new(0, 5.4, 0))
+	local holder = Instance.new("Model")
+	holder.Name = "Portal_" .. info.Key
+	holder.Parent = gate
+	currentParent = holder
+	-- frame: two pillars + a top beam
+	for _, s in ipairs({ -1, 1 }) do
+		part({ Name = "PortalPillar", Size = Vector3.new(1.2, 10, 1.2), CFrame = portalCF * CFrame.new(s * 4.8, -0.4, 0), Color = Color3.fromRGB(60, 50, 95), Material = Enum.Material.Marble })
+		local gem = decor({ Name = "PillarGem", Size = Vector3.one * 1.1, CFrame = portalCF * CFrame.new(s * 4.8, 5.3, 0) * CFrame.Angles(math.rad(45), 0, math.rad(45)), Color = info.Color, Material = Enum.Material.Neon })
+		fx(gem, { FX_Spin = Vector3.new(0, 1.5, 0) })
+	end
+	part({ Name = "PortalBeam", Size = Vector3.new(11, 1, 1.4), CFrame = portalCF * CFrame.new(0, 4.8, 0), Color = Color3.fromRGB(60, 50, 95), Material = Enum.Material.Marble })
+	portalRing("PortalRing", portalCF, 3.9, 32, 0.55, info.Color, holder)
+	fx(portalRing("PortalRingOuter", portalCF, 4.5, 36, 0.25, GOLD, holder), { FX_Spin = Vector3.new(0, 0, 0.7) })
+	local swirl = decor({
+		Name = "PortalSwirl",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.2, 7.6, 7.6),
+		CFrame = portalCF * CFrame.Angles(0, math.rad(90), 0),
+		Color = info.Color,
+		Material = Enum.Material.Neon,
+		Transparency = 0.45,
+	})
+	emitter(swirl, { Rate = 10, Color = ColorSequence.new(info.Color, Color3.new(1, 1, 1)), Size = sizeSeq(0, 0.5, 0) })
+	addLight(swirl, info.Color, 16, 1.6)
+	-- a see-through lock pane (IslandFX hides it once you've unlocked it)
+	local lock = decor({
+		Name = "LockPane",
+		Size = Vector3.new(8, 8, 0.3),
+		CFrame = portalCF * CFrame.new(0, 0, -0.4),
+		Color = Color3.fromRGB(40, 30, 60),
+		Material = Enum.Material.ForceField,
+		Transparency = 0.2,
+	})
+	lock:SetAttribute("NeedRebirths", info.Rebirths)
+	local sign = billboard(swirl, ("%s <b>%s</b>\nx%s luck • Rebirth %d"):format(info.Icon, info.Name:upper(), tostring(info.LuckMultiplier), info.Rebirths),
+		info.Color, Vector3.new(0, 6.6, 0), UDim2.fromOffset(300, 70), 120)
+	sign.Name = "PortalSign"
+	sign:SetAttribute("NeedRebirths", info.Rebirths)
+	local zone = part({
+		Name = "PortalZone",
+		Size = Vector3.new(7, 8, 2.5),
+		CFrame = portalCF,
+		Transparency = 1,
+		CanCollide = false,
+		CanQuery = false,
+	})
+	local exitSpot = (portalCF * CFrame.new(0, 0, -5.5)).Position
+	exitSpot = Vector3.new(exitSpot.X, 3, exitSpot.Z)
+	table.insert(gatePortals, {
+		Zone = zone,
+		Info = info,
+		Exit = CFrame.lookAt(exitSpot, exitSpot + (exitSpot - spot) * Vector3.new(1, 0, 1)),
+	})
+end
+currentParent = gate
+
+-- gate sign facing the spawn
+local gateSign = decor({ Name = "GateSignAnchor", Size = Vector3.one, CFrame = CFrame.new(G + toSpawn * 12 + Vector3.new(0, 1, 0)), Transparency = 1 })
+billboard(gateSign, "⭐ REBIRTH GATE", GOLD, Vector3.new(0, 4, 0), UDim2.fromOffset(340, 56), 150)
+
+folder.Parent = workspace
+
+---------------------------------------------------------------------
+-- PORTAL LOGIC
+---------------------------------------------------------------------
+local busy = {}
+local deniedAt = {}
+
+local function rebirthsOf(player)
+	return player:GetAttribute("Rebirths") or 0
+end
+
+local function teleport(player, destination)
+	if busy[player] then
+		return
+	end
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not root or character:GetAttribute("InDuel") then
+		return
+	end
+	busy[player] = true
+	PortalFXRemote:FireClient(player, "Out")
+	task.wait(0.35)
+	if character.Parent then
+		root.AssemblyLinearVelocity = Vector3.zero
+		character:PivotTo(destination)
+	end
+	PortalFXRemote:FireClient(player, "In")
+	task.wait(1.5)
+	busy[player] = nil
+end
+
+local function enterGatePortal(player, portal)
+	if rebirthsOf(player) >= portal.Info.Rebirths then
+		task.spawn(teleport, player, builtIslands[portal.Info.Key].Arrival)
+	elseif os.clock() - (deniedAt[player] or 0) > 3 then
+		deniedAt[player] = os.clock()
+		PortalFXRemote:FireClient(player, "DeniedRebirth", { Name = portal.Info.Name, Need = portal.Info.Rebirths })
+	end
+end
+
+local function inZone(zone, position)
+	local localPos = zone.CFrame:PointToObjectSpace(position)
+	local half = zone.Size / 2
+	return math.abs(localPos.X) <= half.X and math.abs(localPos.Y) <= half.Y and math.abs(localPos.Z) <= half.Z
+end
+
+local function addPrompt(zone, objectText, onTriggered)
+	local p = Instance.new("ProximityPrompt")
+	p.ActionText = "Travel"
+	p.ObjectText = objectText
+	p.HoldDuration = 0
+	p.MaxActivationDistance = 12
+	p.RequiresLineOfSight = false
+	p.Parent = zone
+	p.Triggered:Connect(onTriggered)
+end
+
+local MAIN_RETURN = {} -- [key] = where you come out on the main island
+for _, portal in ipairs(gatePortals) do
+	MAIN_RETURN[portal.Info.Key] = portal.Exit
+	addPrompt(portal.Zone, ("%s (x%s luck)"):format(portal.Info.Name, tostring(portal.Info.LuckMultiplier)), function(player)
+		enterGatePortal(player, portal)
+	end)
+end
+for key, island in pairs(builtIslands) do
+	addPrompt(island.ReturnZone, "Back to Cosmic Island", function(player)
+		task.spawn(teleport, player, MAIN_RETURN[key])
+	end)
+end
+
+local function islandAt(position)
+	for _, info in ipairs(Config.RebirthIslands) do
+		local offset = position - info.Center
+		local flat = Vector3.new(offset.X, 0, offset.Z)
+		if flat.Magnitude < info.Radius + 8 and offset.Y > -20 and offset.Y < 90 then
+			return info
+		end
+	end
+	return nil
+end
+
+task.spawn(function()
+	local loops = 0
+	while true do
+		task.wait(0.1)
+		loops += 1
+		for _, player in ipairs(Players:GetPlayers()) do
+			local character = player.Character
+			local root = character and character:FindFirstChild("HumanoidRootPart")
+			if root and not busy[player] then
+				for _, portal in ipairs(gatePortals) do
+					if inZone(portal.Zone, root.Position) then
+						enterGatePortal(player, portal)
+					end
+				end
+				for key, island in pairs(builtIslands) do
+					if inZone(island.ReturnZone, root.Position) then
+						task.spawn(teleport, player, MAIN_RETURN[key])
+					end
+				end
+			end
+			if loops % 5 == 0 then
+				local info = root and islandAt(root.Position)
+				if info and rebirthsOf(player) < info.Rebirths and not busy[player] then
+					task.spawn(teleport, player, CFrame.new(Vector3.new(0, 3, 0))) -- not unlocked yet
+					info = nil
+				end
+				local key = info and info.Key or nil
+				if player:GetAttribute("OnRebirthIsland") ~= key then
+					player:SetAttribute("OnRebirthIsland", key)
+				end
+			end
+		end
+	end
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+	busy[player] = nil
+	deniedAt[player] = nil
+end)
+]]></string>
+      </Properties>
+    </Item>
+    <Item class="Script" referent="17">
       <Properties>
         <string name="Name">RollService</string>
         <token name="RunContext">0</token>
@@ -5584,6 +7547,7 @@ local ServerStorage = game:GetService("ServerStorage")
 local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
 local AuraData = require(ReplicatedStorage:WaitForChild("AuraData"))
 local Luck = require(ReplicatedStorage:WaitForChild("Luck"))
+local Rebirth = require(ReplicatedStorage:WaitForChild("Rebirth"))
 
 ---------------------------------------------------------------------
 -- Remotes (created here so you don't have to make them by hand)
@@ -5612,6 +7576,7 @@ local DataUpdatedRemote = getRemote("RemoteEvent", "DataUpdated")
 local AnnounceRemote = getRemote("RemoteEvent", "Announce")
 local RollFXRemote = getRemote("RemoteEvent", "RollFX") -- server -> everyone: show roll effects
 local RevealRemote = getRemote("RemoteEvent", "Reveal") -- roller -> server: "my reveal animation finished"
+local RebirthRemote = getRemote("RemoteFunction", "Rebirth") -- player asks to rebirth
 
 ---------------------------------------------------------------------
 -- Data saving
@@ -5643,6 +7608,9 @@ local function newData()
 		BestChance = 0,
 		PersonalLuckEnd = 0, -- potion end time (seconds since 1970)
 		DuelWins = 0, -- player-vs-player duel wins
+		Rebirths = 0,
+		RebirthRolls = 0, -- rolls since your last rebirth
+		RebirthBest = 0, -- rarest aura (chance) rolled since your last rebirth
 		Receipts = {}, -- recent purchase IDs, so nothing is granted twice
 	}
 end
@@ -5718,10 +7686,19 @@ local function hasPass(player, key)
 	return player:GetAttribute("Pass_" .. key) == true
 end
 
+-- Things a pass gives that you can also earn by rebirthing
+local function rebirthGrants(player, key)
+	if key == "AutoRoll" then
+		return Rebirth.HasPerk(player:GetAttribute("Rebirths") or 0, "Free Auto Roll")
+	end
+	return false
+end
+
 MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, passId, purchased)
 	local key = passIdToKey[passId]
 	if purchased and key then
 		player:SetAttribute("Pass_" .. key, true)
+		player:SetAttribute("Owns_" .. key, true)
 	end
 end)
 
@@ -5755,8 +7732,18 @@ local function refreshStats(player)
 		stats.Rolls.Value = data.Rolls
 		stats.Aura.Value = data.Equipped ~= "" and data.Equipped or "-"
 		stats.Wins.Value = data.DuelWins or 0
+		stats.Rebirths.Value = data.Rebirths or 0
 	end
 	player:SetAttribute("Rolls", data.Rolls)
+	player:SetAttribute("Rebirths", data.Rebirths or 0)
+	player:SetAttribute("RebirthRolls", data.RebirthRolls or 0)
+	player:SetAttribute("RebirthBest", data.RebirthBest or 0)
+	-- perks that unlock passes
+	for key in pairs(Config.GamePasses) do
+		if rebirthGrants(player, key) and not player:GetAttribute("Pass_" .. key) then
+			player:SetAttribute("Pass_" .. key, true)
+		end
+	end
 	player:SetAttribute("EquippedAura", data.Equipped)
 	player:SetAttribute("BestChance", data.BestChance)
 end
@@ -5774,6 +7761,7 @@ RollRemote.OnServerInvoke = function(player)
 	end
 
 	local cooldown = hasPass(player, "QuickRoll") and Config.QuickRollCooldown or Config.RollCooldown
+	cooldown *= Rebirth.CooldownScale(data.Rebirths or 0)
 	local now = os.clock()
 	-- small grace window for network jitter
 	if now - (lastRollTime[player] or 0) < cooldown - 0.1 then
@@ -5810,6 +7798,10 @@ RollRemote.OnServerInvoke = function(player)
 	end)
 
 	data.Rolls = rollNumber
+	data.RebirthRolls = (data.RebirthRolls or 0) + 1
+	if best.Chance > (data.RebirthBest or 0) then
+		data.RebirthBest = best.Chance
+	end
 	local isNewBest = best.Chance > data.BestChance
 	if isNewBest then
 		data.BestChance = best.Chance
@@ -5865,6 +7857,46 @@ EquipRemote.OnServerEvent:Connect(function(player, auraName)
 	refreshStats(player)
 	DataUpdatedRemote:FireClient(player, snapshot(data))
 end)
+
+---------------------------------------------------------------------
+-- Rebirth: needs enough rolls + one rare aura since the last rebirth.
+-- You keep your auras; the rebirth counters start again from zero.
+---------------------------------------------------------------------
+local rebirthBusy = {}
+RebirthRemote.OnServerInvoke = function(player)
+	local data = sessions[player]
+	if not data then
+		return { Error = "Loading" }
+	end
+	if rebirthBusy[player] or player:GetAttribute("InDuel") then
+		return { Error = "Busy" }
+	end
+	local n = data.Rebirths or 0
+	local cost = Rebirth.Cost(n)
+	if (data.RebirthRolls or 0) < cost.Rolls or (data.RebirthBest or 0) < cost.Rarity then
+		return { Error = "NotReady" }
+	end
+	rebirthBusy[player] = true
+	data.Rebirths = n + 1
+	data.RebirthRolls = 0
+	data.RebirthBest = 0
+	refreshStats(player)
+	AnnounceRemote:FireAllClients({
+		Type = "Rebirth",
+		PlayerName = player.DisplayName,
+		UserId = player.UserId,
+		Rebirths = data.Rebirths,
+	})
+	task.spawn(saveData, player)
+	task.delay(1, function()
+		rebirthBusy[player] = nil
+	end)
+	local unlocked = {}
+	for _, perk in ipairs(Rebirth.PerksAt(data.Rebirths)) do
+		table.insert(unlocked, perk.Name)
+	end
+	return { Rebirths = data.Rebirths, Unlocked = unlocked }
+end
 
 ---------------------------------------------------------------------
 -- Developer products (luck potions, server luck)
@@ -5975,11 +8007,17 @@ local function onPlayerAdded(player)
 	local wins = Instance.new("IntValue")
 	wins.Name = "Wins"
 	wins.Parent = stats
+	local rebirths = Instance.new("IntValue")
+	rebirths.Name = "Rebirths"
+	rebirths.Parent = stats
 	stats.Parent = player
 
 	for key in pairs(Config.GamePasses) do
 		task.spawn(function()
-			player:SetAttribute("Pass_" .. key, checkPass(player, key))
+			local owns = checkPass(player, key)
+			player:SetAttribute("Owns_" .. key, owns)
+			-- a rebirth perk can give the same thing for free
+			player:SetAttribute("Pass_" .. key, owns or rebirthGrants(player, key))
 		end)
 	end
 
@@ -6011,6 +8049,7 @@ Players.PlayerRemoving:Connect(function(player)
 	canSave[player] = nil
 	lastRollTime[player] = nil
 	pendingReveal[player] = nil
+	rebirthBusy[player] = nil
 end)
 
 game:BindToClose(function()
@@ -6045,7 +8084,7 @@ end)
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="16">
+    <Item class="Script" referent="18">
       <Properties>
         <string name="Name">WorldSetup</string>
         <token name="RunContext">0</token>
@@ -6077,6 +8116,7 @@ local RESERVED = {
 	{ P.Pond, 11 },
 	{ P.StarstepStart, 8 },
 	{ P.VoidTowerStart, 8 },
+	{ P.RebirthGate, 14 },
 }
 
 local function isReserved(position, margin)
@@ -6409,6 +8449,14 @@ local function rescue(character, player)
 	elseif flat.Magnitude < lucky.Radius * 3 then
 		character:PivotTo(CFrame.new(lucky.Center + Vector3.new(0, 4, -45))) -- fell off Lucky Isle
 	else
+		-- fell off a rebirth island?
+		for _, info in ipairs(Config.RebirthIslands) do
+			local offset = Vector3.new(root.Position.X - info.Center.X, 0, root.Position.Z - info.Center.Z)
+			if offset.Magnitude < info.Radius * 3 then
+				character:PivotTo(CFrame.lookAt(info.Center + Vector3.new(0, 4, -44), info.Center + Vector3.new(0, 4, 0)))
+				return
+			end
+		end
 		character:PivotTo(CFrame.new(SPAWN_POSITION))
 	end
 end
@@ -6848,6 +8896,7 @@ path(toward(P.StarstepStart, -PATH_START + P.StarstepStart.Magnitude), toward(P.
 path(toward(P.VoidTowerStart, -PATH_START + P.VoidTowerStart.Magnitude), toward(P.VoidTowerStart, 4), 3.4)
 path(Vector3.new(0, 0, PATH_START), Vector3.new(0, 0, 66), 5) -- to the Duel Island bridge
 path(toward(P.Pond, -PATH_START + P.Pond.Magnitude), toward(P.Pond, 9), 3)
+path(toward(P.RebirthGate, -PATH_START + P.RebirthGate.Magnitude), toward(P.RebirthGate, 12.5), 4)
 
 ---------------------------------------------------------------------
 -- SIGNPOST at the spawn pointing to everything
@@ -6867,9 +8916,10 @@ local signTargets = {
 	{ "🏃 STARSTEP OBBY", P.StarstepStart, Color3.fromRGB(110, 230, 150) },
 	{ "🗼 VOID TOWER", P.VoidTowerStart, Color3.fromRGB(120, 200, 255) },
 	{ "🏆 TOP ROLLERS", BOARD_POSITION, Color3.fromRGB(255, 220, 120) },
+	{ "⭐ REBIRTH GATE", P.RebirthGate, Color3.fromRGB(140, 220, 255) },
 }
 for i, target in ipairs(signTargets) do
-	local height = 9.2 - i * 1.15
+	local height = 9.4 - i * 1.05
 	local postTop = SIGN_POST + Vector3.new(0, height, 0)
 	local dest = Vector3.new(target[2].X, height, target[2].Z)
 	local look = CFrame.lookAt(postTop, dest)
@@ -7313,16 +9363,16 @@ island.Parent = workspace
       </Properties>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="17">
+  <Item class="StarterPlayer" referent="19">
     <Properties>
       <string name="Name">StarterPlayer</string>
       <bool name="EnableMouseLockOption">false</bool>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="18">
+    <Item class="StarterPlayerScripts" referent="20">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="LocalScript" referent="19">
+      <Item class="LocalScript" referent="21">
         <Properties>
           <string name="Name">AuraRenderer</string>
           <string name="Source"><![CDATA[-- AuraRenderer (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -7341,6 +9391,7 @@ local TextChatService = game:GetService("TextChatService")
 
 local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
 local AuraData = require(ReplicatedStorage:WaitForChild("AuraData"))
+local Rebirth = require(ReplicatedStorage:WaitForChild("Rebirth"))
 local AuraEffects = require(ReplicatedStorage:WaitForChild("AuraEffects"))
 local SoundFX = require(ReplicatedStorage:WaitForChild("SoundFX"))
 
@@ -7400,6 +9451,11 @@ local function isVIP(character)
 	return player ~= nil and player:GetAttribute("Pass_VIP") == true
 end
 
+local function rebirthsOf(character)
+	local player = Players:GetPlayerFromCharacter(character)
+	return player and (player:GetAttribute("Rebirths") or 0) or 0
+end
+
 local function removeTag(character)
 	local tag = tags[character]
 	if tag then
@@ -7417,7 +9473,8 @@ local function buildTag(character)
 	end
 	local aura = AuraData.Get(character:GetAttribute("Aura") or "")
 	local vip = isVIP(character)
-	if not aura and not vip then
+	local rebirths = rebirthsOf(character)
+	if not aura and not vip and rebirths <= 0 then
 		return
 	end
 
@@ -7455,8 +9512,16 @@ local function buildTag(character)
 	end
 
 	local gradient
-	if vip then
-		line(1, "👑 VIP", 16, GOLD)
+	if vip or rebirths > 0 then
+		local parts = {}
+		if rebirths > 0 then
+			table.insert(parts, ("<font color='#%s'>%s Rebirth %d</font>"):format(Rebirth.Color(rebirths):ToHex(), Rebirth.Stars(rebirths), rebirths))
+		end
+		if vip then
+			table.insert(parts, "👑 VIP")
+		end
+		local top = line(1, table.concat(parts, "  "), 16, GOLD)
+		top.RichText = true
 	end
 	if aura then
 		local nameLine = line(2, aura.Name, 24, Color3.new(1, 1, 1))
@@ -7474,6 +9539,7 @@ local function buildTag(character)
 		Phase = math.random() * 6,
 		AuraName = aura and aura.Name or nil,
 		VIP = vip,
+		Rebirths = rebirths,
 	}
 end
 
@@ -7505,9 +9571,10 @@ local function reconcile(character, withBurst)
 	local tag = tags[character]
 	local head = character:FindFirstChild("Head")
 	local vip = isVIP(character)
-	if not head or (not desired and not vip) then
+	local rebirths = rebirthsOf(character)
+	if not head or (not desired and not vip and rebirths <= 0) then
 		removeTag(character)
-	elseif not tag or tag.AuraName ~= desired or tag.VIP ~= vip or tag.Gui.Adornee ~= head then
+	elseif not tag or tag.AuraName ~= desired or tag.VIP ~= vip or tag.Rebirths ~= rebirths or tag.Gui.Adornee ~= head then
 		buildTag(character)
 	end
 end
@@ -7548,6 +9615,11 @@ local function onPlayer(player)
 	end
 	player.CharacterAdded:Connect(track)
 	player:GetAttributeChangedSignal("Pass_VIP"):Connect(function()
+		if player.Character then
+			reconcile(player.Character, false)
+		end
+	end)
+	player:GetAttributeChangedSignal("Rebirths"):Connect(function()
 		if player.Character then
 			reconcile(player.Character, false)
 		end
@@ -7790,6 +9862,10 @@ TextChatService.OnIncomingMessage = function(message)
 		return nil
 	end
 	local prefix = ""
+	local rebirths = player:GetAttribute("Rebirths") or 0
+	if rebirths > 0 then
+		prefix ..= ("<font color='#%s'>[%s]</font> "):format(Rebirth.Color(rebirths):ToHex(), Rebirth.Stars(rebirths))
+	end
 	if player:GetAttribute("Pass_VIP") then
 		prefix ..= "<font color='#FFC846'>[VIP]</font> "
 	end
@@ -7807,7 +9883,7 @@ end
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="20">
+      <Item class="LocalScript" referent="22">
         <Properties>
           <string name="Name">DuelClient</string>
           <string name="Source"><![CDATA[-- DuelClient (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -8375,7 +10451,7 @@ local function attack()
 	nextAttackAt = now + (heavy and DUEL.HeavyRecovery or DUEL.AttackCooldown)
 	faceOpponent(DUEL.AttackRange + 4)
 	DuelRequest:FireServer({ Action = "Attack", Aim = aimDirection() })
-	local clip = heavy and "Roundhouse" or ((localCombo == 2) and "JabLeft" or "JabRight")
+	local clip = heavy and "Roundhouse" or ((localCombo == 2) and "CrossRight" or "JabLeft")
 	CombatAnim.Play(player.Character, clip)
 	SoundFX.Play(heavy and "SwingHeavy" or "SwingLight")
 	attackButton:FindFirstChild("FeelScale").Scale = 0.88
@@ -8876,7 +10952,7 @@ end
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="21">
+      <Item class="LocalScript" referent="23">
         <Properties>
           <string name="Name">DuelFX</string>
           <string name="Source"><![CDATA[-- DuelFX (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -9320,7 +11396,7 @@ DuelFX.OnClientEvent:Connect(function(info)
 	local kind = info.Type
 	if kind == "Swing" then
 		local root = rootOf(info.Attacker)
-		local clip = (info.Combo == 3) and "Roundhouse" or ((info.Combo == 2) and "JabLeft" or "JabRight")
+		local clip = (info.Combo == 3) and "Roundhouse" or ((info.Combo == 2) and "CrossRight" or "JabLeft")
 		local mine = info.Attacker == localPlayer.Character -- your own swing already played instantly
 		if not mine then
 			CombatAnim.Play(info.Attacker, clip)
@@ -10074,7 +12150,295 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="22">
+      <Item class="LocalScript" referent="24">
+        <Properties>
+          <string name="Name">IslandFX</string>
+          <string name="Source"><![CDATA[-- IslandFX (LocalScript in StarterPlayer > StarterPlayerScripts)
+-- Brings the Rebirth Gate and the rebirth islands to life on your screen:
+--   * spinning / bobbing / blinking things (marked with FX_ attributes)
+--   * the aurora over Frostfall, geysers and eruptions on Ember Isle
+--   * gate portals show 🔒 or ✅ for YOUR rebirths
+--   * each island tints the sky, and says welcome when you arrive
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+local TweenService = game:GetService("TweenService")
+
+local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
+local SoundFX = require(ReplicatedStorage:WaitForChild("SoundFX"))
+local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+local remotes = ReplicatedStorage:WaitForChild("CosmicRemotes")
+
+local folder = workspace:WaitForChild("RebirthIslands", 60)
+if not folder then
+	warn("[IslandFX] RebirthIslands not found")
+	return
+end
+
+---------------------------------------------------------------------
+-- Collect everything that moves
+---------------------------------------------------------------------
+local movers = {} -- spin / bob / pulse
+local auroras = {} -- aurora panels
+local geysers = {}
+local eruptions = {}
+local blinkers = {}
+local rand = Random.new()
+
+local function pivotOf(instance)
+	if instance:IsA("Model") then
+		return instance:GetPivot()
+	end
+	return instance.CFrame
+end
+
+local function collect(instance)
+	local spin = instance:GetAttribute("FX_Spin")
+	local bob = instance:GetAttribute("FX_Bob")
+	local pulse = instance:GetAttribute("FX_Pulse")
+	if spin or bob or pulse then
+		table.insert(movers, {
+			Instance = instance,
+			Base = pivotOf(instance),
+			Spin = spin,
+			Bob = bob,
+			Pulse = pulse,
+			BaseSize = instance:IsA("BasePart") and instance.Size or nil,
+			Phase = rand:NextNumber(0, 6),
+		})
+	end
+	if instance:GetAttribute("FX_Aurora") then
+		for _, panel in ipairs(instance:GetChildren()) do
+			if panel:IsA("BasePart") then
+				table.insert(auroras, { Part = panel, Phase = panel:GetAttribute("Phase") or 0, Base = panel.Color })
+			end
+		end
+	end
+	if instance:GetAttribute("FX_Geyser") then
+		table.insert(geysers, { Part = instance, Phase = instance:GetAttribute("Phase") or 0, Last = 0 })
+	end
+	if instance:GetAttribute("FX_Eruption") then
+		table.insert(eruptions, { Part = instance, Next = os.clock() + rand:NextNumber(5, 10) })
+	end
+	if instance:GetAttribute("FX_Blink") then
+		table.insert(blinkers, { Part = instance, Phase = instance:GetAttribute("Phase") or 0 })
+	end
+end
+
+for _, instance in ipairs(folder:GetDescendants()) do
+	collect(instance)
+end
+
+-- only animate what's close to you (the islands are far apart)
+local NEAR = 420
+local function near(position)
+	return (camera.CFrame.Position - position).Magnitude < NEAR
+end
+
+local t = 0
+RunService.RenderStepped:Connect(function(dt)
+	t += dt
+	for _, m in ipairs(movers) do
+		if near(m.Base.Position) then
+			local cf = m.Base
+			if m.Bob then
+				cf = cf + Vector3.new(0, math.sin(t * 1.3 + m.Phase) * m.Bob, 0)
+			end
+			if m.Spin then
+				cf = cf * CFrame.Angles(m.Spin.X * t, m.Spin.Y * t, m.Spin.Z * t)
+			end
+			if m.Instance:IsA("Model") then
+				m.Instance:PivotTo(cf)
+			else
+				m.Instance.CFrame = cf
+				if m.Pulse and m.BaseSize then
+					m.Instance.Size = m.BaseSize * (1 + math.sin(t * 2.4 + m.Phase) * m.Pulse * 0.2)
+				end
+			end
+		end
+	end
+	for _, a in ipairs(auroras) do
+		local wave = math.sin(t * 0.7 + a.Phase)
+		a.Part.Transparency = 0.62 + wave * 0.22
+		a.Part.Color = a.Base:Lerp(Color3.new(1, 1, 1), (math.sin(t * 0.4 + a.Phase * 0.5) + 1) * 0.12)
+	end
+	for _, b in ipairs(blinkers) do
+		b.Part.Transparency = ((t + b.Phase) % 1.6 < 0.8) and 0 or 0.8
+	end
+end)
+
+-- geysers blast every few seconds, the volcano erupts now and then
+task.spawn(function()
+	while true do
+		task.wait(0.2)
+		local now = workspace:GetServerTimeNow()
+		for _, g in ipairs(geysers) do
+			local cycle = math.floor((now + g.Phase) / 5)
+			if cycle ~= g.Last then
+				g.Last = cycle
+				if near(g.Part.Position) then
+					local blast = g.Part:FindFirstChild("Blast")
+					if blast then
+						blast:Emit(40)
+					end
+					SoundFX.Play("Swoosh", { Parent = g.Part, Speed = 0.6, Volume = 0.8, MaxDistance = 80 })
+				end
+			end
+		end
+		for _, e in ipairs(eruptions) do
+			if os.clock() >= e.Next then
+				e.Next = os.clock() + rand:NextNumber(9, 16)
+				if near(e.Part.Position) then
+					for _, child in ipairs(e.Part:GetChildren()) do
+						if child:IsA("ParticleEmitter") and child:GetAttribute("Eruption") then
+							child:Emit(120)
+						end
+					end
+					SoundFX.Play("Rumble", { Parent = e.Part, Volume = 1, MaxDistance = 220 })
+					SoundFX.Play("Explosion", { Parent = e.Part, Speed = 0.6, Volume = 0.7, MaxDistance = 220 })
+					-- a little camera shake if you're close
+					local character = player.Character
+					local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+					if humanoid and (camera.CFrame.Position - e.Part.Position).Magnitude < 120 then
+						task.spawn(function()
+							for _ = 1, 12 do
+								humanoid.CameraOffset = Vector3.new(rand:NextNumber(-0.3, 0.3), rand:NextNumber(-0.3, 0.3), 0)
+								task.wait(0.03)
+							end
+							humanoid.CameraOffset = Vector3.zero
+						end)
+					end
+				end
+			end
+		end
+	end
+end)
+
+---------------------------------------------------------------------
+-- Gate portals: locked or unlocked for YOU
+---------------------------------------------------------------------
+local gate = folder:WaitForChild("RebirthGate", 30)
+local function refreshLocks()
+	if not gate then
+		return
+	end
+	local n = player:GetAttribute("Rebirths") or 0
+	for _, item in ipairs(gate:GetDescendants()) do
+		local need = item:GetAttribute("NeedRebirths")
+		if need then
+			local unlocked = n >= need
+			if item:IsA("BasePart") then
+				item.Transparency = unlocked and 1 or 0.2
+			elseif item:IsA("BillboardGui") then
+				local text = item:FindFirstChild("Text")
+				if text then
+					local base = text:GetAttribute("BaseText") or text.Text
+					text:SetAttribute("BaseText", base)
+					text.Text = base .. (unlocked and "\n<font color='#78ffaa'>✅ UNLOCKED</font>" or "\n<font color='#ff8c8c'>🔒 LOCKED</font>")
+					item.Size = UDim2.fromOffset(300, 96)
+				end
+			end
+		end
+	end
+end
+refreshLocks()
+player:GetAttributeChangedSignal("Rebirths"):Connect(refreshLocks)
+
+---------------------------------------------------------------------
+-- Island skies + welcome
+---------------------------------------------------------------------
+local SKIES = {
+	Frostfall = {
+		Ambient = Color3.fromRGB(130, 150, 190), OutdoorAmbient = Color3.fromRGB(170, 205, 245),
+		AtmosphereColor = Color3.fromRGB(200, 230, 255), AtmosphereDecay = Color3.fromRGB(110, 150, 210),
+		Tint = Color3.fromRGB(225, 240, 255), Saturation = 0.05,
+	},
+	Ember = {
+		Ambient = Color3.fromRGB(130, 70, 50), OutdoorAmbient = Color3.fromRGB(210, 110, 70),
+		AtmosphereColor = Color3.fromRGB(255, 140, 90), AtmosphereDecay = Color3.fromRGB(120, 40, 25),
+		Tint = Color3.fromRGB(255, 225, 205), Saturation = 0.2,
+	},
+	Nexus = {
+		Ambient = Color3.fromRGB(110, 60, 140), OutdoorAmbient = Color3.fromRGB(170, 90, 220),
+		AtmosphereColor = Color3.fromRGB(255, 110, 230), AtmosphereDecay = Color3.fromRGB(60, 20, 120),
+		Tint = Color3.fromRGB(245, 225, 255), Saturation = 0.35,
+	},
+}
+
+-- the normal sky, remembered the first time you visit an island
+local normal
+local function rememberNormal()
+	if normal then
+		return
+	end
+	local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
+	local colorFx = Lighting:FindFirstChildOfClass("ColorCorrectionEffect")
+	normal = {
+		Ambient = Lighting.Ambient,
+		OutdoorAmbient = Lighting.OutdoorAmbient,
+		AtmosphereColor = atmosphere and atmosphere.Color,
+		AtmosphereDecay = atmosphere and atmosphere.Decay,
+		Tint = colorFx and colorFx.TintColor,
+		Saturation = colorFx and colorFx.Saturation,
+	}
+end
+
+local function applySky(sky)
+	local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
+	local colorFx = Lighting:FindFirstChildOfClass("ColorCorrectionEffect")
+	local info = TweenInfo.new(2, Enum.EasingStyle.Sine)
+	TweenService:Create(Lighting, info, { Ambient = sky.Ambient, OutdoorAmbient = sky.OutdoorAmbient }):Play()
+	if atmosphere and sky.AtmosphereColor then
+		TweenService:Create(atmosphere, info, { Color = sky.AtmosphereColor, Decay = sky.AtmosphereDecay }):Play()
+	end
+	if colorFx and sky.Tint then
+		TweenService:Create(colorFx, info, { TintColor = sky.Tint, Saturation = sky.Saturation }):Play()
+	end
+end
+
+local current = nil
+player:GetAttributeChangedSignal("OnRebirthIsland"):Connect(function()
+	local key = player:GetAttribute("OnRebirthIsland")
+	if key == current then
+		return
+	end
+	current = key
+	if key and SKIES[key] then
+		rememberNormal()
+		applySky(SKIES[key])
+		for _, info in ipairs(Config.RebirthIslands) do
+			if info.Key == key then
+				UIKit.toast(("%s Welcome to %s! x%s luck here"):format(info.Icon, info.Name, tostring(info.LuckMultiplier)), info.Color)
+				SoundFX.Chime(0.9, 5)
+			end
+		end
+	elseif normal then
+		applySky(normal)
+	end
+end)
+
+---------------------------------------------------------------------
+-- Locked portal message
+---------------------------------------------------------------------
+local PortalFXRemote = remotes:WaitForChild("PortalFX", 30)
+if PortalFXRemote then
+	PortalFXRemote.OnClientEvent:Connect(function(kind, data)
+		if kind == "DeniedRebirth" and type(data) == "table" then
+			UIKit.toast(("🔒 %s unlocks at Rebirth %d - open ⭐ REBIRTH to see your progress"):format(
+				tostring(data.Name), tonumber(data.Need) or 1), Color3.fromRGB(255, 140, 140))
+			SoundFX.Play("Thud")
+		end
+	end)
+end
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="LocalScript" referent="25">
         <Properties>
           <string name="Name">ParkourClient</string>
           <string name="Source"><![CDATA[-- ParkourClient (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -10107,7 +12471,7 @@ end
 ---------------------------------------------------------------------
 -- Collect vanishing platforms, jump pads and trophies
 ---------------------------------------------------------------------
-local vanishers, pads, trophies, spinners, movers = {}, {}, {}, {}, {}
+local vanishers, pads, trophies, spinners, movers, ices = {}, {}, {}, {}, {}, {}
 for _, item in ipairs(courses:GetDescendants()) do
 	if item:IsA("BasePart") then
 		if item:GetAttribute("Spinner") then
@@ -10132,6 +12496,8 @@ for _, item in ipairs(courses:GetDescendants()) do
 				On = item:GetAttribute("VanishOn") or 2,
 				Offset = item:GetAttribute("VanishOffset") or 0,
 			})
+		elseif item:GetAttribute("Slippery") then
+			table.insert(ices, item)
 		elseif item:GetAttribute("Launch") then
 			table.insert(pads, { Part = item, Launch = item:GetAttribute("Launch") })
 		elseif item.Name == "SpinGem" then
@@ -10149,6 +12515,7 @@ end
 
 local lastLaunch = 0
 local t = 0
+local slideVelocity -- your sliding speed while on ice
 RunService.RenderStepped:Connect(function(dt)
 	t += dt
 	local now = workspace:GetServerTimeNow()
@@ -10171,6 +12538,25 @@ RunService.RenderStepped:Connect(function(dt)
 			myRoot.CFrame += delta
 		end
 		mover.Part.CFrame = newCFrame
+	end
+
+	-- ice: you keep sliding, so speeding up and stopping is slow
+	local onIce = false
+	if myRoot then
+		for _, ice in ipairs(ices) do
+			if standingOn(ice, myRoot.Position) then
+				onIce = true
+				break
+			end
+		end
+	end
+	if onIce then
+		local velocity = myRoot.AssemblyLinearVelocity
+		local flat = Vector3.new(velocity.X, 0, velocity.Z)
+		slideVelocity = slideVelocity and slideVelocity:Lerp(flat, math.min(1, dt * 1.6)) or flat
+		myRoot.AssemblyLinearVelocity = Vector3.new(slideVelocity.X, velocity.Y, slideVelocity.Z)
+	else
+		slideVelocity = nil
 	end
 
 	-- vanishing platforms: solid, then blink, then gone
@@ -10285,7 +12671,800 @@ end
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="23">
+      <Item class="LocalScript" referent="26">
+        <Properties>
+          <string name="Name">RebirthClient</string>
+          <string name="Source"><![CDATA[-- RebirthClient (LocalScript in StarterPlayer > StarterPlayerScripts)
+-- Everything about rebirths on your screen:
+--   * the ⭐ REBIRTH button + panel (progress bars, rewards, all unlocks)
+--   * the big rebirth celebration (and a pillar of light everyone sees)
+--   * the Rebirth Trail perk (on everyone who has it)
+--   * the Double Jump perk
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local Debris = game:GetService("Debris")
+
+local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
+local AuraData = require(ReplicatedStorage:WaitForChild("AuraData"))
+local Rebirth = require(ReplicatedStorage:WaitForChild("Rebirth"))
+local SoundFX = require(ReplicatedStorage:WaitForChild("SoundFX"))
+local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
+
+local player = Players.LocalPlayer
+local THEME = UIKit.Theme
+local TITLE_FONT = UIKit.TitleFont
+local new, corner, stroke, textStroke, tween, label =
+	UIKit.new, UIKit.corner, UIKit.stroke, UIKit.textStroke, UIKit.tween, UIKit.label
+
+local remotes = ReplicatedStorage:WaitForChild("CosmicRemotes")
+local RebirthRemote = remotes:WaitForChild("Rebirth")
+local AnnounceRemote = remotes:WaitForChild("Announce")
+
+local STAR_GOLD = Color3.fromRGB(255, 210, 90)
+
+local function rebirths()
+	return player:GetAttribute("Rebirths") or 0
+end
+
+---------------------------------------------------------------------
+-- SIDE MENU BUTTON (added to the menu the StoreUI script makes)
+---------------------------------------------------------------------
+local menuGui = player:WaitForChild("PlayerGui"):WaitForChild("CosmicMenu", 30)
+local sideMenu = menuGui and menuGui:WaitForChild("SideMenu", 10)
+
+local menuButton, readyDot
+if sideMenu then
+	menuButton = new("TextButton", {
+		Name = "REBIRTH",
+		LayoutOrder = 2,
+		Size = UDim2.fromOffset(84, 84),
+		BackgroundColor3 = THEME.Panel,
+		BackgroundTransparency = 0.1,
+		AutoButtonColor = false,
+		Text = "",
+		Parent = sideMenu,
+	}, { corner(UDim.new(0, 18)), stroke(Color3.fromRGB(140, 220, 255), 2.5, 0) })
+	local icon = label({ Size = UDim2.new(1, 0, 0, 50), Position = UDim2.fromOffset(0, 6), Text = "⭐", TextSize = 38, Parent = menuButton })
+	local text = label({
+		AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, -6), Size = UDim2.new(1, 0, 0, 20),
+		Text = "REBIRTH", Font = TITLE_FONT, TextSize = 15, Parent = menuButton,
+	})
+	textStroke(1.2).Parent = text
+	readyDot = new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -8, 0, 8), Size = UDim2.fromOffset(22, 22),
+		BackgroundColor3 = THEME.Good, Visible = false, Parent = menuButton,
+	}, { corner(UDim.new(1, 0)), stroke(Color3.new(1, 1, 1), 2, 0) })
+	label({ Size = UDim2.fromScale(1, 1), Text = "!", Font = TITLE_FONT, TextSize = 16, Parent = readyDot })
+	UIKit.addButtonFeel(menuButton)
+	-- the star slowly spins
+	task.spawn(function()
+		while icon.Parent do
+			tween(icon, 2, { Rotation = 360 }, Enum.EasingStyle.Linear)
+			task.wait(2)
+			icon.Rotation = 0
+			task.wait(3)
+		end
+	end)
+else
+	warn("[RebirthClient] SideMenu not found, open the rebirth panel at the Rebirth Altar")
+end
+
+---------------------------------------------------------------------
+-- REBIRTH PANEL
+---------------------------------------------------------------------
+local gui = UIKit.screen("CosmicRebirth", 2)
+local holder = new("Frame", {
+	Name = "RebirthHolder",
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.47),
+	Size = UDim2.fromOffset(620, 560),
+	BackgroundTransparency = 1,
+	Visible = false,
+	Parent = gui,
+})
+UIKit.addAutoScale(holder, 800)
+
+local panel = new("Frame", {
+	Name = "Rebirth",
+	Size = UDim2.fromScale(1, 1),
+	BackgroundColor3 = THEME.Panel,
+	BackgroundTransparency = 0.05,
+	ClipsDescendants = true,
+	Parent = holder,
+}, { corner(UDim.new(0, 18)), stroke(Color3.fromRGB(140, 220, 255), 2.5, 0) })
+
+-- slow moving shine in the background
+local shine = new("Frame", {
+	Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(120, 160, 255), BackgroundTransparency = 0.85,
+	ZIndex = 0, Parent = panel,
+}, {
+	corner(UDim.new(0, 18)),
+	new("UIGradient", {
+		Name = "Shine",
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.45, 1), NumberSequenceKeypoint.new(0.5, 0.2),
+			NumberSequenceKeypoint.new(0.55, 1), NumberSequenceKeypoint.new(1, 1),
+		}),
+		Rotation = 25,
+	}),
+})
+
+local titleLabel = label({
+	Position = UDim2.fromOffset(22, 12), Size = UDim2.new(1, -80, 0, 40), Text = "⭐ REBIRTH",
+	Font = TITLE_FONT, TextSize = 32, TextXAlignment = Enum.TextXAlignment.Left, Parent = panel,
+})
+UIKit.gradient(Color3.fromRGB(150, 230, 255), Color3.fromRGB(255, 200, 110), 0).Parent = titleLabel
+label({
+	Position = UDim2.fromOffset(22, 50), Size = UDim2.new(1, -44, 0, 22),
+	Text = "You KEEP all your auras • every rebirth is harder but better", TextSize = 15, TextColor3 = THEME.SubText,
+	TextXAlignment = Enum.TextXAlignment.Left, Parent = panel,
+})
+local closeButton = new("TextButton", {
+	AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 14), Size = UDim2.fromOffset(42, 42),
+	BackgroundColor3 = THEME.Bad, Text = "X", Font = TITLE_FONT, TextSize = 24, TextColor3 = THEME.Text,
+	AutoButtonColor = false, Parent = panel,
+}, { corner(UDim.new(0, 10)), textStroke(1.5) })
+UIKit.addButtonFeel(closeButton)
+
+-- current level
+local levelLabel = label({
+	Position = UDim2.fromOffset(22, 80), Size = UDim2.new(1, -44, 0, 34), Text = "",
+	Font = TITLE_FONT, TextSize = 26, RichText = true, TextXAlignment = Enum.TextXAlignment.Left, Parent = panel,
+})
+textStroke(1.5).Parent = levelLabel
+
+-- a requirement row with a progress bar
+local function requirementRow(y, icon)
+	local row = new("Frame", {
+		Position = UDim2.fromOffset(18, y), Size = UDim2.new(1, -36, 0, 58),
+		BackgroundColor3 = THEME.PanelLight, Parent = panel,
+	}, { corner(UDim.new(0, 12)) })
+	label({ Position = UDim2.fromOffset(10, 0), Size = UDim2.fromOffset(40, 58), Text = icon, TextSize = 28, Parent = row })
+	local text = label({
+		Position = UDim2.fromOffset(56, 6), Size = UDim2.new(1, -110, 0, 22), Text = "", TextSize = 17,
+		RichText = true, TextXAlignment = Enum.TextXAlignment.Left, Parent = row,
+	})
+	local barBack = new("Frame", {
+		Position = UDim2.fromOffset(56, 34), Size = UDim2.new(1, -110, 0, 14),
+		BackgroundColor3 = Color3.fromRGB(14, 10, 26), Parent = row,
+	}, { corner(UDim.new(1, 0)) })
+	local barFill = new("Frame", {
+		Size = UDim2.fromScale(0, 1), BackgroundColor3 = Color3.new(1, 1, 1), Parent = barBack,
+	}, { corner(UDim.new(1, 0)), UIKit.gradient(Color3.fromRGB(110, 210, 255), Color3.fromRGB(190, 130, 255), 0) })
+	local check = label({
+		AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -12, 0.5, 0), Size = UDim2.fromOffset(40, 40),
+		Text = "", TextSize = 28, Parent = row,
+	})
+	return { Text = text, Fill = barFill, Check = check }
+end
+local rollsRow = requirementRow(122, "🎲")
+local rareRow = requirementRow(188, "💎")
+
+-- rewards for the next rebirth
+local rewardBox = new("Frame", {
+	Position = UDim2.fromOffset(18, 256), Size = UDim2.new(1, -36, 0, 92),
+	BackgroundColor3 = Color3.fromRGB(28, 40, 70), Parent = panel,
+}, { corner(UDim.new(0, 12)), stroke(Color3.fromRGB(110, 210, 255), 1.5, 0.3) })
+label({
+	Position = UDim2.fromOffset(12, 6), Size = UDim2.new(1, -24, 0, 22), Text = "NEXT REBIRTH GIVES",
+	Font = TITLE_FONT, TextSize = 18, TextColor3 = Color3.fromRGB(150, 230, 255),
+	TextXAlignment = Enum.TextXAlignment.Left, Parent = rewardBox,
+})
+local rewardText = label({
+	Position = UDim2.fromOffset(12, 30), Size = UDim2.new(1, -24, 1, -34), Text = "", TextSize = 16,
+	RichText = true, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left,
+	TextYAlignment = Enum.TextYAlignment.Top, Parent = rewardBox,
+})
+
+-- the big button
+local rebirthButton = new("TextButton", {
+	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 358), Size = UDim2.fromOffset(300, 56),
+	BackgroundColor3 = THEME.Good, Text = "REBIRTH!", Font = TITLE_FONT, TextSize = 30, TextColor3 = THEME.Text,
+	AutoButtonColor = false, Parent = panel,
+}, { corner(UDim.new(0, 14)), textStroke(2), stroke(Color3.new(1, 1, 1), 2, 0.4) })
+UIKit.addButtonFeel(rebirthButton)
+local buttonGlow = new("UIGradient", {
+	Color = ColorSequence.new(Color3.fromRGB(120, 255, 170), Color3.fromRGB(70, 200, 255)),
+	Rotation = 0,
+	Parent = rebirthButton,
+})
+
+-- every unlock
+local perkList = new("ScrollingFrame", {
+	Position = UDim2.fromOffset(16, 426), Size = UDim2.new(1, -32, 1, -438),
+	BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 6,
+	ScrollBarImageColor3 = Color3.fromRGB(140, 220, 255), CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y,
+	Parent = panel,
+}, {
+	new("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }),
+	new("UIPadding", { PaddingRight = UDim.new(0, 8), PaddingBottom = UDim.new(0, 6) }),
+})
+local perkRows = {}
+for index, perk in ipairs(Config.Rebirth.Perks) do
+	local row = new("Frame", {
+		LayoutOrder = index, Size = UDim2.new(1, 0, 0, 44), BackgroundColor3 = THEME.PanelLight, Parent = perkList,
+	}, { corner(UDim.new(0, 10)) })
+	label({ Position = UDim2.fromOffset(8, 0), Size = UDim2.fromOffset(36, 44), Text = perk.Icon, TextSize = 24, Parent = row })
+	label({
+		Position = UDim2.fromOffset(50, 3), Size = UDim2.new(1, -170, 0, 20), Text = perk.Name, Font = TITLE_FONT, TextSize = 17,
+		TextXAlignment = Enum.TextXAlignment.Left, Parent = row,
+	})
+	label({
+		Position = UDim2.fromOffset(50, 22), Size = UDim2.new(1, -170, 0, 18), Text = perk.Description, TextSize = 12,
+		TextColor3 = THEME.SubText, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, Parent = row,
+	})
+	local status = label({
+		AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -10, 0.5, 0), Size = UDim2.fromOffset(110, 30),
+		Text = "", Font = TITLE_FONT, TextSize = 15, TextXAlignment = Enum.TextXAlignment.Right, Parent = row,
+	})
+	perkRows[index] = { Row = row, Status = status, Perk = perk }
+end
+
+---------------------------------------------------------------------
+-- Filling in the panel
+---------------------------------------------------------------------
+local function percent(scale)
+	return math.floor((1 - scale) * 100 + 0.5)
+end
+
+local function refresh()
+	local progress = Rebirth.Progress(player)
+	local n = progress.Rebirths
+	local color = Rebirth.Color(math.max(n, 1))
+	if n > 0 then
+		levelLabel.Text = ("<font color='#%s'>%s Rebirth %d</font>   <font color='#bfb4e1' size='18'>Luck x%s • rolls %d%% faster</font>"):format(
+			color:ToHex(), Rebirth.Stars(n), n, tostring(Rebirth.LuckMultiplier(n)), percent(Rebirth.CooldownScale(n)))
+	else
+		levelLabel.Text = "<font color='#bfb4e1'>No rebirths yet - reach the goals below!</font>"
+	end
+
+	local cost = progress.Cost
+	local rollsDone = math.min(progress.Rolls, cost.Rolls)
+	rollsRow.Text.Text = ("Roll <b>%s</b> times <font color='#bfb4e1'>(%s / %s)</font>"):format(
+		AuraData.FormatNumber(cost.Rolls), AuraData.FormatNumber(rollsDone), AuraData.FormatNumber(cost.Rolls))
+	tween(rollsRow.Fill, 0.3, { Size = UDim2.fromScale(math.clamp(progress.Rolls / cost.Rolls, 0, 1), 1) })
+	rollsRow.Check.Text = progress.RollsDone and "✅" or ""
+
+	local bestText = progress.Best > 0 and AuraData.FormatChance(progress.Best) or "nothing yet"
+	rareRow.Text.Text = ("Roll a <b>%s</b> aura or rarer <font color='#bfb4e1'>(best: %s)</font>"):format(
+		AuraData.FormatChance(cost.Rarity), bestText)
+	local rareScale = progress.Best > 0 and math.clamp(math.log(progress.Best) / math.log(cost.Rarity), 0, 1) or 0
+	tween(rareRow.Fill, 0.3, { Size = UDim2.fromScale(rareScale, 1) })
+	rareRow.Check.Text = progress.RarityDone and "✅" or ""
+
+	-- what the next one gives
+	local nextN = n + 1
+	local lines = {
+		("🍀 Luck <b>x%s</b> → <font color='#78ffaa'><b>x%s</b></font>  forever"):format(
+			tostring(Rebirth.LuckMultiplier(n)), tostring(Rebirth.LuckMultiplier(nextN))),
+		("⚡ Rolling <b>%d%%</b> → <font color='#78ffaa'><b>%d%%</b></font> faster"):format(
+			percent(Rebirth.CooldownScale(n)), percent(Rebirth.CooldownScale(nextN))),
+	}
+	local perks = Rebirth.PerksAt(nextN)
+	if #perks > 0 then
+		local names = {}
+		for _, perk in ipairs(perks) do
+			table.insert(names, perk.Icon .. " " .. perk.Name)
+		end
+		table.insert(lines, "<font color='#ffd76a'><b>UNLOCKS: " .. table.concat(names, ", ") .. "</b></font>")
+	else
+		table.insert(lines, ("<font color='#%s'>%s</font> a new star on your name"):format(Rebirth.Color(nextN):ToHex(), Rebirth.Stars(nextN)))
+	end
+	rewardText.Text = table.concat(lines, "\n")
+
+	-- the button
+	if progress.Ready then
+		rebirthButton.Text = "⭐ REBIRTH! ⭐"
+		rebirthButton.BackgroundColor3 = THEME.Good
+		buttonGlow.Enabled = true
+	else
+		rebirthButton.Text = "NOT READY YET"
+		rebirthButton.BackgroundColor3 = Color3.fromRGB(70, 66, 90)
+		buttonGlow.Enabled = false
+	end
+	if readyDot then
+		readyDot.Visible = progress.Ready
+	end
+
+	-- the unlock list
+	for _, entry in pairs(perkRows) do
+		local unlocked = n >= entry.Perk.Rebirths
+		entry.Status.Text = unlocked and "✅ UNLOCKED" or ("🔒 Rebirth %d"):format(entry.Perk.Rebirths)
+		entry.Status.TextColor3 = unlocked and THEME.Good or THEME.SubText
+		entry.Row.BackgroundColor3 = unlocked and Color3.fromRGB(30, 58, 52) or THEME.PanelLight
+	end
+end
+
+for _, attribute in ipairs({ "Rebirths", "RebirthRolls", "RebirthBest" }) do
+	player:GetAttributeChangedSignal(attribute):Connect(refresh)
+end
+refresh()
+
+-- the ready dot pulses
+task.spawn(function()
+	while gui.Parent do
+		if readyDot and readyDot.Visible then
+			tween(readyDot, 0.4, { Size = UDim2.fromOffset(28, 28) }, Enum.EasingStyle.Sine)
+			task.wait(0.4)
+			tween(readyDot, 0.4, { Size = UDim2.fromOffset(22, 22) }, Enum.EasingStyle.Sine)
+		end
+		task.wait(0.5)
+	end
+end)
+
+---------------------------------------------------------------------
+-- Open / close
+---------------------------------------------------------------------
+local open = false
+local function setOpen(value)
+	if value == open then
+		return
+	end
+	open = value
+	if open then
+		UIKit.announcePanel("Rebirth")
+		refresh()
+		holder.Visible = true
+		UIKit.popIn(panel)
+	else
+		holder.Visible = false
+	end
+end
+if menuButton then
+	menuButton.Activated:Connect(function()
+		setOpen(not open)
+	end)
+end
+closeButton.Activated:Connect(function()
+	setOpen(false)
+end)
+UIKit.PanelOpened:Connect(function(name)
+	if name ~= "Rebirth" then
+		setOpen(false)
+	end
+end)
+
+-- pressing E at the Rebirth Altar opens the panel
+task.spawn(function()
+	local islands = workspace:WaitForChild("RebirthIslands", 60)
+	local gate = islands and islands:WaitForChild("RebirthGate", 30)
+	local pedestal = gate and gate:WaitForChild("RebirthPedestal", 30)
+	local prompt = pedestal and pedestal:WaitForChild("RebirthAltarPrompt", 30)
+	if prompt then
+		prompt.Triggered:Connect(function()
+			setOpen(true)
+		end)
+	end
+end)
+
+-- shine sweep + button glow animation
+RunService.RenderStepped:Connect(function()
+	if not open then
+		return
+	end
+	local t = os.clock()
+	local shineGradient = shine:FindFirstChild("Shine")
+	if shineGradient then
+		shineGradient.Offset = Vector2.new(((t * 0.25) % 2) - 1, 0)
+	end
+	buttonGlow.Rotation = (t * 60) % 360
+end)
+
+---------------------------------------------------------------------
+-- THE CELEBRATION
+---------------------------------------------------------------------
+local fxGui = UIKit.screen("CosmicRebirthFX", 45)
+local camera = workspace.CurrentCamera
+
+local function celebrate(n, unlocked)
+	setOpen(false)
+	local color = Rebirth.Color(n)
+	SoundFX.Jingle("Rebirth")
+
+	-- 1) build-up: screen darkens, the camera zooms in
+	local dark = new("Frame", {
+		Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 1, Parent = fxGui,
+	})
+	tween(dark, 1, { BackgroundTransparency = 0.45 }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+	local fov = camera.FieldOfView
+	tween(camera, 1.1, { FieldOfView = fov - 18 }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+	local rings = {}
+	for i = 1, 3 do
+		local ring = new("Frame", {
+			AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.45),
+			Size = UDim2.fromOffset(900 - i * 150, 900 - i * 150), BackgroundTransparency = 1, Parent = fxGui,
+		}, { corner(UDim.new(1, 0)), stroke(color, 4, 0.2) })
+		tween(ring, 1.1, { Size = UDim2.fromOffset(20, 20) }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+		table.insert(rings, ring)
+	end
+	task.wait(1.1)
+	for _, ring in ipairs(rings) do
+		ring:Destroy()
+	end
+
+	-- 2) BOOM
+	camera.FieldOfView = fov + 14
+	tween(camera, 0.8, { FieldOfView = fov }, Enum.EasingStyle.Quart)
+	local flash = new("Frame", {
+		Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0, Parent = fxGui,
+	})
+	tween(flash, 0.25, { BackgroundColor3 = color }, Enum.EasingStyle.Linear)
+	task.delay(0.25, function()
+		tween(flash, 0.9, { BackgroundTransparency = 1 })
+	end)
+	tween(dark, 1.2, { BackgroundTransparency = 1 })
+	UIKit.burst({ color, STAR_GOLD, Color3.new(1, 1, 1) }, 60, 1.6, Vector2.new(0.5, 0.45))
+	UIKit.confetti({ color, STAR_GOLD, THEME.Accent, THEME.Accent2 }, 120)
+
+	-- shockwave ring
+	local wave = new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.45), Size = UDim2.fromOffset(40, 40),
+		BackgroundTransparency = 1, Parent = fxGui,
+	}, { corner(UDim.new(1, 0)), stroke(Color3.new(1, 1, 1), 10, 0) })
+	tween(wave, 0.8, { Size = UDim2.fromOffset(1600, 1600) }, Enum.EasingStyle.Quart)
+	tween(wave:FindFirstChildOfClass("UIStroke"), 0.8, { Transparency = 1, Thickness = 1 })
+
+	-- big title
+	local title = label({
+		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.36), Size = UDim2.fromOffset(900, 110),
+		Text = "REBIRTH " .. n .. "!", Font = TITLE_FONT, TextSize = 96, Parent = fxGui,
+	})
+	UIKit.gradient(Color3.new(1, 1, 1), color, 90).Parent = title
+	textStroke(4).Parent = title
+	local titleScale = new("UIScale", { Scale = 3, Parent = title })
+	tween(titleScale, 0.5, { Scale = 1 }, Enum.EasingStyle.Back)
+	local stars = label({
+		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.46), Size = UDim2.fromOffset(600, 60),
+		Text = Rebirth.Stars(n), Font = TITLE_FONT, TextSize = 54, TextColor3 = STAR_GOLD, Parent = fxGui,
+	})
+	textStroke(3).Parent = stars
+	local sub = label({
+		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.53), Size = UDim2.fromOffset(800, 36),
+		Text = ("Luck x%s forever  •  rolling %d%% faster"):format(tostring(Rebirth.LuckMultiplier(n)), percent(Rebirth.CooldownScale(n))),
+		Font = TITLE_FONT, TextSize = 28, TextColor3 = Color3.fromRGB(150, 255, 190), TextTransparency = 1, Parent = fxGui,
+	})
+	textStroke(2).Parent = sub
+	task.delay(0.4, function()
+		tween(sub, 0.4, { TextTransparency = 0 })
+	end)
+
+	-- 3) one card per unlock
+	local cards = {}
+	for index, perkName in ipairs(unlocked or {}) do
+		local perk
+		for _, p in ipairs(Config.Rebirth.Perks) do
+			if p.Name == perkName then
+				perk = p
+			end
+		end
+		if perk then
+			local card = new("Frame", {
+				AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, (index - (#unlocked + 1) / 2) * 270, 0.6, 0),
+				Size = UDim2.fromOffset(250, 120), BackgroundColor3 = THEME.Panel, Parent = fxGui,
+			}, { corner(UDim.new(0, 16)), stroke(color, 3, 0) })
+			label({ Size = UDim2.new(1, 0, 0, 50), Position = UDim2.fromOffset(0, 6), Text = perk.Icon, TextSize = 40, Parent = card })
+			label({ Position = UDim2.fromOffset(0, 56), Size = UDim2.new(1, 0, 0, 26), Text = "UNLOCKED: " .. perk.Name, Font = TITLE_FONT, TextSize = 18, TextColor3 = STAR_GOLD, Parent = card })
+			label({ Position = UDim2.fromOffset(10, 82), Size = UDim2.new(1, -20, 0, 32), Text = perk.Description, TextSize = 12, TextWrapped = true, TextColor3 = THEME.SubText, Parent = card })
+			local cardScale = new("UIScale", { Scale = 0, Parent = card })
+			task.delay(0.6 + index * 0.25, function()
+				tween(cardScale, 0.4, { Scale = 1 }, Enum.EasingStyle.Back)
+				SoundFX.Play("Pop", { Speed = 1 + index * 0.1 })
+			end)
+			table.insert(cards, card)
+		end
+	end
+
+	task.wait(4.2)
+	for _, item in ipairs({ title, stars, sub }) do
+		tween(item, 0.5, { TextTransparency = 1 })
+	end
+	for _, card in ipairs(cards) do
+		tween(card, 0.5, { BackgroundTransparency = 1 })
+		for _, child in ipairs(card:GetDescendants()) do
+			if child:IsA("TextLabel") then
+				tween(child, 0.5, { TextTransparency = 1 })
+			elseif child:IsA("UIStroke") then
+				tween(child, 0.5, { Transparency = 1 })
+			end
+		end
+	end
+	task.wait(0.6)
+	for _, item in ipairs({ dark, flash, wave, title, stars, sub }) do
+		item:Destroy()
+	end
+	for _, card in ipairs(cards) do
+		card:Destroy()
+	end
+	-- tell them where to go next
+	for _, perkName in ipairs(unlocked or {}) do
+		for _, info in ipairs(Config.RebirthIslands) do
+			if info.Name == perkName then
+				UIKit.toast(("%s %s is open! Go to the ⭐ Rebirth Gate"):format(info.Icon, info.Name), info.Color)
+			end
+		end
+	end
+end
+
+local busy = false
+rebirthButton.Activated:Connect(function()
+	if busy then
+		return
+	end
+	local progress = Rebirth.Progress(player)
+	if not progress.Ready then
+		UIKit.toast("Reach both goals first!", THEME.Bad)
+		SoundFX.Play("Thud")
+		return
+	end
+	if player:GetAttribute("InDuel") then
+		UIKit.toast("You can't rebirth during a duel!", THEME.Bad)
+		return
+	end
+	busy = true
+	local ok, result = pcall(function()
+		return RebirthRemote:InvokeServer()
+	end)
+	if ok and type(result) == "table" and result.Rebirths then
+		celebrate(result.Rebirths, result.Unlocked)
+	else
+		UIKit.toast("Rebirth failed, try again", THEME.Bad)
+	end
+	busy = false
+end)
+
+---------------------------------------------------------------------
+-- PILLAR OF LIGHT (everyone sees it on the player who rebirthed)
+---------------------------------------------------------------------
+local function worldPillar(character, n)
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not root then
+		return
+	end
+	local color = Rebirth.Color(n)
+	local base = root.Position - Vector3.new(0, 3, 0)
+	local folder = Instance.new("Folder")
+	folder.Name = "RebirthPillar"
+	folder.Parent = workspace
+	Debris:AddItem(folder, 4)
+	local function fxPart(props)
+		local p = Instance.new("Part")
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanQuery = false
+		p.CanTouch = false
+		p.CastShadow = false
+		p.Material = Enum.Material.Neon
+		for key, value in pairs(props) do
+			p[key] = value
+		end
+		p.Parent = folder
+		return p
+	end
+	-- the beam from the sky
+	local beam = fxPart({
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(300, 1, 1),
+		CFrame = CFrame.new(base + Vector3.new(0, 150, 0)) * CFrame.Angles(0, 0, math.rad(90)),
+		Color = color,
+		Transparency = 0.1,
+	})
+	TweenService:Create(beam, TweenInfo.new(0.35, Enum.EasingStyle.Back), { Size = Vector3.new(300, 9, 9) }):Play()
+	task.delay(0.5, function()
+		TweenService:Create(beam, TweenInfo.new(1.8, Enum.EasingStyle.Quad), { Size = Vector3.new(300, 0.2, 0.2), Transparency = 1 }):Play()
+	end)
+	local core = fxPart({
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(300, 0.5, 0.5),
+		CFrame = beam.CFrame,
+		Color = Color3.new(1, 1, 1),
+	})
+	TweenService:Create(core, TweenInfo.new(0.35), { Size = Vector3.new(300, 4, 4) }):Play()
+	task.delay(0.5, function()
+		TweenService:Create(core, TweenInfo.new(1.6), { Size = Vector3.new(300, 0.1, 0.1), Transparency = 1 }):Play()
+	end)
+	-- ground shockwaves
+	for i = 0, 2 do
+		task.delay(i * 0.18, function()
+			local ring = fxPart({
+				Shape = Enum.PartType.Cylinder,
+				Size = Vector3.new(0.3, 2, 2),
+				CFrame = CFrame.new(base + Vector3.new(0, 0.3, 0)) * CFrame.Angles(0, 0, math.rad(90)),
+				Color = (i == 1) and STAR_GOLD or color,
+				Transparency = 0.2,
+			})
+			TweenService:Create(ring, TweenInfo.new(1.1, Enum.EasingStyle.Quart), { Size = Vector3.new(0.3, 44, 44), Transparency = 1 }):Play()
+		end)
+	end
+	-- stars bursting out
+	local burstPart = fxPart({ Size = Vector3.one, CFrame = CFrame.new(base + Vector3.new(0, 3, 0)), Transparency = 1 })
+	local stars = Instance.new("ParticleEmitter")
+	stars.Texture = Config.Textures.Sparkle
+	stars.Rate = 0
+	stars.Lifetime = NumberRange.new(1, 2)
+	stars.Speed = NumberRange.new(15, 35)
+	stars.SpreadAngle = Vector2.new(180, 180)
+	stars.Drag = 3
+	stars.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.2), NumberSequenceKeypoint.new(1, 0) })
+	stars.Color = ColorSequence.new(color, STAR_GOLD)
+	stars.LightEmission = 1
+	stars.Parent = burstPart
+	stars:Emit(90)
+	local light = Instance.new("PointLight")
+	light.Color = color
+	light.Range = 50
+	light.Brightness = 6
+	light.Parent = burstPart
+	TweenService:Create(light, TweenInfo.new(2), { Brightness = 0 }):Play()
+	SoundFX.Play("Explosion", { Parent = burstPart, Volume = 0.8, MaxDistance = 250 })
+end
+
+AnnounceRemote.OnClientEvent:Connect(function(info)
+	if type(info) ~= "table" or info.Type ~= "Rebirth" then
+		return
+	end
+	local who = Players:GetPlayerByUserId(info.UserId)
+	if who and who.Character then
+		-- matches the moment the rebirther's own screen goes BOOM
+		task.delay(1.1, worldPillar, who.Character, info.Rebirths)
+	end
+end)
+
+---------------------------------------------------------------------
+-- REBIRTH TRAIL perk (shown on everyone who has it)
+---------------------------------------------------------------------
+local function updateTrail(who)
+	local character = who.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not root then
+		return
+	end
+	local n = who:GetAttribute("Rebirths") or 0
+	local existing = root:FindFirstChild("RebirthTrail")
+	if not Rebirth.HasPerk(n, "Rebirth Trail") then
+		if existing then
+			existing:Destroy()
+		end
+		for _, name in ipairs({ "RebirthTrailA", "RebirthTrailB" }) do
+			local a = root:FindFirstChild(name)
+			if a then
+				a:Destroy()
+			end
+		end
+		return
+	end
+	local a0 = root:FindFirstChild("RebirthTrailA") or Instance.new("Attachment")
+	a0.Name = "RebirthTrailA"
+	a0.Position = Vector3.new(0, 0.9, 0.4)
+	a0.Parent = root
+	local a1 = root:FindFirstChild("RebirthTrailB") or Instance.new("Attachment")
+	a1.Name = "RebirthTrailB"
+	a1.Position = Vector3.new(0, -1.4, 0.4)
+	a1.Parent = root
+	local trail = existing or Instance.new("Trail")
+	trail.Name = "RebirthTrail"
+	trail.Attachment0 = a0
+	trail.Attachment1 = a1
+	trail.Lifetime = 0.45
+	trail.MinLength = 0.1
+	trail.FaceCamera = true
+	trail.LightEmission = 1
+	trail.LightInfluence = 0
+	local color = Rebirth.Color(n)
+	trail.Color = ColorSequence.new(Color3.new(1, 1, 1), color)
+	trail.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.25), NumberSequenceKeypoint.new(1, 1) })
+	trail.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.1) })
+	trail.Parent = root
+end
+
+local function watchPlayer(who)
+	who.CharacterAdded:Connect(function(character)
+		character:WaitForChild("HumanoidRootPart", 10)
+		updateTrail(who)
+	end)
+	who:GetAttributeChangedSignal("Rebirths"):Connect(function()
+		updateTrail(who)
+	end)
+	if who.Character then
+		task.spawn(updateTrail, who)
+	end
+end
+Players.PlayerAdded:Connect(watchPlayer)
+for _, who in ipairs(Players:GetPlayers()) do
+	watchPlayer(who)
+end
+
+---------------------------------------------------------------------
+-- DOUBLE JUMP perk
+---------------------------------------------------------------------
+local airborneSince = nil
+local usedDouble = false
+
+local function canDoubleJump()
+	if not Rebirth.HasPerk(rebirths(), "Double Jump") then
+		return false
+	end
+	-- parkour stays fair, and duels stay duels
+	if player:GetAttribute("ParkourCourse") or player:GetAttribute("InDuel") then
+		return false
+	end
+	return true
+end
+
+local function hookHumanoid(character)
+	local humanoid = character:WaitForChild("Humanoid", 10)
+	if not humanoid then
+		return
+	end
+	humanoid.StateChanged:Connect(function(_, state)
+		if state == Enum.HumanoidStateType.Freefall or state == Enum.HumanoidStateType.Jumping then
+			airborneSince = airborneSince or os.clock()
+		elseif state == Enum.HumanoidStateType.Landed or state == Enum.HumanoidStateType.Running
+			or state == Enum.HumanoidStateType.Swimming or state == Enum.HumanoidStateType.Seated then
+			airborneSince = nil
+			usedDouble = false
+		end
+	end)
+end
+player.CharacterAdded:Connect(hookHumanoid)
+if player.Character then
+	task.spawn(hookHumanoid, player.Character)
+end
+
+UserInputService.JumpRequest:Connect(function()
+	if usedDouble or not airborneSince or os.clock() - airborneSince < 0.18 then
+		return
+	end
+	if not canDoubleJump() then
+		return
+	end
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if not root or not humanoid or humanoid.Health <= 0 then
+		return
+	end
+	usedDouble = true
+	local velocity = root.AssemblyLinearVelocity
+	root.AssemblyLinearVelocity = Vector3.new(velocity.X, 48, velocity.Z)
+	humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+	SoundFX.Play("Whoosh", { Speed = 1.5, Volume = 0.8 })
+	-- a little ring puff under your feet
+	local color = Rebirth.Color(rebirths())
+	local puff = Instance.new("Part")
+	puff.Anchored = true
+	puff.CanCollide = false
+	puff.CanQuery = false
+	puff.CanTouch = false
+	puff.Shape = Enum.PartType.Cylinder
+	puff.Material = Enum.Material.Neon
+	puff.Color = color
+	puff.Transparency = 0.2
+	puff.Size = Vector3.new(0.2, 1.5, 1.5)
+	puff.CFrame = CFrame.new(root.Position - Vector3.new(0, 3, 0)) * CFrame.Angles(0, 0, math.rad(90))
+	puff.Parent = workspace
+	TweenService:Create(puff, TweenInfo.new(0.4, Enum.EasingStyle.Quad), { Size = Vector3.new(0.1, 7, 7), Transparency = 1 }):Play()
+	Debris:AddItem(puff, 0.5)
+	local spark = Instance.new("ParticleEmitter")
+	spark.Texture = Config.Textures.Sparkle
+	spark.Rate = 0
+	spark.Lifetime = NumberRange.new(0.4, 0.7)
+	spark.Speed = NumberRange.new(6, 12)
+	spark.SpreadAngle = Vector2.new(180, 20)
+	spark.EmissionDirection = Enum.NormalId.Right
+	spark.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.5), NumberSequenceKeypoint.new(1, 0) })
+	spark.Color = ColorSequence.new(color)
+	spark.LightEmission = 1
+	spark.Parent = puff
+	spark:Emit(18)
+end)
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="LocalScript" referent="27">
         <Properties>
           <string name="Name">RollUI</string>
           <string name="Source"><![CDATA[-- RollUI (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -10303,6 +13482,7 @@ local TextChatService = game:GetService("TextChatService")
 local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
 local AuraData = require(ReplicatedStorage:WaitForChild("AuraData"))
 local Luck = require(ReplicatedStorage:WaitForChild("Luck"))
+local Rebirth = require(ReplicatedStorage:WaitForChild("Rebirth"))
 local SoundFX = require(ReplicatedStorage:WaitForChild("SoundFX"))
 local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
 
@@ -10788,7 +13968,7 @@ end
 ---------------------------------------------------------------------
 -- LUCK LINE + STATS
 ---------------------------------------------------------------------
-local BONUS_ICONS = { ["2x Luck"] = "🍀", VIP = "👑", Potion = "🧪", Server = "🌌", Event = "☄️", ["Lucky Isle"] = "🏝", Parkour = "🏃" }
+local BONUS_ICONS = { ["2x Luck"] = "🍀", VIP = "👑", Potion = "🧪", Server = "🌌", Event = "☄️", ["Lucky Isle"] = "🏝", Parkour = "🏃", Rebirth = "⭐" }
 
 local function updateInfo()
 	local total = Luck.Get(player)
@@ -10800,7 +13980,7 @@ local function updateInfo()
 				BONUS_ICONS[bonus.Name] or "✦", Luck.FormatTime(bonus.EndsAt - now)))
 		elseif bonus.Show then
 			table.insert(parts, ("<font color='#ffb4dc'>%s %s x%s</font>"):format(
-				BONUS_ICONS[bonus.Name] or "✦", bonus.Name, Luck.Format(bonus.Multiplier)))
+				bonus.Icon or BONUS_ICONS[bonus.Name] or "✦", bonus.Name, Luck.Format(bonus.Multiplier)))
 		end
 	end
 	luckLine.Text = table.concat(parts, "   ")
@@ -11002,6 +14182,8 @@ local function playRollAnimation(result, fast)
 
 	-- 1) Spin through random auras, slowing down at the end
 	local steps = fast and 7 or 16
+	-- rebirths make rolling faster, the spin speeds up to match
+	local pace = Rebirth.CooldownScale(player:GetAttribute("Rebirths") or 0)
 	local showLuck = math.max(result.Luck or 1, 1) * 40 -- show exciting names while spinning
 	for i = 1, steps do
 		local progress = i / steps
@@ -11013,7 +14195,7 @@ local function playRollAnimation(result, fast)
 		tween(imageScale, 0.08, { Scale = 1 })
 		nameLabel.Rotation = rand:NextNumber(-3, 3)
 		SoundFX.Play("Tick", { Speed = 0.85 + progress * 0.9 })
-		task.wait((fast and 0.03 or 0.04) + progress ^ 3 * (fast and 0.12 or 0.28))
+		task.wait(((fast and 0.03 or 0.04) + progress ^ 3 * (fast and 0.12 or 0.28)) * pace)
 	end
 	nameLabel.Rotation = 0
 
@@ -11507,6 +14689,15 @@ AnnounceRemote.OnClientEvent:Connect(function(info)
 		SoundFX.Play("Pop", { Volume = 0.7 })
 		return
 	end
+	if info.Type == "Rebirth" then
+		local color = Rebirth.Color(info.Rebirths)
+		showBanner(("⭐ <b>%s</b> just <font color='#%s'><b>REBIRTHED</b></font>! (Rebirth %d)"):format(
+			info.PlayerName, color:ToHex(), info.Rebirths), color)
+		if info.UserId ~= player.UserId then
+			SoundFX.Chime(1.1, 4)
+		end
+		return
+	end
 	if info.Type == "ServerLuck" then
 		showBanner(("🌌 <b>%s</b> activated <font color='#ffd76a'><b>SERVER LUCK</b></font>! x%s luck for everyone!"):format(
 			info.PlayerName, Luck.Format(Config.LuckMultipliers.ServerBoost)), THEME.Gold)
@@ -11611,7 +14802,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="24">
+      <Item class="LocalScript" referent="28">
         <Properties>
           <string name="Name">Sprint</string>
           <string name="Source"><![CDATA[-- Sprint (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -11853,7 +15044,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="25">
+      <Item class="LocalScript" referent="29">
         <Properties>
           <string name="Name">StoreUI</string>
           <string name="Source"><![CDATA[-- StoreUI (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -11888,7 +15079,7 @@ local menu = new("Frame", {
 	Name = "SideMenu",
 	AnchorPoint = Vector2.new(0, 0.5),
 	Position = UDim2.new(0, 16, 0.5, 0),
-	Size = UDim2.fromOffset(84, 190),
+	Size = UDim2.fromOffset(84, 286), -- 3 buttons (the REBIRTH button is added by RebirthUI)
 	BackgroundTransparency = 1,
 	Parent = gui,
 }, {
@@ -11920,7 +15111,7 @@ local function menuButton(order, icon, text, color)
 end
 
 local storeButton, storeIcon = menuButton(1, "🛒", "STORE", THEME.Gold)
-local soundButton, soundIcon, soundText = menuButton(2, "🔊", "SOUND", THEME.Accent2)
+local soundButton, soundIcon, soundText = menuButton(3, "🔊", "SOUND", THEME.Accent2)
 
 -- the store icon gently wiggles to draw attention
 task.spawn(function()
@@ -12204,7 +15395,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="26">
+      <Item class="LocalScript" referent="30">
         <Properties>
           <string name="Name">WorldFX</string>
           <string name="Source"><![CDATA[-- WorldFX (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -12566,7 +15757,7 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="27">
+  <Item class="Workspace" referent="31">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>

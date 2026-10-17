@@ -40,6 +40,22 @@ function Luck.GetBonuses(player)
 		table.insert(bonuses, { Name = "Lucky Isle", Multiplier = Config.LuckyIsland.LuckMultiplier, Show = true })
 	end
 
+	-- Rebirths: permanent luck
+	local rebirths = player:GetAttribute("Rebirths") or 0
+	if rebirths > 0 then
+		table.insert(bonuses, { Name = "Rebirth", Multiplier = 1 + rebirths * Config.Rebirth.LuckPerRebirth })
+	end
+
+	-- Standing on a rebirth island (set by the RebirthIslands script)
+	local islandKey = player:GetAttribute("OnRebirthIsland")
+	if islandKey then
+		for _, islandInfo in ipairs(Config.RebirthIslands) do
+			if islandInfo.Key == islandKey then
+				table.insert(bonuses, { Name = islandInfo.Name, Icon = islandInfo.Icon, Multiplier = islandInfo.LuckMultiplier, Show = true })
+			end
+		end
+	end
+
 	-- Parkour reward (finish a course)
 	local parkourEnd = player:GetAttribute("ParkourLuckEnd") or 0
 	if parkourEnd > now then
@@ -66,6 +82,9 @@ end
 function Luck.LuckyEvery(player)
 	if player:GetAttribute("Pass_LuckyCharm") then
 		return Config.LuckyCharmEvery
+	end
+	if (player:GetAttribute("Rebirths") or 0) >= 4 then
+		return Config.Rebirth.LuckyEveryAt4
 	end
 	return Config.LuckyRollEvery
 end
