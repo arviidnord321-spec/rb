@@ -14,7 +14,7 @@ Config.GamePasses = {
 	AutoRoll = 0, -- unlocks the Auto Roll button
 	QuickRoll = 0, -- faster rolling (see QuickRollCooldown)
 	DoubleLuck = 0, -- permanent x2 luck
-	VIP = 0, -- x1.25 luck, VIP tag, VIP Lounge + Royal Island access
+	VIP = 0, -- x1.25 luck and a gold VIP tag
 	MultiRoll = 0, -- every roll rolls 3 auras at once
 	LuckyCharm = 0, -- lucky roll every 5 rolls instead of every 10
 }
@@ -27,7 +27,7 @@ Config.PassInfo = {
 	{ Key = "DoubleLuck", Icon = "🍀", Name = "2x Luck", Description = "Permanently doubles your luck on every roll." },
 	{ Key = "MultiRoll", Icon = "🎲", Name = "Triple Roll", Description = "Every roll gives you 3 auras at once." },
 	{ Key = "LuckyCharm", Icon = "✨", Name = "Lucky Charm", Description = "Lucky roll every 5 rolls instead of every 10." },
-	{ Key = "VIP", Icon = "👑", Name = "VIP", Description = "x1.25 luck, gold VIP tag and the portal to Royal Island (x2 luck there)." },
+	{ Key = "VIP", Icon = "👑", Name = "VIP", Description = "x1.25 luck on every roll and a gold VIP tag." },
 }
 
 ---------------------------------------------------------------------
@@ -85,11 +85,51 @@ Config.LeaderboardRefresh = 90 -- seconds
 ---------------------------------------------------------------------
 Config.RemoveDefaultBaseplate = true -- deletes the part named "Baseplate"
 
--- Royal Island: the VIP-only island you reach through the portal
-Config.VIPIsland = {
+-- Where things are on the main island (every script uses these)
+Config.Places = {
+	Core = Vector3.new(0, 0, -34), -- Cosmic Core altar
+	PortalPlaza = Vector3.new(34, 0, 30), -- portal to Lucky Isle
+	Board = Vector3.new(-34, 0, 12), -- Top Rollers board
+	Pond = Vector3.new(-30, 0, -26), -- cosmic pool
+	StarstepStart = Vector3.new(-60, 0, -4), -- easy parkour
+	VoidTowerStart = Vector3.new(44, 0, -46), -- hard parkour
+	DuelIsland = Vector3.new(0, 0, 140), -- center of the duel island
+	DuelIslandRadius = 46,
+}
+
+-- Lucky Isle: the island you reach through the portal
+Config.LuckyIsland = {
 	Center = Vector3.new(0, 30, 1000), -- middle of the island's ground
 	Radius = 75,
 	LuckMultiplier = 2, -- extra luck while you stand on it
+	RequireVIP = false, -- true = only VIP pass owners may use the portal
+}
+
+---------------------------------------------------------------------
+-- PARKOUR (finish a course = temporary luck boost)
+---------------------------------------------------------------------
+Config.Parkour = {
+	Starstep = { Name = "Starstep Trail", LuckMultiplier = 1.5, BoostMinutes = 5, CooldownMinutes = 10 },
+	VoidTower = { Name = "Void Tower", LuckMultiplier = 2, BoostMinutes = 5, CooldownMinutes = 10 },
+}
+
+---------------------------------------------------------------------
+-- DUELS
+---------------------------------------------------------------------
+Config.Duel = {
+	CountdownSeconds = 3,
+	TimeLimit = 90, -- seconds; when time runs out the higher HP % wins
+	ChallengeTimeout = 15, -- seconds to accept a challenge
+	AttackCooldown = 0.55, -- basic attack
+	AttackRange = 8, -- studs
+	NoAuraTier = "Common", -- stats used if you have no aura equipped
+	-- Bots: which aura they use and how sharp they are
+	Bots = {
+		{ Key = "Easy", Name = "Rookie Bot", Aura = "Moonbeam", Reaction = 1.1, Accuracy = 0.55, Speed = 13 },
+		{ Key = "Normal", Name = "Cosmic Bot", Aura = "Pulsar", Reaction = 0.8, Accuracy = 0.7, Speed = 15 },
+		{ Key = "Hard", Name = "Nova Bot", Aura = "Supernova", Reaction = 0.55, Accuracy = 0.85, Speed = 16 },
+		{ Key = "Nightmare", Name = "Void Bot", Aura = "Black Hole", Reaction = 0.4, Accuracy = 0.95, Speed = 17 },
+	},
 }
 
 ---------------------------------------------------------------------
@@ -125,6 +165,11 @@ Config.SoundOverrides = {
 	Rumble = "", -- rare roll cutscene background
 	Equip = "",
 	Purchase = "",
+	Punch = "", -- duel basic attack
+	Hit = "", -- duel damage
+	Swoosh = "", -- duel dash / swing
+	Zap = "", -- duel beams
+	Freeze = "", -- duel freeze
 }
 Config.AmbientMusic = "" -- background music ID, "" = soft space hum
 Config.AmbientVolume = 0.25

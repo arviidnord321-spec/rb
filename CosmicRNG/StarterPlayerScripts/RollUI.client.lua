@@ -498,7 +498,7 @@ end
 ---------------------------------------------------------------------
 -- LUCK LINE + STATS
 ---------------------------------------------------------------------
-local BONUS_ICONS = { ["2x Luck"] = "🍀", VIP = "👑", Potion = "🧪", Server = "🌌", Event = "☄️", ["Royal Island"] = "🏝" }
+local BONUS_ICONS = { ["2x Luck"] = "🍀", VIP = "👑", Potion = "🧪", Server = "🌌", Event = "☄️", ["Lucky Isle"] = "🏝", Parkour = "🏃" }
 
 local function updateInfo()
 	local total = Luck.Get(player)
@@ -838,6 +838,8 @@ local function doRoll(fast)
 		setRollingLook(false)
 		if ok and type(result) == "table" and result.Error == "Loading" then
 			UIKit.toast("Loading your data...", THEME.SubText)
+		elseif ok and type(result) == "table" and result.Error == "InDuel" then
+			UIKit.toast("You can't roll during a duel!", THEME.Bad)
 		end
 		task.wait(0.2)
 		return
@@ -907,6 +909,20 @@ autoButton.Activated:Connect(function()
 end)
 
 player:GetAttributeChangedSignal("Pass_AutoRoll"):Connect(updateAutoButton)
+
+-- Duels: hide the roll bar and pause auto roll while fighting
+player:GetAttributeChangedSignal("InDuel"):Connect(function()
+	if player:GetAttribute("InDuel") then
+		autoRolling = false
+		updateAutoButton()
+		setInventoryOpen(false)
+		tween(rollBar, 0.35, { Position = UDim2.new(0.5, 0, 1, 220) })
+		tween(statsPanel, 0.35, { Position = UDim2.new(0, -320, 0, 64) })
+	else
+		tween(rollBar, 0.5, { Position = UDim2.new(0.5, 0, 1, -20) }, Enum.EasingStyle.Back)
+		tween(statsPanel, 0.5, { Position = UDim2.new(0, 16, 0, 64) }, Enum.EasingStyle.Back)
+	end
+end)
 
 -- Shimmer + breathing glow on the roll button
 task.spawn(function()
@@ -1193,6 +1209,14 @@ local function skyShift(aura)
 end
 
 AnnounceRemote.OnClientEvent:Connect(function(info)
+	if info.Type == "Duel" then
+		local aura = AuraData.Get(info.WinnerAura or "")
+		showBanner(("⚔ <b>%s</b> defeated <b>%s</b> in a duel%s!"):format(
+			info.Winner, info.Loser, aura and (" with <font color='#" .. tierOf(aura).Color:ToHex() .. "'>" .. aura.Name .. "</font>") or ""),
+			Color3.fromRGB(255, 90, 100), aura and AuraData.GetImage(aura.Name) or nil)
+		SoundFX.Play("Pop", { Volume = 0.7 })
+		return
+	end
 	if info.Type == "ServerLuck" then
 		showBanner(("🌌 <b>%s</b> activated <font color='#ffd76a'><b>SERVER LUCK</b></font>! x%s luck for everyone!"):format(
 			info.PlayerName, Luck.Format(Config.LuckMultipliers.ServerBoost)), THEME.Gold)

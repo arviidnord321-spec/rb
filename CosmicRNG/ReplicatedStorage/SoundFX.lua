@@ -44,6 +44,12 @@ local PRESETS = {
 	Equip = { Id = BUILT_IN.Boom, Speed = 2, Volume = 0.18, Effects = { "Bright" } },
 	Purchase = { Id = BUILT_IN.Tick, Speed = 1.5, Volume = 0.5, Effects = { "Reverb" } },
 	Thud = { Id = BUILT_IN.Thud, Speed = 0.8, Volume = 0.5 },
+	-- duels
+	Punch = { Id = BUILT_IN.Thud, Speed = 1.5, Volume = 0.7, Effects = { "Bass" } },
+	Hit = { Id = BUILT_IN.Boom, Speed = 2.8, Volume = 0.3, Effects = { "Bright" } },
+	Swoosh = { Id = BUILT_IN.Wind, Speed = 2.4, Volume = 0.4, Duration = 0.25, Effects = { "Bright" } },
+	Zap = { Id = BUILT_IN.Tick, Speed = 0.5, Volume = 0.8, Effects = { "Echo" } },
+	Freeze = { Id = BUILT_IN.Tick, Speed = 0.35, Volume = 0.9, Effects = { "Reverb", "Bright" } },
 }
 
 -- All game sounds go through one group so we can mute them together

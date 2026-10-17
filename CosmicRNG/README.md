@@ -47,7 +47,7 @@ Side menu with **STORE** and **SOUND** (mute) buttons.
 | 2x Luck | Permanent x2 luck |
 | Triple Roll | 3 auras every roll |
 | Lucky Charm | Lucky roll every 5 rolls instead of every 10 |
-| VIP | x1.25 luck, gold tag, VIP Temple + Royal Island |
+| VIP | x1.25 luck and a gold VIP tag |
 
 | Boost (buy many times) | What it does |
 |---|---|
@@ -55,17 +55,47 @@ Side menu with **STORE** and **SOUND** (mute) buttons.
 | Server Luck | x2 luck for everyone for 15 min (stacks) |
 
 ### Map
-- Floating island with a night sky and bloom glow.
-- **Cosmic Core**: an altar with a pulsing orb and 3 spinning rings.
-- **VIP Temple**: gold glass walls and a door only VIPs can walk through (others are offered the pass). Inside are corner pillars, a red carpet, benches, banners, a chandelier, statues, torches and a floating crown on the roof. The carpet leads to the **Royal Portal**.
-- **Royal Island** (through the portal, VIP only):
-  - A second floating island in white marble, gold, rose and teal.
-  - A golden core altar with spinning rings, a circle of columns, 4 grand arches, 2 domed pavilions with seats, light waterfalls off the edge, floating lanterns and golden dust.
-  - **x2 luck while you stand on it.** The sky turns pink and gold while you're there.
-  - A return portal takes you back.
-  - Non-VIPs are sent home. Falling off puts you back at the island's portal.
-- **Top Rollers** board: global top 10.
-- Lantern gems, floating crystals, a giant ringed planet, a moon and shooting stars.
+- **Cosmic Island** (start):
+  - Paved glowing paths from the spawn to every area, with a signpost pointing the way.
+  - The **Cosmic Core** altar with spinning rings.
+  - The **Top Rollers** board.
+  - Benches, glow mushrooms, old marble ruins, a cosmic pool with lily lights, floating crystals and lantern gems.
+  - A giant ringed planet, a moon and shooting stars in the sky.
+- **Lucky Isle portal**: walk into the portal (or press **E**) to travel to **Lucky Isle**. It's white marble, gold, rose and teal, and gives **x2 luck** while you stand on it. The sky turns pink and gold while you're there, and a return portal takes you back.
+  - Open to everyone. Set `Config.LuckyIsland.RequireVIP = true` to make it VIP-only.
+- **Parkour** (step on the start pad to begin; the timer shows at the top):
+  - **Starstep Trail** (easy): a curving staircase of floating platforms with 2 checkpoints, vanishing platforms and a jump pad. Finishing gives **x1.5 luck for 5 min**.
+  - **Void Tower** (hard): a spiral around a dark tower with thin beams, blinking platforms, half-deadly platforms (red = back to checkpoint) and a jump pad. Finishing gives **x2 luck for 5 min**.
+  - Each reward has a 10-minute cooldown. Falling puts you back at your last checkpoint.
+- **Duel Island** (over the bridge south of the spawn): 2 arenas with force-field walls, spectator stands, braziers and live scoreboards.
+
+### 1v1 Duels
+- Open the **⚔ DUEL** menu (left side) and **challenge** any player (they get Accept/Decline), or fight a **bot**:
+
+  | Bot | Aura it uses |
+  |---|---|
+  | Easy | Moonbeam |
+  | Normal | Pulsar |
+  | Hard | Supernova |
+  | Nightmare | Black Hole |
+
+- **Your equipped aura is your fighter.** Its tier sets your HP and attack damage, and each aura's power has its own effect:
+
+  | Tier | HP | Attack damage |
+  |---|---|---|
+  | Common | 100 | 6 |
+  | Uncommon | 115 | 7 |
+  | Rare | 130 | 8 |
+  | Epic | 150 | 10 |
+  | Legendary | 175 | 12 |
+  | Mythic | 210 | 14 |
+  | Secret | 260 | 17 |
+
+  Rarer auras also have much stronger powers. Stardust's Star Toss does 8 damage; Void Sovereign's Void Collapse does 100 and freezes the opponent.
+- **Controls:** click or **F** to attack, **Q** for your aura power, or use the on-screen ATTACK and POWER buttons on mobile.
+- 3-2-1 countdown, a 90-second limit (the higher HP % wins), and a forfeit button.
+- Player-vs-player wins go on the leaderboard (**Wins**) and are announced to the server.
+- You can't roll or switch auras during a fight.
 
 ### Sounds
 All sounds are made from Roblox's built-in sound files, so they always work:
@@ -84,8 +114,8 @@ All sounds are made from Roblox's built-in sound files, so they always work:
 | Where in Studio | Type | Name |
 |---|---|---|
 | ReplicatedStorage | ModuleScript | `CosmicConfig`, `AuraData`, `AuraImages`, `AuraEffects`, `Luck`, `SoundFX`, `UIKit` |
-| ServerScriptService | Script | `RollService`, `WorldSetup`, `VIPIsland`, `Leaderboard` |
-| StarterPlayer > StarterPlayerScripts | LocalScript | `AuraRenderer`, `RollUI`, `StoreUI`, `WorldFX` |
+| ServerScriptService | Script | `RollService`, `WorldSetup`, `LuckyIsland`, `Parkour`, `DuelService`, `Leaderboard` |
+| StarterPlayer > StarterPlayerScripts | LocalScript | `AuraRenderer`, `RollUI`, `StoreUI`, `WorldFX`, `ParkourClient`, `DuelClient`, `DuelFX` |
 
 ## Adding the aura pictures
 Roblox can only show pictures that are uploaded to Roblox, so this is a one-time step:
@@ -121,10 +151,10 @@ Enable Studio Access to API Services**.
 ## Testing tips
 - Want to see a Mythic or Secret cutscene right away? In CosmicConfig, temporarily set `Config.BaseLuck = 200000`, then set it back to `1`.
 - Press **R** to roll on PC.
-- In Studio all passes are free, so Studio luck shows **x2.5** (2x Luck + VIP), or **x5** on Royal Island. Boost buttons in the Store activate for free in Studio too.
+- In Studio all passes are free, so Studio luck shows **x2.5** (2x Luck + VIP), or **x5** on Lucky Isle. Boost buttons in the Store activate for free in Studio too.
+- To test player-vs-player duels in Studio: **Test > Clients and Servers**, pick 2 players, then **Start**.
 - To test as a non-VIP, set `Config.FreePassesInStudio = false`.
 
 ## Coming in later parts
-- 1v1 duels against players or bots, using each aura's power
 - Cosmic events (Meteor Shower, Eclipse, Solar Flare)
 - Index rewards, more auras (when you say so)

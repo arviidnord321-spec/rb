@@ -35,9 +35,15 @@ function Luck.GetBonuses(player)
 		table.insert(bonuses, { Name = "Server", Multiplier = m.ServerBoost, EndsAt = serverEnd })
 	end
 
-	-- Standing on Royal Island (the server sets this, so it can't be faked)
-	if player:GetAttribute("OnVIPIsland") then
-		table.insert(bonuses, { Name = "Royal Island", Multiplier = Config.VIPIsland.LuckMultiplier, Show = true })
+	-- Standing on Lucky Isle (the server sets this, so it can't be faked)
+	if player:GetAttribute("OnLuckyIsland") then
+		table.insert(bonuses, { Name = "Lucky Isle", Multiplier = Config.LuckyIsland.LuckMultiplier, Show = true })
+	end
+
+	-- Parkour reward (finish a course)
+	local parkourEnd = player:GetAttribute("ParkourLuckEnd") or 0
+	if parkourEnd > now then
+		table.insert(bonuses, { Name = "Parkour", Multiplier = player:GetAttribute("ParkourLuckMultiplier") or 1.5, EndsAt = parkourEnd })
 	end
 
 	-- Reserved for events in a later part

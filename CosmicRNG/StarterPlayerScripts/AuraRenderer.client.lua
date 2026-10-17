@@ -232,6 +232,25 @@ for _, player in ipairs(Players:GetPlayers()) do
 	onPlayer(player)
 end
 
+-- duel bots wear auras too
+task.spawn(function()
+	local botFolder = workspace:WaitForChild("DuelBots", 60)
+	if not botFolder then
+		return
+	end
+	botFolder.ChildAdded:Connect(function(model)
+		if model:IsA("Model") then
+			task.wait(0.2) -- let its parts arrive
+			track(model)
+		end
+	end)
+	for _, model in ipairs(botFolder:GetChildren()) do
+		if model:IsA("Model") then
+			track(model)
+		end
+	end
+end)
+
 -- Animate every frame
 local clock = 0
 RunService.RenderStepped:Connect(function(dt)

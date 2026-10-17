@@ -8,6 +8,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local DataStoreService = game:GetService("DataStoreService")
 local MarketplaceService = game:GetService("MarketplaceService")
 local RunService = game:GetService("RunService")
+local ServerStorage = game:GetService("ServerStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
 local AuraData = require(ReplicatedStorage:WaitForChild("AuraData"))
@@ -70,6 +71,7 @@ local function newData()
 		Equipped = "",
 		BestChance = 0,
 		PersonalLuckEnd = 0, -- potion end time (seconds since 1970)
+		DuelWins = 0, -- player-vs-player duel wins
 		Receipts = {}, -- recent purchase IDs, so nothing is granted twice
 	}
 end
@@ -181,6 +183,7 @@ local function refreshStats(player)
 	if stats then
 		stats.Rolls.Value = data.Rolls
 		stats.Aura.Value = data.Equipped ~= "" and data.Equipped or "-"
+		stats.Wins.Value = data.DuelWins or 0
 	end
 	player:SetAttribute("Rolls", data.Rolls)
 	player:SetAttribute("EquippedAura", data.Equipped)
@@ -194,6 +197,9 @@ RollRemote.OnServerInvoke = function(player)
 	local data = sessions[player]
 	if not data then
 		return { Error = "Loading" }
+	end
+	if player:GetAttribute("InDuel") then
+		return { Error = "InDuel" }
 	end
 
 	local cooldown = hasPass(player, "QuickRoll") and Config.QuickRollCooldown or Config.RollCooldown
@@ -275,7 +281,7 @@ end
 
 EquipRemote.OnServerEvent:Connect(function(player, auraName)
 	local data = sessions[player]
-	if not data or type(auraName) ~= "string" then
+	if not data or type(auraName) ~= "string" or player:GetAttribute("InDuel") then
 		return
 	end
 	if auraName ~= "" then
@@ -365,6 +371,24 @@ TestProductRemote.OnServerEvent:Connect(function(player, key)
 end)
 
 ---------------------------------------------------------------------
+-- Duel wins (DuelService fires this when a player beats another player)
+---------------------------------------------------------------------
+task.spawn(function()
+	local events = ServerStorage:WaitForChild("CosmicServerEvents", 30)
+	local duelWin = events and events:WaitForChild("DuelWin", 30)
+	if not duelWin then
+		return
+	end
+	duelWin.Event:Connect(function(player)
+		local data = sessions[player]
+		if data then
+			data.DuelWins = (data.DuelWins or 0) + 1
+			refreshStats(player)
+		end
+	end)
+end)
+
+---------------------------------------------------------------------
 -- Join / leave
 ---------------------------------------------------------------------
 local function onPlayerAdded(player)
@@ -377,6 +401,9 @@ local function onPlayerAdded(player)
 	auraValue.Name = "Aura"
 	auraValue.Value = "-"
 	auraValue.Parent = stats
+	local wins = Instance.new("IntValue")
+	wins.Name = "Wins"
+	wins.Parent = stats
 	stats.Parent = player
 
 	for key in pairs(Config.GamePasses) do

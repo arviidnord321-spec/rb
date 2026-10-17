@@ -1,7 +1,7 @@
 -- WorldFX (LocalScript in StarterPlayer > StarterPlayerScripts)
 -- Brings the map to life on each player's screen: spinning core rings,
--- bobbing crystals, spinning lantern gems, shooting stars, ambience and
--- the VIP door (VIPs walk through it, others bump into it).
+-- bobbing crystals, spinning gems, shooting stars, ambience, the Lucky Isle
+-- portals and the pink + gold sky on Lucky Isle.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -171,40 +171,7 @@ task.spawn(function()
 end)
 
 ---------------------------------------------------------------------
--- VIP door
----------------------------------------------------------------------
-local lounge = island:WaitForChild("VIPLounge", 10)
-local door = lounge and lounge:FindFirstChild("VIPDoor")
-if door then
-	local function updateDoor()
-		local vip = player:GetAttribute("Pass_VIP") == true
-		door.CanCollide = not vip -- only changes on THIS player's screen
-		door.Transparency = vip and 0.55 or 0.1
-	end
-	updateDoor()
-	player:GetAttributeChangedSignal("Pass_VIP"):Connect(updateDoor)
-
-	local lastBump = 0
-	door.Touched:Connect(function(hit)
-		local character = player.Character
-		if not character or not hit:IsDescendantOf(character) then
-			return
-		end
-		if player:GetAttribute("Pass_VIP") or os.clock() - lastBump < 4 then
-			return
-		end
-		lastBump = os.clock()
-		UIKit.toast("👑 VIP only! Get VIP in the Store", UIKit.Theme.Gold)
-		SoundFX.Play("Thud")
-		local passId = Config.GamePasses.VIP
-		if passId and passId ~= 0 then
-			MarketplaceService:PromptGamePassPurchase(player, passId)
-		end
-	end)
-end
-
----------------------------------------------------------------------
--- VIP TEMPLE + ROYAL ISLAND animations
+-- PORTALS + LUCKY ISLE animations
 ---------------------------------------------------------------------
 local Lighting = game:GetService("Lighting")
 
@@ -216,36 +183,34 @@ local function addSpinner(model, offsetFn)
 	end
 end
 
-if lounge then
-	addSpinner(lounge:FindFirstChild("VIPPortalRing"), function(time)
+local plaza = island:WaitForChild("PortalPlaza", 10)
+if plaza then
+	addSpinner(plaza:FindFirstChild("LuckyPortalRing"), function(time)
 		return CFrame.Angles(0, 0, time * 0.8)
 	end)
-	addSpinner(lounge:FindFirstChild("VIPPortalRingOuter"), function(time)
+	addSpinner(plaza:FindFirstChild("LuckyPortalRingOuter"), function(time)
 		return CFrame.Angles(0, 0, -time * 0.5)
 	end)
-	addSpinner(lounge:FindFirstChild("VIPChandelier"), function(time)
-		return CFrame.Angles(0, time * 0.3, 0)
-	end)
-	addSpinner(lounge:FindFirstChild("VIPCrown"), function(time)
-		return CFrame.new(0, math.sin(time * 1.5) * 0.6, 0) * CFrame.Angles(0, time * 0.6, 0)
+	addSpinner(plaza:FindFirstChild("LuckyPortalGems"), function(time)
+		return CFrame.Angles(0, 0, time * 0.35)
 	end)
 end
 
-local royal = workspace:WaitForChild("VIPIsland", 30)
+local royal = workspace:WaitForChild("LuckyIsland", 30)
 local royalOrb, royalOrbBase
 local lanterns = {}
 if royal then
-	local royalCore = royal:FindFirstChild("RoyalCore")
+	local royalCore = royal:FindFirstChild("LuckyCore")
 	if royalCore then
-		royalOrb = royalCore:FindFirstChild("VIPOrb")
+		royalOrb = royalCore:FindFirstChild("LuckyOrb")
 		royalOrbBase = royalOrb and royalOrb.Position
-		addSpinner(royalCore:FindFirstChild("VIPRing1"), function(time)
+		addSpinner(royalCore:FindFirstChild("LuckyRing1"), function(time)
 			return CFrame.Angles(time * 0.8, time * 0.3, 0)
 		end)
-		addSpinner(royalCore:FindFirstChild("VIPRing2"), function(time)
+		addSpinner(royalCore:FindFirstChild("LuckyRing2"), function(time)
 			return CFrame.Angles(0, time * 0.6, time * 0.9)
 		end)
-		addSpinner(royalCore:FindFirstChild("VIPRing3"), function(time)
+		addSpinner(royalCore:FindFirstChild("LuckyRing3"), function(time)
 			return CFrame.Angles(time * 0.4, 0, time * 0.5)
 		end)
 	end
@@ -256,7 +221,7 @@ if royal then
 		return CFrame.Angles(0, 0, time * 0.5)
 	end)
 	for _, child in ipairs(royal:GetChildren()) do
-		if child:IsA("BasePart") and child.Name == "VIPLantern" then
+		if child:IsA("BasePart") and child.Name == "LuckyLantern" then
 			table.insert(lanterns, { Part = child, Base = child.Position, Phase = rand:NextNumber(0, 6) })
 		end
 	end
@@ -277,7 +242,7 @@ RunService.RenderStepped:Connect(function()
 end)
 
 ---------------------------------------------------------------------
--- Royal Island sky: pink + gold while you're there
+-- Lucky Isle sky: pink + gold while you're there
 ---------------------------------------------------------------------
 local savedSky
 local function setRoyalSky(on)
@@ -331,15 +296,15 @@ local function setRoyalSky(on)
 end
 
 local wasOnRoyal = false
-player:GetAttributeChangedSignal("OnVIPIsland"):Connect(function()
-	local on = player:GetAttribute("OnVIPIsland") == true
+player:GetAttributeChangedSignal("OnLuckyIsland"):Connect(function()
+	local on = player:GetAttribute("OnLuckyIsland") == true
 	if on == wasOnRoyal then
 		return
 	end
 	wasOnRoyal = on
 	setRoyalSky(on)
 	if on then
-		UIKit.toast(("👑 Welcome to Royal Island! x%s luck here"):format(tostring(Config.VIPIsland.LuckMultiplier)), UIKit.Theme.Gold)
+		UIKit.toast(("🍀 Welcome to Lucky Isle! x%s luck here"):format(tostring(Config.LuckyIsland.LuckMultiplier)), UIKit.Theme.Gold)
 		SoundFX.Chime(1, 5)
 	end
 end)
@@ -378,7 +343,7 @@ if PortalFXRemote then
 			UIKit.tween(portalFlash, 0.8, { BackgroundTransparency = 1 })
 			UIKit.burst({ Color3.fromRGB(255, 220, 140), Color3.fromRGB(255, 150, 210), Color3.fromRGB(120, 230, 210) }, 30, 1.2, Vector2.new(0.5, 0.5))
 		elseif kind == "Denied" then
-			UIKit.toast("👑 The Royal Portal is for VIPs only!", UIKit.Theme.Gold)
+			UIKit.toast("👑 This portal is for VIPs only!", UIKit.Theme.Gold)
 			SoundFX.Play("Thud")
 			local passId = Config.GamePasses.VIP
 			if passId and passId ~= 0 then

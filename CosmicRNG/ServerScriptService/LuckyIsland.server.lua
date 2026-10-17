@@ -1,9 +1,9 @@
--- VIPIsland (Script in ServerScriptService)
--- Builds ROYAL ISLAND (the VIP island) and runs its portals:
---   * VIPs who step into the portal in the VIP Temple are teleported here
---   * standing on the island gives extra luck (Config.VIPIsland.LuckMultiplier)
+-- LuckyIsland (Script in ServerScriptService)
+-- Builds LUCKY ISLE and runs its portals:
+--   * walk into the portal on the main island (or press E) to come here
+--   * standing on the island gives extra luck (Config.LuckyIsland.LuckMultiplier)
 --   * the return portal takes you back
---   * non-VIPs who somehow get here are sent home
+--   * if Config.LuckyIsland.RequireVIP is true, only VIP pass owners may come
 -- Same vibe as the main island, but white marble + gold, rose and teal.
 
 local Players = game:GetService("Players")
@@ -11,9 +11,9 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
 
-local VIP = Config.VIPIsland
-local CENTER = VIP.Center
-local RADIUS = VIP.Radius
+local LUCKY = Config.LuckyIsland
+local CENTER = LUCKY.Center
+local RADIUS = LUCKY.Radius
 local rand = Random.new(7)
 
 local MARBLE = Color3.fromRGB(238, 232, 220)
@@ -47,12 +47,12 @@ end
 ---------------------------------------------------------------------
 -- Build helpers
 ---------------------------------------------------------------------
-local old = workspace:FindFirstChild("VIPIsland")
+local old = workspace:FindFirstChild("LuckyIsland")
 if old then
 	old:Destroy()
 end
 local island = Instance.new("Model")
-island.Name = "VIPIsland"
+island.Name = "LuckyIsland"
 island.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
 
 local function part(props)
@@ -294,7 +294,7 @@ end
 -- GOLDEN CORE: royal altar with a sun orb and 3 spinning rings
 ---------------------------------------------------------------------
 local core = Instance.new("Model")
-core.Name = "RoyalCore"
+core.Name = "LuckyCore"
 core.Parent = island
 local function coreDisc(name, radius, thickness, topY, color3, material, collide)
 	return part({
@@ -323,7 +323,7 @@ part({
 })
 local ORB = at(Vector3.new(0, 13, 0))
 local orb = part({
-	Name = "VIPOrb",
+	Name = "LuckyOrb",
 	Shape = Enum.PartType.Ball,
 	Size = Vector3.one * 5.5,
 	CFrame = CFrame.new(ORB),
@@ -334,10 +334,10 @@ local orb = part({
 })
 addLight(orb, Color3.fromRGB(255, 200, 120), 40, 3)
 addSparkles(orb, Color3.fromRGB(255, 230, 170), 16, 0.7)
-ringModel("VIPRing1", ORB, 5.2, 28, 0.35, GOLD, core)
-ringModel("VIPRing2", ORB, 6.8, 34, 0.3, ROSE, core)
-ringModel("VIPRing3", ORB, 8.4, 40, 0.3, TEAL, core)
-billboard(orb, "👑 ROYAL ISLAND • x" .. VIP.LuckMultiplier .. " LUCK", GOLD, Vector3.new(0, 10, 0))
+ringModel("LuckyRing1", ORB, 5.2, 28, 0.35, GOLD, core)
+ringModel("LuckyRing2", ORB, 6.8, 34, 0.3, ROSE, core)
+ringModel("LuckyRing3", ORB, 8.4, 40, 0.3, TEAL, core)
+billboard(orb, "🍀 LUCKY ISLE • x" .. LUCKY.LuckMultiplier .. " LUCK", GOLD, Vector3.new(0, 10, 0))
 
 ---------------------------------------------------------------------
 -- COLONNADE: a circle of marble columns with a golden ring on top
@@ -467,7 +467,7 @@ for _, side in ipairs({ -1, 1 }) do
 	addLight(light, Color3.fromRGB(255, 210, 160), 22, 2)
 	for _, z in ipairs({ -2.5, 2.5 }) do
 		local seat = Instance.new("Seat")
-		seat.Name = "RoyalSeat"
+		seat.Name = "LuckySeat"
 		seat.Anchored = true
 		seat.Size = Vector3.new(2.5, 0.8, 2.5)
 		seat.CFrame = CFrame.lookAt(center + Vector3.new(0, 1.4, z), center + Vector3.new(-side * 10, 1.4, z))
@@ -525,7 +525,7 @@ for i = 1, 18 do
 	local a = rand:NextNumber(0, math.pi * 2)
 	local r = rand:NextNumber(14, RADIUS - 5)
 	local lantern = part({
-		Name = "VIPLantern", -- WorldFX makes these bob
+		Name = "LuckyLantern", -- WorldFX makes these bob
 		Size = Vector3.new(1.1, 1.5, 1.1),
 		CFrame = CFrame.new(at(Vector3.new(math.cos(a) * r, rand:NextNumber(9, 24), math.sin(a) * r))),
 		Color = lanternColors[(i % #lanternColors) + 1],
@@ -589,32 +589,39 @@ part({
 addLight(returnSwirl, Color3.fromRGB(150, 130, 255), 24, 2.5)
 addSparkles(returnSwirl, Color3.fromRGB(190, 170, 255), 20, 0.5)
 billboard(returnSwirl, "⟲ BACK TO COSMIC ISLAND", Color3.fromRGB(200, 190, 255), Vector3.new(0, 7, 0), UDim2.fromOffset(360, 50))
-local returnTrigger = part({
-	Name = "ReturnPortalTrigger",
-	Size = Vector3.new(8, 8, 2),
+local returnZone = part({
+	Name = "ReturnPortalZone",
+	Size = Vector3.new(9, 10, 3),
 	CFrame = returnCF,
 	Transparency = 1,
 	CanCollide = false,
+	CanQuery = false,
+	CanTouch = false,
 })
 
 island.Parent = workspace
 
 ---------------------------------------------------------------------
 -- PORTAL LOGIC
+-- Checked by position every 0.1s (works even when touch events don't),
+-- plus a "Press E" prompt on each portal.
 ---------------------------------------------------------------------
 local mainIsland = workspace:WaitForChild("CosmicIsland")
-local lounge = mainIsland:WaitForChild("VIPLounge")
-local templeTrigger = lounge:WaitForChild("VIPPortalTrigger")
--- where you come out on the main island: in front of the portal, facing the door
-local templeExit = CFrame.lookAt(
-	templeTrigger.Position + Vector3.new(-7, -3, 0),
-	templeTrigger.Position + Vector3.new(-20, -3, 0)
-)
+local plaza = mainIsland:WaitForChild("PortalPlaza")
+local mainZone = plaza:WaitForChild("LuckyPortalZone")
+
+-- where you come out: a few studs in front of each portal, facing away from it
+local function exitFrom(zone)
+	local spot = (zone.CFrame * CFrame.new(0, 0, -7)).Position
+	spot = Vector3.new(spot.X, zone.Position.Y - 3, spot.Z)
+	return CFrame.lookAt(spot, spot + zone.CFrame.LookVector * Vector3.new(1, 0, 1))
+end
+local MAIN_EXIT = exitFrom(mainZone)
 
 local busy = {} -- [player] = true while teleporting
 
-local function isVIP(player)
-	return player:GetAttribute("Pass_VIP") == true
+local function allowed(player)
+	return not LUCKY.RequireVIP or player:GetAttribute("Pass_VIP") == true
 end
 
 local function teleport(player, destination)
@@ -623,7 +630,7 @@ local function teleport(player, destination)
 	end
 	local character = player.Character
 	local root = character and character:FindFirstChild("HumanoidRootPart")
-	if not root then
+	if not root or character:GetAttribute("InDuel") then
 		return
 	end
 	busy[player] = true
@@ -634,63 +641,75 @@ local function teleport(player, destination)
 		character:PivotTo(destination)
 	end
 	PortalFXRemote:FireClient(player, "In")
-	task.wait(1) -- don't bounce straight back through the other portal
+	task.wait(1.5) -- don't bounce straight back through the other portal
 	busy[player] = nil
 end
 
-local function playerFromHit(hit)
-	local character = hit:FindFirstAncestorOfClass("Model")
-	local player = character and Players:GetPlayerFromCharacter(character)
-	if player and character:FindFirstChildOfClass("Humanoid") and character.Humanoid.Health > 0 then
-		return player
-	end
-	return nil
-end
-
 local deniedAt = {}
-templeTrigger.Touched:Connect(function(hit)
-	local player = playerFromHit(hit)
-	if not player then
-		return
-	end
-	if isVIP(player) then
-		teleport(player, ARRIVAL)
+local function enterMainPortal(player)
+	if allowed(player) then
+		task.spawn(teleport, player, ARRIVAL)
 	elseif os.clock() - (deniedAt[player] or 0) > 3 then
 		deniedAt[player] = os.clock()
 		PortalFXRemote:FireClient(player, "Denied")
 	end
-end)
+end
+local function enterReturnPortal(player)
+	task.spawn(teleport, player, MAIN_EXIT)
+end
 
-returnTrigger.Touched:Connect(function(hit)
-	local player = playerFromHit(hit)
-	if player then
-		teleport(player, templeExit)
-	end
-end)
+local function inZone(zone, position)
+	local localPos = zone.CFrame:PointToObjectSpace(position)
+	local half = zone.Size / 2
+	return math.abs(localPos.X) <= half.X and math.abs(localPos.Y) <= half.Y and math.abs(localPos.Z) <= half.Z
+end
 
--- Who is standing on Royal Island? (gives the luck bonus)
-local function onIsland(root)
-	local offset = root.Position - CENTER
+local function addPrompt(zone, actionText, objectText, onTriggered)
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.ActionText = actionText
+	prompt.ObjectText = objectText
+	prompt.HoldDuration = 0
+	prompt.MaxActivationDistance = 14
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = zone
+	prompt.Triggered:Connect(onTriggered)
+end
+addPrompt(mainZone, "Travel", "Lucky Isle (x" .. LUCKY.LuckMultiplier .. " luck)", enterMainPortal)
+addPrompt(returnZone, "Travel", "Back to Cosmic Island", enterReturnPortal)
+
+-- Who is standing on Lucky Isle? (gives the luck bonus)
+local function onIsland(position)
+	local offset = position - CENTER
 	local flat = Vector3.new(offset.X, 0, offset.Z)
 	return flat.Magnitude < RADIUS + 8 and offset.Y > -20 and offset.Y < 80
 end
 
 task.spawn(function()
+	local loops = 0
 	while true do
+		task.wait(0.1)
+		loops += 1
 		for _, player in ipairs(Players:GetPlayers()) do
 			local character = player.Character
 			local root = character and character:FindFirstChild("HumanoidRootPart")
-			local here = root ~= nil and onIsland(root)
-			if here and not isVIP(player) and not busy[player] then
-				-- not allowed here: send them home
-				task.spawn(teleport, player, CFrame.new(0, 4, 0))
-				here = false
+			if root and not busy[player] then
+				if inZone(mainZone, root.Position) then
+					enterMainPortal(player)
+				elseif inZone(returnZone, root.Position) then
+					enterReturnPortal(player)
+				end
 			end
-			if player:GetAttribute("OnVIPIsland") ~= here then
-				player:SetAttribute("OnVIPIsland", here)
+			if loops % 5 == 0 then
+				local here = root ~= nil and onIsland(root.Position)
+				if here and not allowed(player) and not busy[player] then
+					task.spawn(teleport, player, MAIN_EXIT) -- not allowed here
+					here = false
+				end
+				if player:GetAttribute("OnLuckyIsland") ~= here then
+					player:SetAttribute("OnLuckyIsland", here)
+				end
 			end
 		end
-		task.wait(0.5)
 	end
 end)
 

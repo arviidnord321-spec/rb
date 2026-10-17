@@ -13,25 +13,31 @@ local ISLAND_RADIUS = 70
 local SPAWN_POSITION = Vector3.new(0, 3, 0)
 
 -- Where the bigger builds go (rocks/crystals keep out of these spots)
-local CORE_POSITION = Vector3.new(0, 0, -34) -- Cosmic Core altar
-local LOUNGE_CENTER = Vector3.new(32, 0, 32) -- VIP Lounge
-local LOUNGE_HALF = 12 -- lounge is 24 x 24 studs
-local BOARD_POSITION = Vector3.new(-34, 0, 12) -- leaderboard
+local P = Config.Places
+local CORE_POSITION = P.Core
+local BOARD_POSITION = P.Board
+local PLAZA_POSITION = P.PortalPlaza
+
+local RESERVED = {
+	{ Vector3.zero, 12 }, -- spawn pad
+	{ P.Core, 13 },
+	{ P.Board, 10 },
+	{ P.PortalPlaza, 13 },
+	{ P.Pond, 11 },
+	{ P.StarstepStart, 8 },
+	{ P.VoidTowerStart, 8 },
+}
 
 local function isReserved(position, margin)
 	margin = margin or 0
 	local flat = Vector3.new(position.X, 0, position.Z)
-	if flat.Magnitude < 12 + margin then
-		return true -- spawn pad
+	for _, zone in ipairs(RESERVED) do
+		if (flat - zone[1]).Magnitude < zone[2] + margin then
+			return true
+		end
 	end
-	if (flat - CORE_POSITION).Magnitude < 13 + margin then
-		return true
-	end
-	if (flat - BOARD_POSITION).Magnitude < 10 + margin then
-		return true
-	end
-	local d = flat - LOUNGE_CENTER
-	return math.abs(d.X) < LOUNGE_HALF + 3 + margin and math.abs(d.Z) < LOUNGE_HALF + 3 + margin
+	-- the bridge to Duel Island runs south from the spawn
+	return math.abs(flat.X) < 7 + margin and flat.Z > 40
 end
 
 ---------------------------------------------------------------------
@@ -331,29 +337,41 @@ dust.Color = ColorSequence.new(Color3.fromRGB(200, 180, 255), Color3.fromRGB(140
 dust.Parent = dustArea
 
 ---------------------------------------------------------------------
--- SAFETY NET: anyone who falls off is sent back to spawn
+-- SAFETY NET: anyone who falls off is sent back
 ---------------------------------------------------------------------
-local net = part({
-	Name = "FallNet",
-	Size = Vector3.new(2048, 4, 2048),
-	CFrame = CFrame.new(0, -140, 0),
-	Transparency = 1,
-	CanCollide = false,
-})
-net.Touched:Connect(function(hit)
-	local character = hit.Parent
-	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
-	local root = character and character:FindFirstChild("HumanoidRootPart")
-	if humanoid and root then
-		root.AssemblyLinearVelocity = Vector3.zero
-		local vip = Config.VIPIsland
-		local flat = Vector3.new(root.Position.X - vip.Center.X, 0, root.Position.Z - vip.Center.Z)
-		local player = game:GetService("Players"):GetPlayerFromCharacter(character)
-		if flat.Magnitude < vip.Radius * 3 and player and player:GetAttribute("Pass_VIP") then
-			-- fell off Royal Island: back to its portal
-			character:PivotTo(CFrame.new(vip.Center + Vector3.new(0, 4, -45)))
-		else
-			character:PivotTo(CFrame.new(SPAWN_POSITION))
+-- Checked by position (more reliable than touch events): anyone who drops
+-- below the islands is put back where they belong.
+local Players = game:GetService("Players")
+local FALL_LIMIT = -60
+
+local function rescue(character, player)
+	local root = character:FindFirstChild("HumanoidRootPart")
+	if not root then
+		return
+	end
+	root.AssemblyLinearVelocity = Vector3.zero
+	local checkpoint = player:GetAttribute("Checkpoint")
+	local lucky = Config.LuckyIsland
+	local flat = Vector3.new(root.Position.X - lucky.Center.X, 0, root.Position.Z - lucky.Center.Z)
+	if typeof(checkpoint) == "CFrame" then
+		character:PivotTo(checkpoint) -- fell off a parkour course
+	elseif flat.Magnitude < lucky.Radius * 3 then
+		character:PivotTo(CFrame.new(lucky.Center + Vector3.new(0, 4, -45))) -- fell off Lucky Isle
+	else
+		character:PivotTo(CFrame.new(SPAWN_POSITION))
+	end
+end
+
+task.spawn(function()
+	while true do
+		task.wait(0.25)
+		for _, player in ipairs(Players:GetPlayers()) do
+			local character = player.Character
+			local root = character and character:FindFirstChild("HumanoidRootPart")
+			-- duelists are handled by DuelService (it keeps them in the arena)
+			if root and root.Position.Y < FALL_LIMIT and not character:GetAttribute("InDuel") then
+				rescue(character, player)
+			end
 		end
 	end
 end)
@@ -558,109 +576,13 @@ for i = 1, 12 do
 end
 
 ---------------------------------------------------------------------
--- VIP LOUNGE (the door only lets VIPs through, see WorldFX)
----------------------------------------------------------------------
-local lounge = Instance.new("Model")
-lounge.Name = "VIPLounge"
-lounge.Parent = island
-
-local LX, LZ, H = LOUNGE_CENTER.X, LOUNGE_CENTER.Z, LOUNGE_HALF
-local WALL_HEIGHT = 9
-local DOOR_WIDTH = 6
-local GLASS = Color3.fromRGB(255, 215, 120)
-
-part({
-	Name = "Floor",
-	Size = Vector3.new(H * 2, 1, H * 2),
-	CFrame = CFrame.new(LX, 0.5, LZ),
-	Color = Color3.fromRGB(45, 36, 24),
-	Material = Enum.Material.Marble,
-	Parent = lounge,
-})
-part({
-	Name = "FloorGlow",
-	Size = Vector3.new(H * 2 + 0.8, 0.4, H * 2 + 0.8),
-	CFrame = CFrame.new(LX, 0.2, LZ),
-	Color = GOLD,
-	Material = Enum.Material.Neon,
-	CanCollide = false,
-	Parent = lounge,
-})
-
-local function wall(name, center, size)
-	part({
-		Name = name,
-		Size = size,
-		CFrame = CFrame.new(center),
-		Color = GLASS,
-		Material = Enum.Material.Glass,
-		Transparency = 0.55,
-		Parent = lounge,
-	})
-	part({
-		Name = name .. "Trim",
-		Size = Vector3.new(size.X + 0.2, 0.4, size.Z + 0.2),
-		CFrame = CFrame.new(center + Vector3.new(0, size.Y / 2, 0)),
-		Color = GOLD,
-		Material = Enum.Material.Neon,
-		CanCollide = false,
-		Parent = lounge,
-	})
-end
-
-local wallY = 1 + WALL_HEIGHT / 2
--- north / south / east walls are solid
-wall("WallNorth", Vector3.new(LX, wallY, LZ - H), Vector3.new(H * 2, WALL_HEIGHT, 0.6))
-wall("WallSouth", Vector3.new(LX, wallY, LZ + H), Vector3.new(H * 2, WALL_HEIGHT, 0.6))
-wall("WallEast", Vector3.new(LX + H, wallY, LZ), Vector3.new(0.6, WALL_HEIGHT, H * 2))
--- west wall faces the spawn and has the door gap in the middle
-local sideLength = H - DOOR_WIDTH / 2
-wall("WallWestA", Vector3.new(LX - H, wallY, LZ - H + sideLength / 2), Vector3.new(0.6, WALL_HEIGHT, sideLength))
-wall("WallWestB", Vector3.new(LX - H, wallY, LZ + H - sideLength / 2), Vector3.new(0.6, WALL_HEIGHT, sideLength))
-
-local door = part({
-	Name = "VIPDoor",
-	Size = Vector3.new(0.6, WALL_HEIGHT, DOOR_WIDTH),
-	CFrame = CFrame.new(LX - H, wallY, LZ),
-	Color = GOLD,
-	Material = Enum.Material.ForceField,
-	Transparency = 0.1,
-	Parent = lounge,
-})
-addSparkles(door, GOLD, 8, 0.4)
-
-local sign = part({
-	Name = "VIPSign",
-	Size = Vector3.new(10, 2.6, 0.4),
-	CFrame = CFrame.lookAt(Vector3.new(LX - H - 0.4, 1 + WALL_HEIGHT + 1.8, LZ), Vector3.new(LX - H - 10, 1 + WALL_HEIGHT + 1.8, LZ)),
-	Color = Color3.fromRGB(40, 30, 15),
-	Material = Enum.Material.SmoothPlastic,
-	CanCollide = false,
-	Parent = lounge,
-})
-local signGui = Instance.new("SurfaceGui")
-signGui.Face = Enum.NormalId.Front
-signGui.LightInfluence = 0
-signGui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-signGui.PixelsPerStud = 40
-signGui.Parent = sign
-local signText = Instance.new("TextLabel")
-signText.BackgroundTransparency = 1
-signText.Size = UDim2.fromScale(1, 1)
-signText.Font = Enum.Font.FredokaOne
-signText.TextScaled = true
-signText.Text = "👑 VIP TEMPLE"
-signText.TextColor3 = GOLD
-signText.Parent = signGui
-
----------------------------------------------------------------------
--- VIP TEMPLE INTERIOR: red carpet leading to the Royal Portal
--- (portal, crown and chandelier are animated by WorldFX;
---  the VIPIsland script teleports VIPs who step into the portal)
+-- PORTAL PLAZA: the portal to Lucky Isle
+-- (the LuckyIsland script sends anyone who walks in; WorldFX spins it)
 ---------------------------------------------------------------------
 local MARBLE = Color3.fromRGB(235, 228, 215)
-local RED = Color3.fromRGB(150, 30, 50)
 local ROSE = Color3.fromRGB(255, 130, 190)
+local TEAL = Color3.fromRGB(90, 230, 210)
+local PATH_COLOR = Color3.fromRGB(88, 80, 120)
 
 -- A vertical ring facing along portalCF's look direction, as its own Model
 local function portalRing(name, portalCF, radius, segments, thickness, color3, parent)
@@ -687,117 +609,107 @@ local function portalRing(name, portalCF, radius, segments, thickness, color3, p
 	return model
 end
 
--- Corner pillars with gold caps
-for _, corner in ipairs({ { 1, 1 }, { 1, -1 }, { -1, 1 }, { -1, -1 } }) do
-	local x, z = LX + corner[1] * H, LZ + corner[2] * H
-	part({
-		Name = "Pillar",
+local plaza = Instance.new("Model")
+plaza.Name = "PortalPlaza"
+plaza.Parent = island
+
+local PX, PZ = PLAZA_POSITION.X, PLAZA_POSITION.Z
+local function plazaDisc(name, radius, thickness, topY, color3, material, collide)
+	return part({
+		Name = name,
 		Shape = Enum.PartType.Cylinder,
-		Size = Vector3.new(12, 2.6, 2.6),
-		CFrame = CFrame.new(x, 7, z) * FLAT,
-		Color = MARBLE,
-		Material = Enum.Material.Marble,
-		Parent = lounge,
-	})
-	part({
-		Name = "PillarBase",
-		Size = Vector3.new(3.4, 1, 3.4),
-		CFrame = CFrame.new(x, 1.5, z),
-		Color = GOLD,
-		Material = Enum.Material.Metal,
-		Parent = lounge,
-	})
-	local cap = part({
-		Name = "PillarCap",
-		Size = Vector3.new(3.4, 0.8, 3.4),
-		CFrame = CFrame.new(x, 13.4, z),
-		Color = GOLD,
-		Material = Enum.Material.Neon,
-		CanCollide = false,
-		Parent = lounge,
-	})
-	addLight(cap, GOLD, 14, 1)
-end
-
--- Red carpet from the door to the portal steps
-local carpetStart, carpetEnd = LX - H + 0.4, LX + H - 7
-local carpetLength = carpetEnd - carpetStart
-part({
-	Name = "Carpet",
-	Size = Vector3.new(carpetLength, 0.12, 4.4),
-	CFrame = CFrame.new((carpetStart + carpetEnd) / 2, 1.06, LZ),
-	Color = RED,
-	Material = Enum.Material.Fabric,
-	Parent = lounge,
-})
-for _, side in ipairs({ -1, 1 }) do
-	part({
-		Name = "CarpetTrim",
-		Size = Vector3.new(carpetLength, 0.14, 0.35),
-		CFrame = CFrame.new((carpetStart + carpetEnd) / 2, 1.07, LZ + side * 2.3),
-		Color = GOLD,
-		Material = Enum.Material.Neon,
-		CanCollide = false,
-		Parent = lounge,
+		Size = Vector3.new(thickness, radius * 2, radius * 2),
+		CFrame = CFrame.new(PX, topY - thickness / 2, PZ) * FLAT,
+		Color = color3,
+		Material = material,
+		CanCollide = collide ~= false,
+		Parent = plaza,
 	})
 end
+plazaDisc("PlazaGlow", 11.6, 0.4, 0.3, ROSE, Enum.Material.Neon, false)
+plazaDisc("PlazaBase", 11, 0.8, 0.6, MARBLE, Enum.Material.Marble)
+plazaDisc("PlazaRim", 11.25, 0.3, 0.55, GOLD, Enum.Material.Neon, false) -- sits just under the marble: only the edge shows
+plazaDisc("PlazaInner", 7, 0.6, 1.2, Color3.fromRGB(70, 60, 100), Enum.Material.Marble)
+plazaDisc("PlazaInnerGlow", 7.25, 0.3, 1.15, TEAL, Enum.Material.Neon, false) -- edge glow under the inner step
 
--- Steps up to the portal
-part({ Name = "Step1", Size = Vector3.new(2, 0.4, 10), CFrame = CFrame.new(LX + H - 6, 1.2, LZ), Color = MARBLE, Material = Enum.Material.Marble, Parent = lounge })
-part({ Name = "Step2", Size = Vector3.new(2, 0.8, 10.5), CFrame = CFrame.new(LX + H - 4.5, 1.4, LZ), Color = MARBLE, Material = Enum.Material.Marble, Parent = lounge })
-part({ Name = "PortalDais", Size = Vector3.new(3.5, 1.2, 11), CFrame = CFrame.new(LX + H - 2, 1.6, LZ), Color = MARBLE, Material = Enum.Material.Marble, Parent = lounge })
-part({ Name = "DaisTrim", Size = Vector3.new(3.7, 0.25, 11.2), CFrame = CFrame.new(LX + H - 2, 2.25, LZ), Color = GOLD, Material = Enum.Material.Neon, CanCollide = false, Parent = lounge })
-
--- THE ROYAL PORTAL (faces the door)
-local PORTAL_CENTER = Vector3.new(LX + H - 2.6, 7.4, LZ)
-local portalCF = CFrame.lookAt(PORTAL_CENTER, PORTAL_CENTER - Vector3.new(1, 0, 0))
-portalRing("VIPPortalRing", portalCF, 4.6, 30, 0.55, GOLD, lounge)
-portalRing("VIPPortalRingOuter", portalCF, 5.4, 36, 0.25, ROSE, lounge)
+-- The portal stands on the plaza and faces the spawn
+local PORTAL_CENTER = Vector3.new(PX, 1.2 + 5.8, PZ)
+local portalCF = CFrame.lookAt(PORTAL_CENTER, Vector3.new(0, PORTAL_CENTER.Y, 0))
+portalRing("LuckyPortalRing", portalCF, 4.8, 32, 0.6, GOLD, plaza)
+portalRing("LuckyPortalRingOuter", portalCF, 5.6, 38, 0.28, ROSE, plaza)
 local swirl = part({
-	Name = "VIPPortalSwirl",
+	Name = "LuckyPortalSwirl",
 	Shape = Enum.PartType.Cylinder,
-	Size = Vector3.new(0.3, 8.8, 8.8),
+	Size = Vector3.new(0.3, 9.2, 9.2),
 	CFrame = portalCF * CFrame.Angles(0, math.pi / 2, 0),
 	Color = Color3.fromRGB(255, 160, 220),
 	Material = Enum.Material.ForceField,
 	CanCollide = false,
-	Parent = lounge,
+	CanQuery = false,
+	Parent = plaza,
 })
 part({
-	Name = "VIPPortalCore",
+	Name = "LuckyPortalCore",
 	Shape = Enum.PartType.Cylinder,
-	Size = Vector3.new(0.2, 7.8, 7.8),
+	Size = Vector3.new(0.2, 8.2, 8.2),
 	CFrame = portalCF * CFrame.Angles(0, math.pi / 2, 0),
 	Color = Color3.fromRGB(255, 205, 130),
 	Material = Enum.Material.Neon,
-	Transparency = 0.55,
+	Transparency = 0.5,
 	CanCollide = false,
-	Parent = lounge,
+	CanQuery = false,
+	Parent = plaza,
 })
-addLight(swirl, Color3.fromRGB(255, 170, 210), 24, 2.5)
-local portalSparkles = addSparkles(swirl, GOLD, 25, 0.5)
+addLight(swirl, Color3.fromRGB(255, 170, 210), 28, 3)
+local portalSparkles = addSparkles(swirl, GOLD, 30, 0.5)
 portalSparkles.Speed = NumberRange.new(1, 3)
+
+-- The zone the LuckyIsland script watches (anyone inside it is sent)
 part({
-	Name = "VIPPortalTrigger",
-	Size = Vector3.new(8, 8, 2), -- wide + tall, thin in the walking direction
+	Name = "LuckyPortalZone",
+	Size = Vector3.new(9, 10, 3),
 	CFrame = portalCF,
 	Transparency = 1,
 	CanCollide = false,
-	Parent = lounge,
+	CanQuery = false,
+	CanTouch = false,
+	Parent = plaza,
 })
 
--- Sign above the portal
+-- Pillars either side + a sign on top
+for _, side in ipairs({ -1, 1 }) do
+	local base = (portalCF * CFrame.new(side * 6.9, 0, 0)).Position
+	part({
+		Name = "PortalPillar",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(12, 2, 2),
+		CFrame = CFrame.new(base.X, 1.2 + 6, base.Z) * FLAT,
+		Color = MARBLE,
+		Material = Enum.Material.Marble,
+		Parent = plaza,
+	})
+	local cap = part({
+		Name = "PortalPillarGem",
+		Size = Vector3.one * 1.6,
+		CFrame = CFrame.new(base.X, 14.4, base.Z) * CFrame.Angles(math.rad(45), 0, math.rad(45)),
+		Color = (side == 1) and ROSE or TEAL,
+		Material = Enum.Material.Neon,
+		CanCollide = false,
+		Parent = plaza,
+	})
+	addLight(cap, cap.Color, 16, 1.5)
+end
 local portalSign = part({
 	Name = "PortalSign",
-	Size = Vector3.new(0.3, 1.8, 9),
-	CFrame = CFrame.new(LX + H - 2.6, 13.6, LZ),
-	Color = Color3.fromRGB(40, 25, 15),
+	Size = Vector3.new(11, 1.9, 0.3),
+	CFrame = portalCF * CFrame.new(0, 7.6, 0),
+	Color = Color3.fromRGB(30, 22, 50),
 	Material = Enum.Material.SmoothPlastic,
 	CanCollide = false,
-	Parent = lounge,
+	Parent = plaza,
 })
 local portalSignGui = Instance.new("SurfaceGui")
-portalSignGui.Face = Enum.NormalId.Left -- faces the door (-X)
+portalSignGui.Face = Enum.NormalId.Front
 portalSignGui.LightInfluence = 0
 portalSignGui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
 portalSignGui.PixelsPerStud = 40
@@ -807,187 +719,400 @@ portalSignText.BackgroundTransparency = 1
 portalSignText.Size = UDim2.fromScale(1, 1)
 portalSignText.Font = Enum.Font.FredokaOne
 portalSignText.TextScaled = true
-portalSignText.Text = "✦ ROYAL ISLAND • x" .. Config.VIPIsland.LuckMultiplier .. " LUCK ✦"
+portalSignText.Text = "🌀 LUCKY ISLE • x" .. Config.LuckyIsland.LuckMultiplier .. " LUCK"
 portalSignText.TextColor3 = GOLD
 portalSignText.Parent = portalSignGui
 
--- Statues: pedestals with floating crystals beside the portal
-for _, side in ipairs({ -1, 1 }) do
-	local px, pz = LX + H - 5, LZ + side * 7
+-- Gems orbiting the portal (spun by WorldFX)
+local gems = Instance.new("Model")
+gems.Name = "LuckyPortalGems"
+for i = 1, 8 do
+	local a = (i / 8) * math.pi * 2
 	part({
-		Name = "Pedestal",
-		Shape = Enum.PartType.Cylinder,
-		Size = Vector3.new(3, 2.4, 2.4),
-		CFrame = CFrame.new(px, 2.5, pz) * FLAT,
-		Color = MARBLE,
-		Material = Enum.Material.Marble,
-		Parent = lounge,
-	})
-	part({
-		Name = "PedestalCap",
-		Shape = Enum.PartType.Cylinder,
-		Size = Vector3.new(0.3, 2.8, 2.8),
-		CFrame = CFrame.new(px, 4.1, pz) * FLAT,
-		Color = GOLD,
+		Name = "Gem",
+		Size = Vector3.one * 0.9,
+		CFrame = portalCF * CFrame.new(math.cos(a) * 6.6, math.sin(a) * 6.6, 0) * CFrame.Angles(math.rad(45), 0, math.rad(45)),
+		Color = (i % 2 == 0) and ROSE or TEAL,
 		Material = Enum.Material.Neon,
 		CanCollide = false,
-		Parent = lounge,
+		CanQuery = false,
+		Parent = gems,
 	})
-	local gem = part({
-		Name = "FloatingCrystal", -- WorldFX makes it bob and spin
-		Size = Vector3.new(1.2, 3, 1.2),
-		CFrame = CFrame.new(px, 6.6, pz),
-		Color = (side == 1) and ROSE or GOLD,
-		Material = Enum.Material.Neon,
-		CanCollide = false,
-	})
-	addLight(gem, gem.Color, 12, 1.5)
 end
+gems.WorldPivot = portalCF
+gems.Parent = plaza
 
--- Royal benches along the side walls
-for _, side in ipairs({ -1, 1 }) do
-	for _, offset in ipairs({ -6, 0 }) do
-		local seat = Instance.new("Seat")
-		seat.Name = "VIPSeat"
-		seat.Anchored = true
-		seat.Size = Vector3.new(4, 1, 2)
-		seat.CFrame = CFrame.lookAt(Vector3.new(LX + offset, 1.6, LZ + side * (H - 1.6)), Vector3.new(LX + offset, 1.6, LZ))
-		seat.Color = RED
-		seat.Material = Enum.Material.Fabric
-		seat.TopSurface = Enum.SurfaceType.Smooth
-		seat.Parent = lounge
+---------------------------------------------------------------------
+-- PATHS: stone tiles from the spawn to every place
+---------------------------------------------------------------------
+local paths = Instance.new("Model")
+paths.Name = "Paths"
+paths.Parent = island
+
+local function path(from, to, width)
+	local flatFrom = Vector3.new(from.X, 0, from.Z)
+	local flatTo = Vector3.new(to.X, 0, to.Z)
+	local direction = flatTo - flatFrom
+	local length = direction.Magnitude
+	local steps = math.floor(length / 3.2)
+	for i = 0, steps - 1 do
+		local center = flatFrom + direction * ((i + 0.5) / steps)
 		part({
-			Name = "BenchBack",
-			Size = Vector3.new(4, 2.2, 0.4),
-			CFrame = seat.CFrame * CFrame.new(0, 1.2, 0.9),
-			Color = GOLD,
-			Material = Enum.Material.Metal,
-			Parent = lounge,
+			Name = "PathTile",
+			Size = Vector3.new(width + rand:NextNumber(-0.4, 0.4), 0.3, 2.9),
+			CFrame = CFrame.lookAt(center + Vector3.new(0, 0.1, 0), flatTo + Vector3.new(0, 0.1, 0))
+				* CFrame.Angles(0, rand:NextNumber(-0.04, 0.04), 0),
+			Color = PATH_COLOR:Lerp(Color3.fromRGB(120, 110, 160), rand:NextNumber(0, 0.4)),
+			Material = Enum.Material.Slate,
+			Parent = paths,
 		})
+		-- little glowing studs along the edges every few tiles
+		if i % 3 == 1 then
+			for _, side in ipairs({ -1, 1 }) do
+				local edge = CFrame.lookAt(center, flatTo) * CFrame.new(side * (width / 2 + 0.6), 0.35, 0)
+				part({
+					Name = "PathLight",
+					Shape = Enum.PartType.Ball,
+					Size = Vector3.one * 0.5,
+					CFrame = edge,
+					Color = Color3.fromRGB(170, 140, 255),
+					Material = Enum.Material.Neon,
+					CanCollide = false,
+					Parent = paths,
+				})
+			end
+		end
 	end
 end
 
--- Banners with crowns on the side walls
-for _, side in ipairs({ -1, 1 }) do
-	for _, offset in ipairs({ -3, 3 }) do
-		local position = Vector3.new(LX + offset * 2, 6.5, LZ + side * (H - 0.45))
-		local bannerPart = part({
-			Name = "Banner",
-			Size = Vector3.new(2.6, 5, 0.12),
-			CFrame = CFrame.lookAt(position, Vector3.new(position.X, position.Y, LZ)),
-			Color = RED,
-			Material = Enum.Material.Fabric,
-			CanCollide = false,
-			Parent = lounge,
-		})
-		local bannerGui = Instance.new("SurfaceGui")
-		bannerGui.Face = Enum.NormalId.Front
-		bannerGui.LightInfluence = 0
-		bannerGui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
-		bannerGui.PixelsPerStud = 30
-		bannerGui.Parent = bannerPart
-		local crownText = Instance.new("TextLabel")
-		crownText.BackgroundTransparency = 1
-		crownText.Size = UDim2.fromScale(1, 0.6)
-		crownText.Position = UDim2.fromScale(0, 0.2)
-		crownText.TextScaled = true
-		crownText.Text = "👑"
-		crownText.Parent = bannerGui
+local function toward(target, stopShort)
+	local flat = Vector3.new(target.X, 0, target.Z)
+	return flat - flat.Unit * stopShort
+end
+local PATH_START = 8.6 -- edge of the spawn pad
+path(toward(CORE_POSITION, -PATH_START + CORE_POSITION.Magnitude), toward(CORE_POSITION, 10.5), 4)
+path(toward(PLAZA_POSITION, -PATH_START + PLAZA_POSITION.Magnitude), toward(PLAZA_POSITION, 11.5), 4)
+path(toward(BOARD_POSITION, -PATH_START + BOARD_POSITION.Magnitude), toward(BOARD_POSITION, 4), 3.4)
+path(toward(P.StarstepStart, -PATH_START + P.StarstepStart.Magnitude), toward(P.StarstepStart, 4), 3.4)
+path(toward(P.VoidTowerStart, -PATH_START + P.VoidTowerStart.Magnitude), toward(P.VoidTowerStart, 4), 3.4)
+path(Vector3.new(0, 0, PATH_START), Vector3.new(0, 0, 66), 5) -- to the Duel Island bridge
+path(toward(P.Pond, -PATH_START + P.Pond.Magnitude), toward(P.Pond, 9), 3)
+
+---------------------------------------------------------------------
+-- SIGNPOST at the spawn pointing to everything
+---------------------------------------------------------------------
+local SIGN_POST = Vector3.new(-6.5, 0, 6.5)
+part({
+	Name = "SignPost",
+	Size = Vector3.new(0.6, 9, 0.6),
+	CFrame = CFrame.new(SIGN_POST + Vector3.new(0, 5.5, 0)),
+	Color = Color3.fromRGB(60, 50, 85),
+	Material = Enum.Material.Wood,
+})
+local signTargets = {
+	{ "⚔ DUELS", P.DuelIsland, Color3.fromRGB(255, 110, 110) },
+	{ "🌀 LUCKY ISLE", PLAZA_POSITION, Color3.fromRGB(255, 200, 90) },
+	{ "✦ COSMIC CORE", CORE_POSITION, Color3.fromRGB(190, 150, 255) },
+	{ "🏃 STARSTEP OBBY", P.StarstepStart, Color3.fromRGB(110, 230, 150) },
+	{ "🗼 VOID TOWER", P.VoidTowerStart, Color3.fromRGB(120, 200, 255) },
+	{ "🏆 TOP ROLLERS", BOARD_POSITION, Color3.fromRGB(255, 220, 120) },
+}
+for i, target in ipairs(signTargets) do
+	local height = 9.2 - i * 1.15
+	local postTop = SIGN_POST + Vector3.new(0, height, 0)
+	local dest = Vector3.new(target[2].X, height, target[2].Z)
+	local look = CFrame.lookAt(postTop, dest)
+	local board = part({
+		Name = "SignBoard",
+		Size = Vector3.new(0.25, 0.95, 5.2),
+		CFrame = look * CFrame.new(0, 0, -2.9),
+		Color = Color3.fromRGB(40, 32, 62),
+		Material = Enum.Material.Wood,
+		CanCollide = false,
+	})
+	for _, face in ipairs({ Enum.NormalId.Right, Enum.NormalId.Left }) do
+		local gui = Instance.new("SurfaceGui")
+		gui.Face = face
+		gui.LightInfluence = 0
+		gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+		gui.PixelsPerStud = 40
+		gui.Parent = board
+		local text = Instance.new("TextLabel")
+		text.BackgroundTransparency = 1
+		text.Size = UDim2.fromScale(1, 1)
+		text.Font = Enum.Font.FredokaOne
+		text.TextScaled = true
+		text.Text = target[1]
+		text.TextColor3 = target[3]
+		text.Parent = gui
+	end
+end
+
+---------------------------------------------------------------------
+-- BENCHES around the spawn
+---------------------------------------------------------------------
+for _, angle in ipairs({ 0.55, 2.35, 3.75, 5.3 }) do
+	local position = Vector3.new(math.cos(angle) * 15, 1.1, math.sin(angle) * 15)
+	local seat = Instance.new("Seat")
+	seat.Name = "Bench"
+	seat.Anchored = true
+	seat.Size = Vector3.new(5, 0.6, 1.8)
+	seat.CFrame = CFrame.lookAt(position, Vector3.new(0, 1.1, 0))
+	seat.Color = Color3.fromRGB(80, 65, 120)
+	seat.Material = Enum.Material.Wood
+	seat.TopSurface = Enum.SurfaceType.Smooth
+	seat.Parent = island
+	part({ Name = "BenchBack", Size = Vector3.new(5, 1.6, 0.3), CFrame = seat.CFrame * CFrame.new(0, 1, 0.8), Color = Color3.fromRGB(60, 50, 95), Material = Enum.Material.Wood })
+	for _, side in ipairs({ -1, 1 }) do
+		part({ Name = "BenchLeg", Size = Vector3.new(0.3, 0.9, 1.6), CFrame = seat.CFrame * CFrame.new(side * 2.2, -0.65, 0), Color = ROCK_DARK, Material = Enum.Material.Slate })
+	end
+end
+
+---------------------------------------------------------------------
+-- GLOW MUSHROOMS: little alien plants all over the island
+---------------------------------------------------------------------
+local shroomColors = { Color3.fromRGB(90, 230, 210), Color3.fromRGB(255, 120, 200), Color3.fromRGB(160, 120, 255), Color3.fromRGB(120, 200, 255) }
+local function shroomCluster(position, color3)
+	for i = 1, rand:NextInteger(3, 6) do
+		local offset = (i == 1) and Vector3.zero or Vector3.new(rand:NextNumber(-2.2, 2.2), 0, rand:NextNumber(-2.2, 2.2))
+		local height = (i == 1) and rand:NextNumber(1.8, 3) or rand:NextNumber(0.7, 1.8)
+		local base = position + offset
 		part({
-			Name = "BannerRod",
-			Size = Vector3.new(3, 0.25, 0.25),
-			CFrame = bannerPart.CFrame * CFrame.new(0, 2.6, 0),
-			Color = GOLD,
+			Name = "ShroomStem",
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new(height, height * 0.28, height * 0.28),
+			CFrame = CFrame.new(base + Vector3.new(0, height / 2, 0)) * FLAT,
+			Color = Color3.fromRGB(220, 210, 235),
+			Material = Enum.Material.SmoothPlastic,
+			CanCollide = false,
+		})
+		local cap = part({
+			Name = "ShroomCap",
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.one * height * 0.9,
+			CFrame = CFrame.new(base + Vector3.new(0, height, 0)),
+			Color = color3,
 			Material = Enum.Material.Neon,
 			CanCollide = false,
-			Parent = lounge,
 		})
+		if i == 1 then
+			addLight(cap, color3, 10, 1)
+		end
+	end
+end
+local placedShrooms = 0
+for _ = 1, 60 do
+	if placedShrooms >= 16 then
+		break
+	end
+	local a = rand:NextNumber(0, math.pi * 2)
+	local r = rand:NextNumber(16, ISLAND_RADIUS - 6)
+	local position = Vector3.new(math.cos(a) * r, 0, math.sin(a) * r)
+	if not isReserved(position, 3) then
+		shroomCluster(position, shroomColors[rand:NextInteger(1, #shroomColors)])
+		placedShrooms += 1
 	end
 end
 
--- Chandelier (spins in WorldFX)
-local chandelier = ringModel("VIPChandelier", Vector3.new(LX - 3, 11, LZ), 3, 22, 0.3, GOLD, lounge)
-local chandelierCore = part({
-	Name = "ChandelierCore",
-	Shape = Enum.PartType.Ball,
-	Size = Vector3.one * 1.2,
-	CFrame = CFrame.new(LX - 3, 11, LZ),
-	Color = Color3.fromRGB(255, 230, 170),
+---------------------------------------------------------------------
+-- RUINS: broken marble columns from an old observatory
+---------------------------------------------------------------------
+local function ruins(center)
+	for i = 1, 5 do
+		local a = (i / 5) * math.pi * 2
+		local position = center + Vector3.new(math.cos(a) * 6, 0, math.sin(a) * 6)
+		local height = rand:NextNumber(2.5, 8)
+		part({
+			Name = "BrokenColumn",
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new(height, 2, 2),
+			CFrame = CFrame.new(position + Vector3.new(0, height / 2, 0)) * CFrame.Angles(rand:NextNumber(-0.08, 0.08), 0, rand:NextNumber(-0.08, 0.08)) * FLAT,
+			Color = Color3.fromRGB(200, 195, 215),
+			Material = Enum.Material.Marble,
+		})
+		part({
+			Name = "ColumnBase",
+			Size = Vector3.new(2.8, 0.6, 2.8),
+			CFrame = CFrame.new(position + Vector3.new(0, 0.3, 0)),
+			Color = Color3.fromRGB(170, 165, 190),
+			Material = Enum.Material.Marble,
+		})
+		-- glowing vine wrapped around some columns
+		if i % 2 == 0 then
+			part({
+				Name = "Vine",
+				Size = Vector3.new(0.25, height * 0.9, 0.25),
+				CFrame = CFrame.new(position + Vector3.new(1.05, height * 0.45, 0)) * CFrame.Angles(0, 0, 0.15),
+				Color = Color3.fromRGB(110, 255, 170),
+				Material = Enum.Material.Neon,
+				CanCollide = false,
+			})
+		end
+	end
+	-- a fallen column lying across the middle
+	part({
+		Name = "FallenColumn",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(7, 1.8, 1.8),
+		CFrame = CFrame.new(center + Vector3.new(0, 0.9, 0)) * CFrame.Angles(0, rand:NextNumber(0, 3), 0),
+		Color = Color3.fromRGB(190, 185, 205),
+		Material = Enum.Material.Marble,
+	})
+	local relic = part({
+		Name = "Relic",
+		Size = Vector3.one * 1.2,
+		CFrame = CFrame.new(center + Vector3.new(0, 3.2, 0)) * CFrame.Angles(math.rad(45), 0, math.rad(45)),
+		Color = Color3.fromRGB(255, 220, 120),
+		Material = Enum.Material.Neon,
+		CanCollide = false,
+	})
+	relic.Name = "SpinGem" -- WorldFX spins these
+	addLight(relic, relic.Color, 14, 1.2)
+end
+for _, spot in ipairs({ Vector3.new(-50, 0, -40), Vector3.new(54, 0, 4), Vector3.new(-22, 0, 50) }) do
+	if not isReserved(spot, -4) then
+		ruins(spot)
+	end
+end
+
+---------------------------------------------------------------------
+-- COSMIC POOL: a glowing pond with floating lily lights
+---------------------------------------------------------------------
+local POND = P.Pond
+local function pondDisc(name, radius, thickness, topY, color3, material, extra)
+	local props = {
+		Name = name,
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(thickness, radius * 2, radius * 2),
+		CFrame = CFrame.new(POND.X, topY - thickness / 2, POND.Z) * FLAT,
+		Color = color3,
+		Material = material,
+	}
+	for key, value in pairs(extra or {}) do
+		props[key] = value
+	end
+	return part(props)
+end
+pondDisc("PoolRim", 8.6, 0.8, 0.6, Color3.fromRGB(170, 160, 200), Enum.Material.Marble)
+pondDisc("PoolGlow", 7.6, 0.2, 0.62, Color3.fromRGB(80, 160, 255), Enum.Material.Neon)
+local water = pondDisc("PoolWater", 7.6, 0.3, 0.9, Color3.fromRGB(110, 90, 255), Enum.Material.Glass, { Transparency = 0.35 })
+local mist = addSparkles(water, Color3.fromRGB(160, 200, 255), 10, 0.4)
+mist.Speed = NumberRange.new(0.2, 0.6)
+for i = 1, 6 do
+	local a = (i / 6) * math.pi * 2 + rand:NextNumber(-0.3, 0.3)
+	local r = rand:NextNumber(2, 5.5)
+	local lily = part({
+		Name = "LilyLight",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.15, 1.6, 1.6),
+		CFrame = CFrame.new(POND.X + math.cos(a) * r, 0.98, POND.Z + math.sin(a) * r) * FLAT,
+		Color = (i % 2 == 0) and ROSE or TEAL,
+		Material = Enum.Material.Neon,
+		CanCollide = false,
+	})
+	if i % 3 == 0 then
+		addLight(lily, lily.Color, 8, 0.8)
+	end
+end
+part({
+	Name = "PoolCrystal",
+	Size = Vector3.new(1.4, 6, 1.4),
+	CFrame = CFrame.new(POND.X, 4, POND.Z) * CFrame.Angles(0.1, 0.4, -0.08),
+	Color = Color3.fromRGB(150, 200, 255),
 	Material = Enum.Material.Neon,
+	Transparency = 0.15,
 	CanCollide = false,
-	Parent = chandelier,
 })
-addLight(chandelierCore, Color3.fromRGB(255, 210, 150), 26, 2)
-for i = 1, 6 do
-	local a = (i / 6) * math.pi * 2
-	part({
-		Name = "Drop",
-		Size = Vector3.new(0.4, 1.2, 0.4),
-		CFrame = CFrame.new(LX - 3 + math.cos(a) * 3, 10.2, LZ + math.sin(a) * 3) * CFrame.Angles(0, a, math.rad(45)),
-		Color = (i % 2 == 0) and ROSE or GOLD,
-		Material = Enum.Material.Neon,
-		CanCollide = false,
-		Parent = chandelier,
-	})
-end
-chandelier.WorldPivot = CFrame.new(LX - 3, 11, LZ)
 
--- Floating crown above the temple (spins + bobs in WorldFX)
-local CROWN_CENTER = Vector3.new(LX, 17, LZ)
-local crown = ringModel("VIPCrown", CROWN_CENTER, 4, 30, 0.6, GOLD, lounge)
-for i = 1, 6 do
-	local a = (i / 6) * math.pi * 2
-	part({
-		Name = "Spike",
-		Size = Vector3.new(1, 2.6, 1),
-		CFrame = CFrame.new(CROWN_CENTER + Vector3.new(math.cos(a) * 4, 1.4, math.sin(a) * 4)) * CFrame.Angles(0, -a, 0),
-		Color = GOLD,
-		Material = Enum.Material.Neon,
-		CanCollide = false,
-		Parent = crown,
-	})
-	part({
-		Name = "Jewel",
-		Shape = Enum.PartType.Ball,
-		Size = Vector3.one * 0.8,
-		CFrame = CFrame.new(CROWN_CENTER + Vector3.new(math.cos(a) * 4, 3, math.sin(a) * 4)),
-		Color = (i % 2 == 0) and ROSE or Color3.fromRGB(90, 230, 210),
-		Material = Enum.Material.Neon,
-		CanCollide = false,
-		Parent = crown,
-	})
-end
-crown.WorldPivot = CFrame.new(CROWN_CENTER)
-local crownLight = part({ Name = "CrownLight", Size = Vector3.one * 0.2, Transparency = 1, CanCollide = false, CFrame = CFrame.new(CROWN_CENTER), Parent = crown })
-addLight(crownLight, GOLD, 30, 2)
-addSparkles(crownLight, GOLD, 10, 0.6)
-
--- Torches either side of the door (outside)
+---------------------------------------------------------------------
+-- BRIDGE to Duel Island (south). The island itself is built by DuelService.
+---------------------------------------------------------------------
+local bridge = Instance.new("Model")
+bridge.Name = "DuelBridge"
+bridge.Parent = island
+local BRIDGE_START, BRIDGE_END = 64, P.DuelIsland.Z - P.DuelIslandRadius + 4
+local bridgeLength = BRIDGE_END - BRIDGE_START
+local bridgeMid = (BRIDGE_START + BRIDGE_END) / 2
+part({
+	Name = "BridgeDeck",
+	Size = Vector3.new(8, 1, bridgeLength),
+	CFrame = CFrame.new(0, -0.5, bridgeMid),
+	Color = Color3.fromRGB(70, 62, 100),
+	Material = Enum.Material.Slate,
+	Parent = bridge,
+})
+part({
+	Name = "BridgeUnder",
+	Size = Vector3.new(6, 1.5, bridgeLength),
+	CFrame = CFrame.new(0, -1.6, bridgeMid),
+	Color = ROCK_DARK,
+	Material = Enum.Material.Slate,
+	Parent = bridge,
+})
 for _, side in ipairs({ -1, 1 }) do
-	local tx, tz = LX - H - 1.2, LZ + side * 4.2
-	part({ Name = "TorchPost", Size = Vector3.new(0.6, 5, 0.6), CFrame = CFrame.new(tx, 3.5, tz), Color = GOLD, Material = Enum.Material.Metal })
-	local flame = part({
-		Name = "TorchFlame",
-		Size = Vector3.new(0.9, 0.9, 0.9),
-		CFrame = CFrame.new(tx, 6.4, tz),
-		Color = Color3.fromRGB(255, 170, 80),
+	part({
+		Name = "Railing",
+		Size = Vector3.new(0.4, 0.4, bridgeLength),
+		CFrame = CFrame.new(side * 3.8, 2.4, bridgeMid),
+		Color = Color3.fromRGB(255, 110, 110),
 		Material = Enum.Material.Neon,
-		CanCollide = false,
+		Parent = bridge,
 	})
-	local fire = Instance.new("ParticleEmitter")
-	fire.Texture = Config.Textures.Fire
-	fire.Rate = 20
-	fire.Lifetime = NumberRange.new(0.4, 0.8)
-	fire.Speed = NumberRange.new(1, 2.5)
-	fire.Acceleration = Vector3.new(0, 4, 0)
-	fire.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0) })
-	fire.LightEmission = 1
-	fire.LightInfluence = 0
-	fire.Color = ColorSequence.new(Color3.fromRGB(255, 220, 120), Color3.fromRGB(255, 90, 40))
-	fire.Parent = flame
-	addLight(flame, Color3.fromRGB(255, 170, 90), 16, 1.6)
+	part({
+		Name = "RailingWall",
+		Size = Vector3.new(0.3, 2.4, bridgeLength),
+		CFrame = CFrame.new(side * 3.8, 1.2, bridgeMid),
+		Color = Color3.fromRGB(255, 150, 150),
+		Material = Enum.Material.Glass,
+		Transparency = 0.7,
+		Parent = bridge,
+	})
+	for z = BRIDGE_START + 3, BRIDGE_END - 2, 8 do
+		local lamp = part({
+			Name = "BridgeLamp",
+			Size = Vector3.new(0.7, 0.7, 0.7),
+			CFrame = CFrame.new(side * 3.8, 3, z) * CFrame.Angles(math.rad(45), 0, math.rad(45)),
+			Color = Color3.fromRGB(255, 150, 120),
+			Material = Enum.Material.Neon,
+			CanCollide = false,
+			Parent = bridge,
+		})
+		addLight(lamp, lamp.Color, 10, 1)
+	end
 end
-
+-- gate at the start of the bridge
+for _, side in ipairs({ -1, 1 }) do
+	part({
+		Name = "GatePillar",
+		Size = Vector3.new(1.4, 10, 1.4),
+		CFrame = CFrame.new(side * 4.8, 5, BRIDGE_START + 1),
+		Color = Color3.fromRGB(60, 40, 70),
+		Material = Enum.Material.Slate,
+		Parent = bridge,
+	})
+end
+local gateTop = part({
+	Name = "GateTop",
+	Size = Vector3.new(11, 1.6, 1.2),
+	CFrame = CFrame.lookAt(Vector3.new(0, 10.6, BRIDGE_START + 1), Vector3.new(0, 10.6, 0)),
+	Color = Color3.fromRGB(40, 20, 40),
+	Material = Enum.Material.SmoothPlastic,
+	Parent = bridge,
+})
+local gateGui = Instance.new("SurfaceGui")
+gateGui.Face = Enum.NormalId.Front
+gateGui.LightInfluence = 0
+gateGui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+gateGui.PixelsPerStud = 40
+gateGui.Parent = gateTop
+local gateText = Instance.new("TextLabel")
+gateText.BackgroundTransparency = 1
+gateText.Size = UDim2.fromScale(1, 1)
+gateText.Font = Enum.Font.FredokaOne
+gateText.TextScaled = true
+gateText.Text = "⚔ DUEL ISLAND ⚔"
+gateText.TextColor3 = Color3.fromRGB(255, 120, 120)
+gateText.Parent = gateGui
 
 ---------------------------------------------------------------------
 -- LEADERBOARD BOARD (filled in by the Leaderboard script)
