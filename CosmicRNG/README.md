@@ -61,6 +61,10 @@ Side menu with **STORE** and **SOUND** (mute) buttons.
   - The **Top Rollers** board.
   - Benches, glow mushrooms, old marble ruins, a cosmic pool with lily lights, floating crystals and lantern gems.
   - A giant ringed planet, a moon and shooting stars in the sky.
+- **The sky changes mood** on the main island every ~70 seconds, blending slowly between violet dusk, teal nebula, rose galaxy and deep indigo. Lucky Isle, Duel Island and each rebirth island have their own sky colors, and the sky blends smoothly when you travel.
+- **Sky scenery around every island**, each in its own colors: glowing nebula clouds, a slowly turning spiral galaxy, and floating islets with crystals, little trees, shrines and waterfalls of light.
+  - A **sky whale** with glowing spots swims slowly around the main island.
+  - Lucky Isle has twin golden moons, Frostfall a frozen ringed planet, Ember Isle a burning red sun and Neon Nexus a neon-ringed planet.
 - **Lucky Isle portal**: walk into the portal (or press **E**) to travel to **Lucky Isle**. It's white marble, gold, rose and teal, and gives **x2 luck** while you stand on it. The sky turns pink and gold while you're there, and a return portal takes you back.
   - Open to everyone. Set `Config.LuckyIsland.RequireVIP = true` to make it VIP-only.
 - **Parkour** (step on the start pad to begin; the timer shows at the top):
@@ -181,10 +185,11 @@ All sounds are made from Roblox's built-in sound files, so they always work:
 
 | Sound | Where you hear it |
 |---|---|
-| Ticks | Rolling and button clicks |
-| Booms | Reveals, deeper for rarer auras |
+| Soft ticks | Rolling (gentle, not hectic) |
+| Soft bells and sparkles | Reveals, deeper and longer for rarer auras, with a little bell melody for Epic and up |
 | Heartbeat and rumble | Cutscenes |
 | Whooshes | Panels opening |
+| Soft swell and bells | Joining the game |
 | Chimes | New best and purchases |
 | Space hum | Background |
 
@@ -193,8 +198,8 @@ All sounds are made from Roblox's built-in sound files, so they always work:
 | Where in Studio | Type | Name |
 |---|---|---|
 | ReplicatedStorage | ModuleScript | `CosmicConfig`, `AuraData`, `AuraImages`, `AuraEffects`, `CombatAnim`, `Luck`, `Rebirth`, `SoundFX`, `UIKit` |
-| ServerScriptService | Script | `RollService`, `WorldSetup`, `LuckyIsland`, `RebirthIslands`, `Parkour`, `DuelService`, `Movement`, `Leaderboard` |
-| StarterPlayer > StarterPlayerScripts | LocalScript | `AuraRenderer`, `RollUI`, `StoreUI`, `WorldFX`, `ParkourClient`, `DuelClient`, `DuelFX`, `Sprint`, `RebirthClient`, `IslandFX` |
+| ServerScriptService | Script | `RollService`, `WorldSetup`, `LuckyIsland`, `RebirthIslands`, `SkyDecor`, `Parkour`, `DuelService`, `Movement`, `Leaderboard` |
+| StarterPlayer > StarterPlayerScripts | LocalScript | `AuraRenderer`, `RollUI`, `StoreUI`, `WorldFX`, `ParkourClient`, `DuelClient`, `DuelFX`, `Sprint`, `RebirthClient`, `IslandFX`, `SkyFX` |
 
 ## Adding the aura pictures
 Roblox can only show pictures that are uploaded to Roblox, so this is a one-time step:

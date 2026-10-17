@@ -173,7 +173,6 @@ end)
 ---------------------------------------------------------------------
 -- PORTALS + LUCKY ISLE animations
 ---------------------------------------------------------------------
-local Lighting = game:GetService("Lighting")
 
 -- things that spin around a fixed pivot: { Model, BaseCFrame, Function(t) -> CFrame offset }
 local spinners = {}
@@ -242,59 +241,8 @@ RunService.RenderStepped:Connect(function()
 end)
 
 ---------------------------------------------------------------------
--- Lucky Isle sky: pink + gold while you're there
+-- Lucky Isle welcome (the pink + gold sky is done by SkyFX)
 ---------------------------------------------------------------------
-local savedSky
-local function setRoyalSky(on)
-	local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
-	local colorFx = Lighting:FindFirstChildOfClass("ColorCorrectionEffect")
-	local info = TweenInfo.new(2, Enum.EasingStyle.Sine)
-	if on then
-		savedSky = {
-			Ambient = Lighting.Ambient,
-			OutdoorAmbient = Lighting.OutdoorAmbient,
-			AtmosphereColor = atmosphere and atmosphere.Color,
-			AtmosphereDecay = atmosphere and atmosphere.Decay,
-			Tint = colorFx and colorFx.TintColor,
-			Saturation = colorFx and colorFx.Saturation,
-		}
-		TweenService:Create(Lighting, info, {
-			Ambient = Color3.fromRGB(120, 90, 100),
-			OutdoorAmbient = Color3.fromRGB(190, 140, 160),
-		}):Play()
-		if atmosphere then
-			TweenService:Create(atmosphere, info, {
-				Color = Color3.fromRGB(255, 170, 195),
-				Decay = Color3.fromRGB(140, 70, 110),
-			}):Play()
-		end
-		if colorFx then
-			TweenService:Create(colorFx, info, {
-				TintColor = Color3.fromRGB(255, 238, 225),
-				Saturation = 0.25,
-			}):Play()
-		end
-	elseif savedSky then
-		TweenService:Create(Lighting, info, {
-			Ambient = savedSky.Ambient,
-			OutdoorAmbient = savedSky.OutdoorAmbient,
-		}):Play()
-		if atmosphere and savedSky.AtmosphereColor then
-			TweenService:Create(atmosphere, info, {
-				Color = savedSky.AtmosphereColor,
-				Decay = savedSky.AtmosphereDecay,
-			}):Play()
-		end
-		if colorFx and savedSky.Tint then
-			TweenService:Create(colorFx, info, {
-				TintColor = savedSky.Tint,
-				Saturation = savedSky.Saturation,
-			}):Play()
-		end
-		savedSky = nil
-	end
-end
-
 local wasOnRoyal = false
 player:GetAttributeChangedSignal("OnLuckyIsland"):Connect(function()
 	local on = player:GetAttribute("OnLuckyIsland") == true
@@ -302,7 +250,6 @@ player:GetAttributeChangedSignal("OnLuckyIsland"):Connect(function()
 		return
 	end
 	wasOnRoyal = on
-	setRoyalSky(on)
 	if on then
 		UIKit.toast(("🍀 Welcome to Lucky Isle! x%s luck here"):format(tostring(Config.LuckyIsland.LuckMultiplier)), UIKit.Theme.Gold)
 		SoundFX.Chime(1, 5)

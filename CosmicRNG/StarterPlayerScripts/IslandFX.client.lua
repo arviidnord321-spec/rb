@@ -3,13 +3,11 @@
 --   * spinning / bobbing / blinking things (marked with FX_ attributes)
 --   * the aurora over Frostfall, geysers and eruptions on Ember Isle
 --   * gate portals show 🔒 or ✅ for YOUR rebirths
---   * each island tints the sky, and says welcome when you arrive
+--   * each island says welcome when you arrive
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local Lighting = game:GetService("Lighting")
-local TweenService = game:GetService("TweenService")
 
 local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
 local SoundFX = require(ReplicatedStorage:WaitForChild("SoundFX"))
@@ -195,57 +193,8 @@ refreshLocks()
 player:GetAttributeChangedSignal("Rebirths"):Connect(refreshLocks)
 
 ---------------------------------------------------------------------
--- Island skies + welcome
+-- Island welcome (each island's sky colors are done by SkyFX)
 ---------------------------------------------------------------------
-local SKIES = {
-	Frostfall = {
-		Ambient = Color3.fromRGB(130, 150, 190), OutdoorAmbient = Color3.fromRGB(170, 205, 245),
-		AtmosphereColor = Color3.fromRGB(200, 230, 255), AtmosphereDecay = Color3.fromRGB(110, 150, 210),
-		Tint = Color3.fromRGB(225, 240, 255), Saturation = 0.05,
-	},
-	Ember = {
-		Ambient = Color3.fromRGB(130, 70, 50), OutdoorAmbient = Color3.fromRGB(210, 110, 70),
-		AtmosphereColor = Color3.fromRGB(255, 140, 90), AtmosphereDecay = Color3.fromRGB(120, 40, 25),
-		Tint = Color3.fromRGB(255, 225, 205), Saturation = 0.2,
-	},
-	Nexus = {
-		Ambient = Color3.fromRGB(110, 60, 140), OutdoorAmbient = Color3.fromRGB(170, 90, 220),
-		AtmosphereColor = Color3.fromRGB(255, 110, 230), AtmosphereDecay = Color3.fromRGB(60, 20, 120),
-		Tint = Color3.fromRGB(245, 225, 255), Saturation = 0.35,
-	},
-}
-
--- the normal sky, remembered the first time you visit an island
-local normal
-local function rememberNormal()
-	if normal then
-		return
-	end
-	local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
-	local colorFx = Lighting:FindFirstChildOfClass("ColorCorrectionEffect")
-	normal = {
-		Ambient = Lighting.Ambient,
-		OutdoorAmbient = Lighting.OutdoorAmbient,
-		AtmosphereColor = atmosphere and atmosphere.Color,
-		AtmosphereDecay = atmosphere and atmosphere.Decay,
-		Tint = colorFx and colorFx.TintColor,
-		Saturation = colorFx and colorFx.Saturation,
-	}
-end
-
-local function applySky(sky)
-	local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
-	local colorFx = Lighting:FindFirstChildOfClass("ColorCorrectionEffect")
-	local info = TweenInfo.new(2, Enum.EasingStyle.Sine)
-	TweenService:Create(Lighting, info, { Ambient = sky.Ambient, OutdoorAmbient = sky.OutdoorAmbient }):Play()
-	if atmosphere and sky.AtmosphereColor then
-		TweenService:Create(atmosphere, info, { Color = sky.AtmosphereColor, Decay = sky.AtmosphereDecay }):Play()
-	end
-	if colorFx and sky.Tint then
-		TweenService:Create(colorFx, info, { TintColor = sky.Tint, Saturation = sky.Saturation }):Play()
-	end
-end
-
 local current = nil
 player:GetAttributeChangedSignal("OnRebirthIsland"):Connect(function()
 	local key = player:GetAttribute("OnRebirthIsland")
@@ -253,17 +202,13 @@ player:GetAttributeChangedSignal("OnRebirthIsland"):Connect(function()
 		return
 	end
 	current = key
-	if key and SKIES[key] then
-		rememberNormal()
-		applySky(SKIES[key])
+	if key then
 		for _, info in ipairs(Config.RebirthIslands) do
 			if info.Key == key then
 				UIKit.toast(("%s Welcome to %s! x%s luck here"):format(info.Icon, info.Name, tostring(info.LuckMultiplier)), info.Color)
 				SoundFX.Chime(0.9, 5)
 			end
 		end
-	elseif normal then
-		applySky(normal)
 	end
 end)
 

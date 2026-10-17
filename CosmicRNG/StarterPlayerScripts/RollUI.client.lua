@@ -725,7 +725,7 @@ local function playRollAnimation(result, fast)
 		imageScale.Scale = 0.9
 		tween(imageScale, 0.08, { Scale = 1 })
 		nameLabel.Rotation = rand:NextNumber(-3, 3)
-		SoundFX.Play("Tick", { Speed = 0.85 + progress * 0.9 })
+		SoundFX.Play("Tick", { Speed = 0.9 + progress * 0.35, Volume = 0.7 + progress * 0.3 })
 		task.wait(((fast and 0.03 or 0.04) + progress ^ 3 * (fast and 0.12 or 0.28)) * pace)
 	end
 	nameLabel.Rotation = 0
@@ -761,6 +761,11 @@ local function playRollAnimation(result, fast)
 	local colors = { final.Colors[1], final.Colors[2], tierOf(final).Color }
 	UIKit.burst(colors, 10 + order * 8, 0.7 + order * 0.15)
 	SoundFX.Play(revealSoundFor(order))
+	if order >= 4 then
+		-- a gentle rising bell melody instead of a bang
+		local melody = (order >= 6) and { 1, 1.26, 1.5, 2, 2.52 } or (order == 5) and { 1, 1.26, 1.5, 2 } or { 1, 1.5, 2 }
+		SoundFX.Notes(melody, 0.11, { Volume = 0.35 })
+	end
 	if order >= 3 then
 		flash(math.min(0.15 + order * 0.08, 0.7), 0.4)
 		addShake(0.2 + order * 0.2)
@@ -1191,22 +1196,10 @@ local function showBanner(message, color, image)
 end
 
 local function skyShift(aura)
-	local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
-	local colorFx = Lighting:FindFirstChildOfClass("ColorCorrectionEffect")
-	if atmosphere then
-		local oldColor, oldDecay = atmosphere.Color, atmosphere.Decay
-		tween(atmosphere, 1.5, { Color = aura.Colors[2], Decay = aura.Colors[1] })
-		task.delay(10, function()
-			tween(atmosphere, 3, { Color = oldColor, Decay = oldDecay })
-		end)
-	end
-	if colorFx then
-		local oldTint = colorFx.TintColor
-		tween(colorFx, 1.5, { TintColor = aura.Colors[2]:Lerp(Color3.new(1, 1, 1), 0.6) })
-		task.delay(10, function()
-			tween(colorFx, 3, { TintColor = oldTint })
-		end)
-	end
+	-- SkyFX reads these and paints the sky in the aura's colors for 10 seconds
+	Lighting:SetAttribute("SkyShiftA", aura.Colors[2])
+	Lighting:SetAttribute("SkyShiftB", aura.Colors[1])
+	Lighting:SetAttribute("SkyShiftUntil", os.clock() + 10)
 	flash(0.8, 1.5)
 	addShake(1.5)
 end
@@ -1292,7 +1285,10 @@ local function playIntro()
 
 	tween(titleScale, 0.8, { Scale = 1 }, Enum.EasingStyle.Back)
 	tween(titleGradient, 2.5, { Rotation = 360 }, Enum.EasingStyle.Linear)
-	SoundFX.Play("RevealEpic", { Volume = 0.6 })
+	SoundFX.Play("IntroSwell")
+	task.delay(0.3, function()
+		SoundFX.Notes({ 1, 1.26, 1.5, 2 }, 0.22, { Volume = 0.3 })
+	end)
 	UIKit.burst({ Color3.fromRGB(190, 140, 255), Color3.fromRGB(90, 220, 255), Color3.new(1, 1, 1) }, 40, 1.2, Vector2.new(0.5, 0.42))
 	task.wait(0.5)
 	tween(subtitle, 0.6, { TextTransparency = 0 })
@@ -1301,7 +1297,7 @@ local function playIntro()
 	tween(title:FindFirstChild("TextOutline"), 0.5, { Transparency = 1 })
 	tween(subtitle, 0.5, { TextTransparency = 1 })
 	tween(titleScale, 0.5, { Scale = 1.3 })
-	SoundFX.Play("Whoosh")
+	SoundFX.Play("Whoosh", { Volume = 0.5 })
 	tween(rollBar, 0.6, { Position = UDim2.new(0.5, 0, 1, -20) }, Enum.EasingStyle.Back)
 	tween(statsPanel, 0.6, { Position = UDim2.new(0, 16, 0, 64) }, Enum.EasingStyle.Back)
 	task.wait(0.6)

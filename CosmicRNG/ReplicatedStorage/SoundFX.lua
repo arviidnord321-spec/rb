@@ -55,16 +55,34 @@ local EFFECTS = {
 -- Jitter = random pitch range (default 0.06), Loop = loop it
 local RECIPES = {
 	-- UI + rolling ----------------------------------------------------
-	Tick = { { S = "Tick", Speed = 1, Volume = 0.55, Jitter = 0 } },
+	Tick = { { S = "Tick", Speed = 1, Volume = 0.3, Jitter = 0, Fx = { "Muffle" } } },
 	Click = { { S = "Tick", Speed = 1.35, Volume = 0.5 }, { S = "Thud", Speed = 2.6, Volume = 0.15, From = 0, To = 0.1 } },
 	Hover = { { S = "Tick", Speed = 1.9, Volume = 0.15 } },
 	Whoosh = { { S = "Wind", Speed = 1.8, Volume = 0.35, From = 0, To = 0.45, Fx = { "Bright" } } },
-	Pop = { { S = "Boom", Speed = 2.4, Volume = 0.2, From = 0, To = 0.5, Fx = { "Bright" } }, { S = "Tick", Speed = 1.6, Volume = 0.3 } },
-	RevealRare = { { S = "Boom", Speed = 1.6, Volume = 0.32, Fx = { "Reverb" } }, { S = "Water", Speed = 2.2, Volume = 0.2, Fx = { "Reverb", "Bright" } } },
-	RevealEpic = { { S = "Boom", Speed = 1.2, Volume = 0.42, Fx = { "Reverb" } }, { S = "Water", Speed = 1.8, Volume = 0.25, Fx = { "Chorus", "Reverb" } } },
-	RevealLegendary = { { S = "Boom", Speed = 0.85, Volume = 0.55, Fx = { "Reverb", "Echo" } }, { S = "Tick", Speed = 0.5, Volume = 0.5, Fx = { "BigReverb", "Chorus" } } },
-	RevealMythic = { { S = "Boom", Speed = 0.62, Volume = 0.7, Fx = { "Reverb", "Echo", "Bass" } }, { S = "Boom", Speed = 0.4, Volume = 0.4, Fx = { "BigReverb", "OctaveDown" } }, { S = "Tick", Speed = 0.35, Volume = 0.5, Fx = { "BigReverb", "Flange" } } },
-	Heartbeat = { { S = "Boom", Speed = 0.33, Volume = 0.9, From = 0, To = 0.5, Fx = { "Muffle", "Compress" } } },
+	-- reveals are soft bells + sparkles, not bangs (rarer = deeper and longer)
+	Pop = { { S = "Tick", Speed = 1.5, Volume = 0.22, Fx = { "Reverb" } }, { S = "Water", Speed = 2.6, Volume = 0.1, Fx = { "Bright", "Reverb" } } },
+	RevealRare = { { S = "Tick", Speed = 1.2, Volume = 0.3, Fx = { "Reverb", "Chorus" } }, { S = "Water", Speed = 2.2, Volume = 0.14, Fx = { "Reverb", "Bright" } } },
+	RevealEpic = {
+		{ S = "Tick", Speed = 0.95, Volume = 0.32, Fx = { "BigReverb", "Chorus" } },
+		{ S = "Water", Speed = 1.8, Volume = 0.16, Fx = { "Chorus", "Reverb" } },
+		{ S = "Boom", Speed = 0.9, Volume = 0.08, Fx = { "Muffle", "Reverb" } },
+	},
+	RevealLegendary = {
+		{ S = "Tick", Speed = 0.72, Volume = 0.36, Fx = { "BigReverb", "Chorus" } },
+		{ S = "Water", Speed = 1.4, Volume = 0.18, Fx = { "BigReverb", "Chorus" } },
+		{ S = "Boom", Speed = 0.7, Volume = 0.12, Fx = { "Muffle", "BigReverb" } },
+	},
+	RevealMythic = {
+		{ S = "Tick", Speed = 0.5, Volume = 0.4, Fx = { "BigReverb", "Flange" } },
+		{ S = "Water", Speed = 1.1, Volume = 0.2, Fx = { "BigReverb", "Chorus" } },
+		{ S = "Boom", Speed = 0.5, Volume = 0.16, Fx = { "Muffle", "BigReverb", "Bass" } },
+	},
+	-- a soft swell when you join the game
+	IntroSwell = {
+		{ S = "Wind", Speed = 0.55, Volume = 0.22, From = 0, To = 2.5, Fx = { "BigReverb", "Muffle" } },
+		{ S = "Water", Speed = 1.2, Volume = 0.12, Fx = { "BigReverb", "Chorus" } },
+	},
+	Heartbeat = { { S = "Boom", Speed = 0.33, Volume = 0.55, From = 0, To = 0.5, Fx = { "Muffle", "Compress" } } },
 	Rumble = { { S = "Wind", Speed = 0.45, Volume = 0.6, Loop = true, Fx = { "Muffle" } } },
 	Equip = { { S = "Boom", Speed = 2, Volume = 0.18, From = 0, To = 0.6, Fx = { "Bright" } }, { S = "Water", Speed = 2.4, Volume = 0.2, Fx = { "Reverb" } } },
 	Purchase = { { S = "Tick", Speed = 1.5, Volume = 0.5, Fx = { "Reverb" }, Jitter = 0 } },
