@@ -1,0 +1,2798 @@
+<roblox version="4">
+  <Item class="ReplicatedStorage" referent="0">
+    <Properties>
+      <string name="Name">ReplicatedStorage</string>
+    </Properties>
+    <Item class="ModuleScript" referent="1">
+      <Properties>
+        <string name="Name">AuraData</string>
+        <string name="Source"><![CDATA[-- AuraData (ModuleScript in ReplicatedStorage)
+-- Every aura in the game: odds, tier, colors and its duel power.
+-- To add an aura, copy one entry and change it. Names must be unique.
+
+local AuraData = {}
+
+---------------------------------------------------------------------
+-- TIERS: how strong/flashy each rarity group is.
+-- Duel stats scale with the tier, so rarer auras = stronger in 1v1s.
+---------------------------------------------------------------------
+AuraData.Tiers = {
+	Common    = { Order = 1, Color = Color3.fromRGB(200, 205, 220), MaxHealth = 100, AttackDamage = 6 },
+	Uncommon  = { Order = 2, Color = Color3.fromRGB(110, 230, 140), MaxHealth = 115, AttackDamage = 7 },
+	Rare      = { Order = 3, Color = Color3.fromRGB(90, 170, 255), MaxHealth = 130, AttackDamage = 8 },
+	Epic      = { Order = 4, Color = Color3.fromRGB(190, 110, 255), MaxHealth = 150, AttackDamage = 10 },
+	Legendary = { Order = 5, Color = Color3.fromRGB(255, 200, 70), MaxHealth = 175, AttackDamage = 12 },
+	Mythic    = { Order = 6, Color = Color3.fromRGB(255, 80, 140), MaxHealth = 210, AttackDamage = 14 },
+	Secret    = { Order = 7, Color = Color3.fromRGB(255, 255, 255), MaxHealth = 260, AttackDamage = 17 },
+}
+
+---------------------------------------------------------------------
+-- POWER TYPES (the duel code in a later part reads these):
+--  Projectile : fires Count orbs (Spread degrees apart) that deal Damage
+--  Dash       : dashes Distance studs forward, damages anyone hit
+--  Shield     : absorbs Amount damage for Duration seconds
+--  Heal       : heals Amount (and optional Shield amount)
+--  Burst      : explosion around you, Radius studs, optional Knockback
+--  Meteor     : drops Count meteors on the enemy after a short delay
+--  Freeze     : hits the enemy and stuns them for Duration seconds
+--  Drain      : damages and heals you for Lifesteal (0-1) of the damage
+--  Beam       : instant laser of Range studs
+--  Pull       : drags the enemy toward you, then damages (+ optional Stun)
+--  Teleport   : blinks behind the enemy and strikes
+---------------------------------------------------------------------
+
+local function rgb(r, g, b)
+	return Color3.fromRGB(r, g, b)
+end
+
+-- Ordered from most common to rarest.
+AuraData.List = {
+	-- COMMON ---------------------------------------------------------
+	{
+		Name = "Stardust", Chance = 2, Tier = "Common",
+		Colors = { rgb(235, 235, 255), rgb(170, 180, 255) },
+		Power = { Name = "Star Toss", Type = "Projectile", Damage = 8, Count = 1, Speed = 70, Cooldown = 3,
+			Description = "Throws a small star at your opponent." },
+	},
+	{
+		Name = "Moonbeam", Chance = 4, Tier = "Common",
+		Colors = { rgb(210, 230, 255), rgb(140, 170, 230) },
+		Power = { Name = "Moon Shield", Type = "Shield", Amount = 15, Duration = 4, Cooldown = 8,
+			Description = "A pale moon barrier blocks 15 damage." },
+	},
+	{
+		Name = "Twilight", Chance = 8, Tier = "Common",
+		Colors = { rgb(255, 150, 120), rgb(120, 80, 170) },
+		Power = { Name = "Dusk Dash", Type = "Dash", Damage = 10, Distance = 22, Cooldown = 5,
+			Description = "Dashes forward, hurting anyone in the way." },
+	},
+
+	-- UNCOMMON -------------------------------------------------------
+	{
+		Name = "Comet", Chance = 16, Tier = "Uncommon",
+		Colors = { rgb(120, 220, 255), rgb(255, 255, 255) },
+		Power = { Name = "Comet Strike", Type = "Projectile", Damage = 14, Count = 1, Speed = 120, Cooldown = 4,
+			Description = "A very fast comet that is hard to dodge." },
+	},
+	{
+		Name = "Aurora", Chance = 32, Tier = "Uncommon",
+		Colors = { rgb(90, 255, 170), rgb(150, 110, 255) },
+		Power = { Name = "Aurora Mend", Type = "Heal", Amount = 22, Cooldown = 9,
+			Description = "Northern lights heal you for 22 HP." },
+	},
+	{
+		Name = "Meteor", Chance = 64, Tier = "Uncommon",
+		Colors = { rgb(255, 130, 50), rgb(120, 60, 40) },
+		Power = { Name = "Meteor Drop", Type = "Meteor", Damage = 22, Count = 1, Radius = 8, Delay = 0.8, Cooldown = 7,
+			Description = "Calls a meteor down on your opponent." },
+	},
+
+	-- RARE -----------------------------------------------------------
+	{
+		Name = "Nebula", Chance = 128, Tier = "Rare",
+		Colors = { rgb(255, 90, 200), rgb(90, 120, 255) },
+		Power = { Name = "Nebula Cloud", Type = "Burst", Damage = 18, Radius = 14, Slow = 0.5, SlowDuration = 3, Cooldown = 7,
+			Description = "A gas cloud bursts out, damaging and slowing." },
+	},
+	{
+		Name = "Pulsar", Chance = 256, Tier = "Rare",
+		Colors = { rgb(80, 200, 255), rgb(30, 60, 200) },
+		Power = { Name = "Pulse Wave", Type = "Burst", Damage = 22, Radius = 16, Knockback = 60, Cooldown = 6,
+			Description = "A shockwave that blasts enemies away." },
+	},
+	{
+		Name = "Frostmoon", Chance = 512, Tier = "Rare", Special = "Snow",
+		Colors = { rgb(200, 240, 255), rgb(90, 170, 255) },
+		Power = { Name = "Frost Lock", Type = "Freeze", Damage = 15, Duration = 1.5, Range = 40, Cooldown = 9,
+			Description = "Freezes your opponent solid for 1.5s." },
+	},
+
+	-- EPIC -----------------------------------------------------------
+	{
+		Name = "Solar Flare", Chance = 1000, Tier = "Epic", Special = "Fire",
+		Colors = { rgb(255, 210, 60), rgb(255, 90, 20) },
+		Power = { Name = "Flare Beam", Type = "Beam", Damage = 35, Range = 60, Cooldown = 8,
+			Description = "A searing beam of sunlight." },
+	},
+	{
+		Name = "Eclipse", Chance = 2500, Tier = "Epic", Special = "Dark",
+		Colors = { rgb(30, 20, 40), rgb(255, 170, 60) },
+		Power = { Name = "Shadow Drain", Type = "Drain", Damage = 30, Lifesteal = 0.5, Range = 40, Cooldown = 8,
+			Description = "Steals 30 HP, healing you for half." },
+	},
+	{
+		Name = "Starfall", Chance = 5000, Tier = "Epic",
+		Colors = { rgb(255, 240, 150), rgb(120, 140, 255) },
+		Power = { Name = "Star Rain", Type = "Meteor", Damage = 15, Count = 3, Radius = 7, Delay = 0.6, Cooldown = 9,
+			Description = "Three falling stars rain on your opponent." },
+	},
+
+	-- LEGENDARY ------------------------------------------------------
+	{
+		Name = "Supernova", Chance = 10000, Tier = "Legendary", Special = "Fire",
+		Colors = { rgb(255, 250, 200), rgb(255, 120, 40) },
+		Power = { Name = "Nova Burst", Type = "Burst", Damage = 45, Radius = 22, Knockback = 80, Cooldown = 9,
+			Description = "You explode like a dying star." },
+	},
+	{
+		Name = "Quasar", Chance = 25000, Tier = "Legendary",
+		Colors = { rgb(120, 255, 255), rgb(200, 80, 255) },
+		Power = { Name = "Quasar Lance", Type = "Beam", Damage = 50, Range = 90, Cooldown = 8,
+			Description = "A long-range lance of pure energy." },
+	},
+	{
+		Name = "Celestial", Chance = 50000, Tier = "Legendary",
+		Colors = { rgb(255, 245, 210), rgb(255, 215, 120) },
+		Power = { Name = "Divine Light", Type = "Heal", Amount = 40, Shield = 30, Duration = 5, Cooldown = 12,
+			Description = "Heals 40 HP and grants a 30 HP shield." },
+	},
+
+	-- MYTHIC ---------------------------------------------------------
+	{
+		Name = "Black Hole", Chance = 100000, Tier = "Mythic", Special = "Inward",
+		Colors = { rgb(10, 0, 20), rgb(170, 60, 255) },
+		Power = { Name = "Event Horizon", Type = "Pull", Damage = 55, Range = 50, Cooldown = 10,
+			Description = "Sucks your opponent in and crushes them." },
+	},
+	{
+		Name = "Galaxy", Chance = 250000, Tier = "Mythic", Special = "Rainbow",
+		Colors = { rgb(255, 100, 220), rgb(80, 200, 255) },
+		Power = { Name = "Galactic Barrage", Type = "Projectile", Damage = 14, Count = 5, Spread = 12, Speed = 100, Cooldown = 9,
+			Description = "Fires a fan of five star orbs." },
+	},
+	{
+		Name = "Cosmic Rift", Chance = 500000, Tier = "Mythic",
+		Colors = { rgb(255, 40, 120), rgb(40, 255, 220) },
+		Power = { Name = "Rift Step", Type = "Teleport", Damage = 60, Range = 60, Cooldown = 9,
+			Description = "Tears through space and strikes from behind." },
+	},
+
+	-- SECRET ---------------------------------------------------------
+	{
+		Name = "Big Bang", Chance = 1000000, Tier = "Secret", Special = "Rainbow",
+		Colors = { rgb(255, 255, 255), rgb(255, 200, 80) },
+		Power = { Name = "Big Bang", Type = "Burst", Damage = 90, Radius = 30, Knockback = 120, Cooldown = 14,
+			Description = "Recreates the birth of the universe." },
+	},
+	{
+		Name = "Void Sovereign", Chance = 5000000, Tier = "Secret", Special = "Inward",
+		Colors = { rgb(0, 0, 0), rgb(255, 0, 80) },
+		Power = { Name = "Void Collapse", Type = "Pull", Damage = 100, Range = 70, Stun = 1.5, Cooldown = 15,
+			Description = "The void swallows your opponent and freezes them." },
+	},
+}
+
+---------------------------------------------------------------------
+-- Lookup helpers
+---------------------------------------------------------------------
+AuraData.ByName = {}
+for index, aura in ipairs(AuraData.List) do
+	aura.Index = index
+	AuraData.ByName[aura.Name] = aura
+end
+
+-- Rarest first, used by the roll algorithm.
+AuraData.RarestFirst = table.clone(AuraData.List)
+table.sort(AuraData.RarestFirst, function(a, b)
+	return a.Chance > b.Chance
+end)
+
+function AuraData.Get(name)
+	return AuraData.ByName[name]
+end
+
+function AuraData.GetTier(name)
+	local aura = AuraData.ByName[name]
+	return aura and AuraData.Tiers[aura.Tier]
+end
+
+-- 1234567 -> "1,234,567"
+function AuraData.FormatNumber(n)
+	local s = tostring(math.floor(n))
+	local formatted = s:reverse():gsub("(%d%d%d)", "%1,"):reverse()
+	if formatted:sub(1, 1) == "," then
+		formatted = formatted:sub(2)
+	end
+	return formatted
+end
+
+function AuraData.FormatChance(chance)
+	return "1 in " .. AuraData.FormatNumber(chance)
+end
+
+-- Picks a random aura. Goes from rarest to most common and gives each
+-- one a (luck / chance) shot, so "1 in 1,000" really feels like it.
+function AuraData.RollRandom(luck, rng)
+	rng = rng or Random.new()
+	luck = math.max(luck or 1, 1)
+	for _, aura in ipairs(AuraData.RarestFirst) do
+		if rng:NextNumber() < (luck / aura.Chance) then
+			return aura
+		end
+	end
+	return AuraData.List[1]
+end
+
+return AuraData
+]]></string>
+      </Properties>
+    </Item>
+    <Item class="ModuleScript" referent="2">
+      <Properties>
+        <string name="Name">AuraEffects</string>
+        <string name="Source"><![CDATA[-- AuraEffects (ModuleScript in ReplicatedStorage)
+-- Builds and animates the aura visuals around a character.
+-- Runs on each player's own computer (called by the AuraRenderer LocalScript),
+-- so the animation is smooth and costs the server nothing.
+--
+-- Rarer tiers stack more layers:
+--   Common    : glow particles + light
+--   Uncommon  : + rising motes
+--   Rare      : + orbiting stars with trails
+--   Epic      : + body trail + ambient haze
+--   Legendary : + rotating ground ring + spiral beams
+--   Mythic    : + halo + shockwave pulses
+--   Secret    : + everything bigger, extra sparks, lightning beams
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
+
+local AuraData = require(ReplicatedStorage:WaitForChild("AuraData"))
+local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
+
+local AuraEffects = {}
+
+local TEX = Config.Textures
+local TAU = math.pi * 2
+
+---------------------------------------------------------------------
+-- Small helpers
+---------------------------------------------------------------------
+local function seq2(a, b)
+	return ColorSequence.new({
+		ColorSequenceKeypoint.new(0, a),
+		ColorSequenceKeypoint.new(1, b),
+	})
+end
+
+local function numSeq(points)
+	local keypoints = {}
+	for _, p in ipairs(points) do
+		table.insert(keypoints, NumberSequenceKeypoint.new(p[1], p[2], p[3] or 0))
+	end
+	return NumberSequence.new(keypoints)
+end
+
+local function make(className, props, parent)
+	local inst = Instance.new(className)
+	for key, value in pairs(props) do
+		inst[key] = value
+	end
+	if parent then
+		inst.Parent = parent
+	end
+	return inst
+end
+
+local function fxPart(props, parent)
+	local part = make("Part", {
+		Anchored = true,
+		CanCollide = false,
+		CanQuery = false,
+		CanTouch = false,
+		CastShadow = false,
+		Massless = true,
+		TopSurface = Enum.SurfaceType.Smooth,
+		BottomSurface = Enum.SurfaceType.Smooth,
+	})
+	for key, value in pairs(props) do
+		part[key] = value
+	end
+	part.Parent = parent
+	return part
+end
+
+local function getFxFolder()
+	local folder = workspace:FindFirstChild("LocalAuraFX")
+	if not folder then
+		folder = Instance.new("Folder")
+		folder.Name = "LocalAuraFX"
+		folder.Parent = workspace
+	end
+	return folder
+end
+
+local function addTrail(part, color0, color1, halfLength, lifetime, parent)
+	local a0 = make("Attachment", { Position = Vector3.new(0, halfLength, 0) }, part)
+	local a1 = make("Attachment", { Position = Vector3.new(0, -halfLength, 0) }, part)
+	return make("Trail", {
+		Attachment0 = a0,
+		Attachment1 = a1,
+		Color = seq2(color0, color1),
+		Transparency = numSeq({ { 0, 0.2 }, { 1, 1 } }),
+		Lifetime = lifetime,
+		LightEmission = 1,
+		LightInfluence = 0,
+		FaceCamera = true,
+		MinLength = 0.05,
+	}, parent or part)
+end
+
+---------------------------------------------------------------------
+-- Aura handle (one per character)
+---------------------------------------------------------------------
+local Handle = {}
+Handle.__index = Handle
+
+function AuraEffects.Apply(character, auraName)
+	local aura = AuraData.Get(auraName)
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if not aura or not root then
+		return nil
+	end
+
+	local order = AuraData.Tiers[aura.Tier].Order
+	local c1, c2 = aura.Colors[1], aura.Colors[2]
+	local special = aura.Special
+
+	local self = setmetatable({
+		Character = character,
+		Root = root,
+		Aura = aura,
+		Order = order,
+		Time = math.random() * 10,
+		PulseTimer = 0,
+		ColorTimer = 0,
+		Orbiters = {},
+		RingParts = {},
+		HaloParts = {},
+		Emitters = {},
+		Destroyed = false,
+	}, Handle)
+
+	local folder = make("Folder", { Name = "Aura_" .. character.Name }, getFxFolder())
+	self.Folder = folder
+
+	-- Invisible box around the body that particles spawn from.
+	local body = fxPart({
+		Name = "Body",
+		Size = Vector3.new(3.5, 5.5, 3.5),
+		Transparency = 1,
+		CFrame = root.CFrame,
+	}, folder)
+	self.Body = body
+
+	-- Invisible spinning pivot for beams.
+	local pivot = fxPart({
+		Name = "Pivot",
+		Size = Vector3.new(0.2, 0.2, 0.2),
+		Transparency = 1,
+		CFrame = root.CFrame,
+	}, folder)
+	self.Pivot = pivot
+
+	local function emitter(props)
+		local e = make("ParticleEmitter", {
+			LightInfluence = 0,
+			Color = seq2(c1, c2),
+		}, body)
+		for key, value in pairs(props) do
+			e[key] = value
+		end
+		table.insert(self.Emitters, e)
+		return e
+	end
+
+	-- Size multiplier so rarer tiers are bigger
+	local scale = 0.8 + order * 0.15
+
+	-- LAYER 1: core glow (everyone) ----------------------------------
+	emitter({
+		Texture = TEX.Sparkle,
+		Rate = 6 + order * 4,
+		Lifetime = NumberRange.new(0.8, 1.6),
+		Speed = NumberRange.new(0.5, 1.5),
+		SpreadAngle = Vector2.new(180, 180),
+		Size = numSeq({ { 0, 0.15 * scale }, { 0.3, 0.45 * scale }, { 1, 0 } }),
+		Transparency = numSeq({ { 0, 0.3 }, { 1, 1 } }),
+		LightEmission = 1,
+		RotSpeed = NumberRange.new(-90, 90),
+		Rotation = NumberRange.new(0, 360),
+	})
+
+	self.Light = make("PointLight", {
+		Color = c1,
+		Range = 6 + order * 1.5,
+		Brightness = 0.8 + order * 0.35,
+		Shadows = false,
+	}, body)
+
+	-- LAYER 2: rising motes ------------------------------------------
+	if order >= 2 then
+		emitter({
+			Texture = TEX.Spark,
+			Rate = 4 + order * 3,
+			Lifetime = NumberRange.new(1.2, 2),
+			Speed = NumberRange.new(0, 0.5),
+			Acceleration = Vector3.new(0, 2.5 + order * 0.4, 0),
+			Size = numSeq({ { 0, 0.1 * scale }, { 0.5, 0.2 * scale }, { 1, 0 } }),
+			Transparency = numSeq({ { 0, 0.1 }, { 1, 1 } }),
+			LightEmission = 1,
+			Color = seq2(c2, c1),
+		})
+	end
+
+	-- LAYER 3: orbiting stars ----------------------------------------
+	if order >= 3 then
+		local count = order - 1 -- Rare 2, Epic 3 ... Secret 6
+		for i = 1, count do
+			local orb = fxPart({
+				Name = "Orbiter",
+				Shape = Enum.PartType.Ball,
+				Material = Enum.Material.Neon,
+				Size = Vector3.one * (0.3 + order * 0.04),
+				Color = (i % 2 == 0) and c2 or c1,
+				Transparency = 0,
+				CFrame = root.CFrame,
+			}, folder)
+			addTrail(orb, c1, c2, orb.Size.Y * 0.5, 0.25 + order * 0.04)
+			table.insert(self.Orbiters, {
+				Part = orb,
+				Offset = (i - 1) / count * TAU,
+				Radius = 2.6 + (i % 2) * 0.6,
+				Tilt = (i % 3 - 1) * 0.5,
+				Speed = 2 + (i % 2) * 0.8,
+			})
+		end
+	end
+
+	-- LAYER 4: body trail + haze -------------------------------------
+	if order >= 4 then
+		addTrail(body, c1, c2, 2.4, 0.35, body)
+		emitter({
+			Texture = TEX.Smoke,
+			Rate = 3 + order,
+			Lifetime = NumberRange.new(1.5, 2.5),
+			Speed = NumberRange.new(0.2, 0.8),
+			SpreadAngle = Vector2.new(180, 180),
+			Size = numSeq({ { 0, 1.5 }, { 1, 3.5 } }),
+			Transparency = numSeq({ { 0, 1 }, { 0.3, 0.8 }, { 1, 1 } }),
+			LightEmission = (special == "Dark") and 0 or 0.6,
+			RotSpeed = NumberRange.new(-30, 30),
+			Rotation = NumberRange.new(0, 360),
+		})
+	end
+
+	-- LAYER 5: ground ring + spiral beams ----------------------------
+	if order >= 5 then
+		local segments = 14 + order * 2
+		for i = 1, segments do
+			local seg = fxPart({
+				Name = "Ring",
+				Material = Enum.Material.Neon,
+				Size = Vector3.new(0.15, 0.15, 0.9),
+				Color = (i % 2 == 0) and c1 or c2,
+				Transparency = 0.15,
+			}, folder)
+			table.insert(self.RingParts, { Part = seg, Offset = (i - 1) / segments * TAU })
+		end
+
+		local beamCount = order - 3 -- Legendary 2, Mythic 3, Secret 4
+		for i = 1, beamCount do
+			local angle = (i - 1) / beamCount * TAU
+			local bottom = make("Attachment", {
+				Position = Vector3.new(math.cos(angle) * 2.5, -2.8, math.sin(angle) * 2.5),
+			}, pivot)
+			local top = make("Attachment", {
+				Position = Vector3.new(math.cos(angle + 2) * 1.2, 3.2, math.sin(angle + 2) * 1.2),
+			}, pivot)
+			make("Beam", {
+				Attachment0 = bottom,
+				Attachment1 = top,
+				Color = seq2(c1, c2),
+				Transparency = numSeq({ { 0, 1 }, { 0.2, 0.3 }, { 0.8, 0.3 }, { 1, 1 } }),
+				Width0 = 0.35,
+				Width1 = 0.1,
+				CurveSize0 = 3,
+				CurveSize1 = -3,
+				LightEmission = 1,
+				LightInfluence = 0,
+				FaceCamera = true,
+				Segments = 20,
+			}, pivot)
+		end
+	end
+
+	-- LAYER 6: halo + pulses -----------------------------------------
+	if order >= 6 then
+		local haloSegments = 16
+		for i = 1, haloSegments do
+			local seg = fxPart({
+				Name = "Halo",
+				Material = Enum.Material.Neon,
+				Size = Vector3.new(0.12, 0.12, 0.42),
+				Color = c2,
+				Transparency = 0.05,
+			}, folder)
+			table.insert(self.HaloParts, { Part = seg, Offset = (i - 1) / haloSegments * TAU })
+		end
+		self.PulseEvery = (order >= 7) and 1.4 or 2.2
+	end
+
+	-- LAYER 7: secret extras -----------------------------------------
+	if order >= 7 then
+		emitter({
+			Texture = TEX.Spark,
+			Rate = 25,
+			Lifetime = NumberRange.new(0.3, 0.6),
+			Speed = NumberRange.new(8, 14),
+			SpreadAngle = Vector2.new(180, 180),
+			Drag = 4,
+			Size = numSeq({ { 0, 0.3 }, { 1, 0 } }),
+			LightEmission = 1,
+		})
+		-- crackling "lightning" beams between orbiters
+		for i = 1, #self.Orbiters - 1, 2 do
+			local a = make("Attachment", {}, self.Orbiters[i].Part)
+			local b = make("Attachment", {}, self.Orbiters[i + 1].Part)
+			make("Beam", {
+				Attachment0 = a,
+				Attachment1 = b,
+				Color = seq2(c2, c1),
+				Width0 = 0.08,
+				Width1 = 0.08,
+				LightEmission = 1,
+				LightInfluence = 0,
+				FaceCamera = true,
+				Texture = "",
+				CurveSize0 = 1.5,
+				CurveSize1 = -1.5,
+				Segments = 12,
+			}, self.Orbiters[i].Part)
+		end
+	end
+
+	-- SPECIAL EFFECTS -------------------------------------------------
+	if special == "Fire" then
+		emitter({
+			Texture = TEX.Fire,
+			Rate = 18,
+			Lifetime = NumberRange.new(0.5, 1),
+			Speed = NumberRange.new(1, 3),
+			Acceleration = Vector3.new(0, 6, 0),
+			Size = numSeq({ { 0, 1.2 }, { 1, 0 } }),
+			Transparency = numSeq({ { 0, 0.4 }, { 1, 1 } }),
+			LightEmission = 1,
+			Color = seq2(Color3.fromRGB(255, 220, 90), Color3.fromRGB(255, 70, 20)),
+			RotSpeed = NumberRange.new(-60, 60),
+			Rotation = NumberRange.new(0, 360),
+		})
+	elseif special == "Snow" then
+		emitter({
+			Texture = TEX.Sparkle,
+			Rate = 14,
+			Lifetime = NumberRange.new(2, 3),
+			Speed = NumberRange.new(0, 0.5),
+			Acceleration = Vector3.new(0, -1.5, 0),
+			Size = numSeq({ { 0, 0.25 }, { 1, 0.15 } }),
+			Transparency = numSeq({ { 0, 0.1 }, { 0.8, 0.3 }, { 1, 1 } }),
+			LightEmission = 0.7,
+			Color = seq2(Color3.new(1, 1, 1), c1),
+			RotSpeed = NumberRange.new(-120, 120),
+			Rotation = NumberRange.new(0, 360),
+		})
+	elseif special == "Dark" then
+		emitter({
+			Texture = TEX.Smoke,
+			Rate = 10,
+			Lifetime = NumberRange.new(1, 1.8),
+			Speed = NumberRange.new(0.5, 1),
+			Acceleration = Vector3.new(0, 1.5, 0),
+			Size = numSeq({ { 0, 1 }, { 1, 2.5 } }),
+			Transparency = numSeq({ { 0, 0.5 }, { 1, 1 } }),
+			LightEmission = 0,
+			Color = seq2(Color3.fromRGB(10, 5, 15), Color3.fromRGB(40, 20, 50)),
+		})
+	elseif special == "Inward" then
+		emitter({
+			Texture = TEX.Sparkle,
+			Rate = 40,
+			Shape = Enum.ParticleEmitterShape.Sphere,
+			ShapeInOut = Enum.ParticleEmitterShapeInOut.Inward,
+			ShapeStyle = Enum.ParticleEmitterShapeStyle.Surface,
+			Lifetime = NumberRange.new(0.5, 0.7),
+			Speed = NumberRange.new(4, 6),
+			Size = numSeq({ { 0, 0.3 }, { 1, 0 } }),
+			Transparency = numSeq({ { 0, 0.6 }, { 0.5, 0 }, { 1, 1 } }),
+			LightEmission = 1,
+			Color = seq2(c2, c1),
+		})
+	end
+
+	self.Rainbow = (special == "Rainbow")
+	self:Update(0)
+	return self
+end
+
+---------------------------------------------------------------------
+-- Called every frame by the renderer
+---------------------------------------------------------------------
+function Handle:Update(dt)
+	if self.Destroyed then
+		return
+	end
+	local root = self.Root
+	if not root.Parent then
+		return
+	end
+
+	self.Time += dt
+	local t = self.Time
+	local pos = root.Position
+
+	self.Body.CFrame = root.CFrame
+	self.Pivot.CFrame = CFrame.new(pos) * CFrame.Angles(0, t * 1.6, 0)
+
+	-- Orbiters
+	for _, o in ipairs(self.Orbiters) do
+		local a = t * o.Speed + o.Offset
+		local offset = Vector3.new(math.cos(a) * o.Radius, math.sin(a * 1.3 + o.Offset) * 1.2 + o.Tilt, math.sin(a) * o.Radius)
+		o.Part.CFrame = CFrame.new(pos + offset)
+	end
+
+	-- Ground ring (feet are ~3 studs below the root)
+	if #self.RingParts > 0 then
+		local radius = 3.2 + math.sin(t * 2) * 0.15
+		local center = pos - Vector3.new(0, 2.9, 0)
+		for _, r in ipairs(self.RingParts) do
+			local a = r.Offset + t * 0.8
+			local p = center + Vector3.new(math.cos(a) * radius, 0, math.sin(a) * radius)
+			r.Part.CFrame = CFrame.lookAt(p, center) * CFrame.Angles(0, math.pi / 2, 0)
+		end
+	end
+
+	-- Halo above head
+	if #self.HaloParts > 0 then
+		local center = pos + Vector3.new(0, 3.1 + math.sin(t * 2.5) * 0.12, 0)
+		for _, h in ipairs(self.HaloParts) do
+			local a = h.Offset - t * 1.2
+			local p = center + Vector3.new(math.cos(a) * 0.9, 0, math.sin(a) * 0.9)
+			h.Part.CFrame = CFrame.lookAt(p, center) * CFrame.Angles(0, math.pi / 2, 0)
+		end
+	end
+
+	-- Shockwave pulses
+	if self.PulseEvery then
+		self.PulseTimer += dt
+		if self.PulseTimer >= self.PulseEvery then
+			self.PulseTimer = 0
+			self:Pulse()
+		end
+	end
+
+	-- Rainbow color cycling
+	if self.Rainbow then
+		local hue = (t * 0.15) % 1
+		local a = Color3.fromHSV(hue, 0.7, 1)
+		local b = Color3.fromHSV((hue + 0.35) % 1, 0.7, 1)
+		self.Light.Color = a
+		for i, o in ipairs(self.Orbiters) do
+			o.Part.Color = (i % 2 == 0) and b or a
+		end
+		self.ColorTimer += dt
+		if self.ColorTimer > 0.2 then
+			self.ColorTimer = 0
+			local colorSeq = seq2(a, b)
+			for _, e in ipairs(self.Emitters) do
+				if e.Texture ~= TEX.Smoke then
+					e.Color = colorSeq
+				end
+			end
+		end
+	end
+end
+
+function Handle:Pulse()
+	local aura = self.Aura
+	local root = self.Root
+	local ring = fxPart({
+		Name = "Pulse",
+		Shape = Enum.PartType.Cylinder,
+		Material = Enum.Material.Neon,
+		Color = aura.Colors[2],
+		Transparency = 0.3,
+		Size = Vector3.new(0.15, 2, 2),
+		CFrame = CFrame.new(root.Position - Vector3.new(0, 2.9, 0)) * CFrame.Angles(0, 0, math.pi / 2),
+	}, self.Folder)
+	local grow = (self.Order >= 7) and 26 or 18
+	TweenService:Create(ring, TweenInfo.new(1, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Size = Vector3.new(0.05, grow, grow),
+		Transparency = 1,
+	}):Play()
+	Debris:AddItem(ring, 1.1)
+end
+
+function Handle:Destroy()
+	if self.Destroyed then
+		return
+	end
+	self.Destroyed = true
+	if self.Folder then
+		self.Folder:Destroy()
+	end
+end
+
+function Handle:IsAlive()
+	return not self.Destroyed
+		and self.Root.Parent ~= nil
+		and self.Character.Parent ~= nil
+end
+
+---------------------------------------------------------------------
+-- One-shot explosion (used when someone equips a new aura, and later
+-- for duel hits). scale: 1 = normal.
+---------------------------------------------------------------------
+function AuraEffects.Burst(position, colors, scale)
+	scale = scale or 1
+	local c1, c2 = colors[1], colors[2]
+	local folder = getFxFolder()
+
+	local sphere = fxPart({
+		Name = "BurstSphere",
+		Shape = Enum.PartType.Ball,
+		Material = Enum.Material.Neon,
+		Color = c1,
+		Transparency = 0.2,
+		Size = Vector3.one * 1,
+		CFrame = CFrame.new(position),
+	}, folder)
+	TweenService:Create(sphere, TweenInfo.new(0.45, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+		Size = Vector3.one * 9 * scale,
+		Transparency = 1,
+	}):Play()
+	Debris:AddItem(sphere, 0.5)
+
+	local ring = fxPart({
+		Name = "BurstRing",
+		Shape = Enum.PartType.Cylinder,
+		Material = Enum.Material.Neon,
+		Color = c2,
+		Transparency = 0.2,
+		Size = Vector3.new(0.2, 1, 1),
+		CFrame = CFrame.new(position) * CFrame.Angles(0, 0, math.pi / 2),
+	}, folder)
+	TweenService:Create(ring, TweenInfo.new(0.7, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {
+		Size = Vector3.new(0.05, 20 * scale, 20 * scale),
+		Transparency = 1,
+	}):Play()
+	Debris:AddItem(ring, 0.8)
+
+	local holder = fxPart({ Name = "BurstHolder", Size = Vector3.one, Transparency = 1, CFrame = CFrame.new(position) }, folder)
+	local sparks = make("ParticleEmitter", {
+		Texture = TEX.Sparkle,
+		Enabled = false,
+		Lifetime = NumberRange.new(0.6, 1.2),
+		Speed = NumberRange.new(10 * scale, 22 * scale),
+		SpreadAngle = Vector2.new(180, 180),
+		Drag = 3,
+		Size = numSeq({ { 0, 0.6 * scale }, { 1, 0 } }),
+		Transparency = numSeq({ { 0, 0 }, { 1, 1 } }),
+		LightEmission = 1,
+		LightInfluence = 0,
+		Color = seq2(c1, c2),
+		RotSpeed = NumberRange.new(-200, 200),
+	}, holder)
+	sparks:Emit(math.floor(40 * scale))
+	local light = make("PointLight", { Color = c1, Range = 16 * scale, Brightness = 4 }, holder)
+	TweenService:Create(light, TweenInfo.new(0.8), { Brightness = 0 }):Play()
+	Debris:AddItem(holder, 1.5)
+end
+
+return AuraEffects
+]]></string>
+      </Properties>
+    </Item>
+    <Item class="ModuleScript" referent="3">
+      <Properties>
+        <string name="Name">CosmicConfig</string>
+        <string name="Source"><![CDATA[-- CosmicConfig (ModuleScript in ReplicatedStorage)
+-- All the numbers you might want to tweak live here.
+
+local Config = {}
+
+---------------------------------------------------------------------
+-- GAME PASSES
+-- Create the pass on the Creator Dashboard, then paste its ID here.
+-- While an ID is 0, the pass is FREE in Roblox Studio so you can test,
+-- and nobody owns it in the live game.
+---------------------------------------------------------------------
+Config.GamePasses = {
+	AutoRoll = 0, -- unlocks the Auto Roll button
+	QuickRoll = 0, -- faster rolling (see QuickRollCooldown)
+	DoubleLuck = 0, -- permanent x2 luck
+}
+Config.FreePassesInStudio = true
+
+---------------------------------------------------------------------
+-- ROLLING
+---------------------------------------------------------------------
+Config.RollCooldown = 1.2 -- seconds between rolls (server enforced)
+Config.QuickRollCooldown = 0.6 -- with the Quick Roll pass
+Config.BaseLuck = 1 -- 1 = normal odds, 2 = everything twice as likely
+Config.LuckyRollEvery = 10 -- every Nth roll gets bonus luck
+Config.LuckyRollMultiplier = 2
+
+-- Rolls at or above these odds get special treatment
+Config.AnnounceAtChance = 1000 -- whole server gets a message
+Config.CutsceneAtChance = 10000 -- dramatic reveal on the roller's screen
+Config.SkyShiftAtChance = 1000000 -- sky changes for everyone (secret auras)
+
+---------------------------------------------------------------------
+-- SAVING
+---------------------------------------------------------------------
+Config.DataStoreName = "CosmicRNG_Data_v1"
+Config.AutosaveInterval = 120
+
+---------------------------------------------------------------------
+-- WORLD
+---------------------------------------------------------------------
+Config.RemoveDefaultBaseplate = true -- deletes the part named "Baseplate"
+
+---------------------------------------------------------------------
+-- PARTICLE TEXTURES (built into Roblox, always available)
+-- You can swap these for your own uploaded decal IDs later.
+---------------------------------------------------------------------
+Config.Textures = {
+	Sparkle = "rbxasset://textures/particles/sparkles_main.dds",
+	Fire = "rbxasset://textures/particles/fire_main.dds",
+	Smoke = "rbxasset://textures/particles/smoke_main.dds",
+	Spark = "rbxasset://textures/particles/fire_sparks_main.dds",
+}
+
+---------------------------------------------------------------------
+-- SOUNDS (optional). Put "rbxassetid://123456" to enable, "" = silent.
+---------------------------------------------------------------------
+Config.Sounds = {
+	RollTick = "",
+	RevealCommon = "",
+	RevealRare = "",
+	RevealLegendary = "",
+}
+
+return Config
+]]></string>
+      </Properties>
+    </Item>
+  </Item>
+  <Item class="ServerScriptService" referent="4">
+    <Properties>
+      <string name="Name">ServerScriptService</string>
+    </Properties>
+    <Item class="Script" referent="5">
+      <Properties>
+        <string name="Name">RollService</string>
+        <token name="RunContext">0</token>
+        <string name="Source"><![CDATA[-- RollService (Script in ServerScriptService)
+-- The "brain" of rolling: picks auras, stores inventories, saves data,
+-- checks game passes and tells everyone about rare rolls.
+-- Everything important happens here so exploiters can't fake rolls.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local DataStoreService = game:GetService("DataStoreService")
+local MarketplaceService = game:GetService("MarketplaceService")
+local RunService = game:GetService("RunService")
+
+local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
+local AuraData = require(ReplicatedStorage:WaitForChild("AuraData"))
+
+---------------------------------------------------------------------
+-- Remotes (created here so you don't have to make them by hand)
+---------------------------------------------------------------------
+local remotes = ReplicatedStorage:FindFirstChild("CosmicRemotes")
+if not remotes then
+	remotes = Instance.new("Folder")
+	remotes.Name = "CosmicRemotes"
+	remotes.Parent = ReplicatedStorage
+end
+
+local function getRemote(className, name)
+	local remote = remotes:FindFirstChild(name)
+	if not remote then
+		remote = Instance.new(className)
+		remote.Name = name
+		remote.Parent = remotes
+	end
+	return remote
+end
+
+local RollRemote = getRemote("RemoteFunction", "Roll")
+local GetDataRemote = getRemote("RemoteFunction", "GetData")
+local EquipRemote = getRemote("RemoteEvent", "Equip")
+local DataUpdatedRemote = getRemote("RemoteEvent", "DataUpdated")
+local AnnounceRemote = getRemote("RemoteEvent", "Announce")
+
+---------------------------------------------------------------------
+-- Data saving
+---------------------------------------------------------------------
+local store
+do
+	local ok, result = pcall(function()
+		return DataStoreService:GetDataStore(Config.DataStoreName)
+	end)
+	if ok then
+		store = result
+	else
+		warn("[CosmicRNG] DataStore unavailable, progress will not save:", result)
+	end
+end
+
+local sessions = {} -- [player] = data table
+local canSave = {} -- [player] = true only if loading worked
+local lastRollTime = {} -- [player] = os.clock()
+local rng = Random.new()
+
+local function newData()
+	return {
+		Version = 1,
+		Rolls = 0,
+		Inventory = {}, -- [auraName] = how many you've rolled
+		Equipped = "",
+		BestChance = 0,
+	}
+end
+
+local function keyFor(player)
+	return "Player_" .. player.UserId
+end
+
+local function loadData(player)
+	if not store then
+		return newData(), false
+	end
+	for attempt = 1, 3 do
+		local ok, result = pcall(function()
+			return store:GetAsync(keyFor(player))
+		end)
+		if ok then
+			local data = newData()
+			if type(result) == "table" then
+				for key, value in pairs(result) do
+					data[key] = value
+				end
+			end
+			return data, true
+		end
+		warn(("[CosmicRNG] Load failed for %s (attempt %d): %s"):format(player.Name, attempt, tostring(result)))
+		task.wait(attempt)
+	end
+	-- Loading failed: play without saving so we never wipe real progress.
+	return newData(), false
+end
+
+local function saveData(player)
+	local data = sessions[player]
+	if not store or not data or not canSave[player] then
+		return
+	end
+	for attempt = 1, 3 do
+		local ok, err = pcall(function()
+			store:SetAsync(keyFor(player), data, { player.UserId })
+		end)
+		if ok then
+			return
+		end
+		warn(("[CosmicRNG] Save failed for %s (attempt %d): %s"):format(player.Name, attempt, tostring(err)))
+		task.wait(attempt)
+	end
+end
+
+---------------------------------------------------------------------
+-- Game passes
+---------------------------------------------------------------------
+local passIdToKey = {}
+for key, id in pairs(Config.GamePasses) do
+	if id ~= 0 then
+		passIdToKey[id] = key
+	end
+end
+
+local function checkPass(player, key)
+	local id = Config.GamePasses[key]
+	if not id or id == 0 then
+		return RunService:IsStudio() and Config.FreePassesInStudio
+	end
+	local ok, owns = pcall(function()
+		return MarketplaceService:UserOwnsGamePassAsync(player.UserId, id)
+	end)
+	return ok and owns or false
+end
+
+local function hasPass(player, key)
+	return player:GetAttribute("Pass_" .. key) == true
+end
+
+MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, passId, purchased)
+	local key = passIdToKey[passId]
+	if purchased and key then
+		player:SetAttribute("Pass_" .. key, true)
+	end
+end)
+
+---------------------------------------------------------------------
+-- Helpers
+---------------------------------------------------------------------
+local function snapshot(data)
+	return {
+		Rolls = data.Rolls,
+		Inventory = data.Inventory,
+		Equipped = data.Equipped,
+		BestChance = data.BestChance,
+	}
+end
+
+local function applyAuraToCharacter(player)
+	local data = sessions[player]
+	local character = player.Character
+	if data and character then
+		character:SetAttribute("Aura", data.Equipped ~= "" and data.Equipped or nil)
+	end
+end
+
+local function refreshStats(player)
+	local data = sessions[player]
+	if not data then
+		return
+	end
+	local stats = player:FindFirstChild("leaderstats")
+	if stats then
+		stats.Rolls.Value = data.Rolls
+		stats.Aura.Value = data.Equipped ~= "" and data.Equipped or "-"
+	end
+	player:SetAttribute("Rolls", data.Rolls)
+	player:SetAttribute("EquippedAura", data.Equipped)
+end
+
+local function getLuck(player, data, rollNumber)
+	local luck = Config.BaseLuck
+	if hasPass(player, "DoubleLuck") then
+		luck *= 2
+	end
+	-- Potions and events will multiply in here in a later part.
+	luck *= (player:GetAttribute("BonusLuck") or 1)
+	local lucky = rollNumber % Config.LuckyRollEvery == 0
+	if lucky then
+		luck *= Config.LuckyRollMultiplier
+	end
+	return luck, lucky
+end
+
+---------------------------------------------------------------------
+-- Rolling
+---------------------------------------------------------------------
+RollRemote.OnServerInvoke = function(player)
+	local data = sessions[player]
+	if not data then
+		return { Error = "Loading" }
+	end
+
+	local cooldown = hasPass(player, "QuickRoll") and Config.QuickRollCooldown or Config.RollCooldown
+	local now = os.clock()
+	-- small grace window for network jitter
+	if now - (lastRollTime[player] or 0) < cooldown - 0.1 then
+		return { Error = "Cooldown" }
+	end
+	lastRollTime[player] = now
+
+	local rollNumber = data.Rolls + 1
+	local luck, lucky = getLuck(player, data, rollNumber)
+	local aura = AuraData.RollRandom(luck, rng)
+
+	data.Rolls = rollNumber
+	data.Inventory[aura.Name] = (data.Inventory[aura.Name] or 0) + 1
+
+	local isNewBest = aura.Chance > data.BestChance
+	if isNewBest then
+		data.BestChance = aura.Chance
+	end
+	refreshStats(player)
+
+	if aura.Chance >= Config.AnnounceAtChance then
+		AnnounceRemote:FireAllClients({
+			PlayerName = player.DisplayName,
+			UserId = player.UserId,
+			Aura = aura.Name,
+		})
+	end
+
+	return {
+		Aura = aura.Name,
+		Rolls = data.Rolls,
+		Lucky = lucky,
+		Luck = luck,
+		IsNewBest = isNewBest,
+		IsFirstTime = data.Inventory[aura.Name] == 1,
+		Inventory = data.Inventory,
+	}
+end
+
+GetDataRemote.OnServerInvoke = function(player)
+	local data = sessions[player]
+	if not data then
+		return nil
+	end
+	return snapshot(data)
+end
+
+EquipRemote.OnServerEvent:Connect(function(player, auraName)
+	local data = sessions[player]
+	if not data or type(auraName) ~= "string" then
+		return
+	end
+	if auraName ~= "" then
+		if not AuraData.Get(auraName) or (data.Inventory[auraName] or 0) <= 0 then
+			return -- you can't equip something you don't own
+		end
+	end
+	data.Equipped = auraName
+	applyAuraToCharacter(player)
+	refreshStats(player)
+	DataUpdatedRemote:FireClient(player, snapshot(data))
+end)
+
+---------------------------------------------------------------------
+-- Join / leave
+---------------------------------------------------------------------
+local function onPlayerAdded(player)
+	local stats = Instance.new("Folder")
+	stats.Name = "leaderstats"
+	local rolls = Instance.new("IntValue")
+	rolls.Name = "Rolls"
+	rolls.Parent = stats
+	local auraValue = Instance.new("StringValue")
+	auraValue.Name = "Aura"
+	auraValue.Value = "-"
+	auraValue.Parent = stats
+	stats.Parent = player
+
+	for key in pairs(Config.GamePasses) do
+		task.spawn(function()
+			player:SetAttribute("Pass_" .. key, checkPass(player, key))
+		end)
+	end
+
+	player.CharacterAdded:Connect(function()
+		applyAuraToCharacter(player)
+	end)
+
+	local data, ok = loadData(player)
+	if not player.Parent then
+		return -- left while loading
+	end
+	sessions[player] = data
+	canSave[player] = ok
+	player:SetAttribute("DataLoaded", true)
+	refreshStats(player)
+	applyAuraToCharacter(player)
+	DataUpdatedRemote:FireClient(player, snapshot(data))
+end
+
+Players.PlayerAdded:Connect(onPlayerAdded)
+for _, player in ipairs(Players:GetPlayers()) do
+	task.spawn(onPlayerAdded, player)
+end
+
+Players.PlayerRemoving:Connect(function(player)
+	saveData(player)
+	sessions[player] = nil
+	canSave[player] = nil
+	lastRollTime[player] = nil
+end)
+
+game:BindToClose(function()
+	local threads = {}
+	for _, player in ipairs(Players:GetPlayers()) do
+		table.insert(threads, task.spawn(saveData, player))
+	end
+	-- give saves up to ~20s to finish
+	local start = os.clock()
+	while os.clock() - start < 20 do
+		local allDone = true
+		for _, thread in ipairs(threads) do
+			if coroutine.status(thread) ~= "dead" then
+				allDone = false
+			end
+		end
+		if allDone then
+			break
+		end
+		task.wait(0.5)
+	end
+end)
+
+task.spawn(function()
+	while true do
+		task.wait(Config.AutosaveInterval)
+		for _, player in ipairs(Players:GetPlayers()) do
+			task.spawn(saveData, player)
+		end
+	end
+end)
+]]></string>
+      </Properties>
+    </Item>
+    <Item class="Script" referent="6">
+      <Properties>
+        <string name="Name">WorldSetup</string>
+        <token name="RunContext">0</token>
+        <string name="Source"><![CDATA[-- WorldSetup (Script in ServerScriptService)
+-- Builds the space lighting and the floating island when the game starts.
+-- Nothing to build by hand. Tweak colors/sizes below if you like.
+
+local Lighting = game:GetService("Lighting")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
+
+local rand = Random.new(42) -- fixed seed = same island every time
+
+local ISLAND_RADIUS = 70
+local SPAWN_POSITION = Vector3.new(0, 3, 0)
+
+---------------------------------------------------------------------
+-- LIGHTING: night sky, purple haze and bloom so neon glows
+---------------------------------------------------------------------
+for _, child in ipairs(Lighting:GetChildren()) do
+	if child:IsA("Sky") or child:IsA("Atmosphere") or child:IsA("PostEffect") then
+		child:Destroy()
+	end
+end
+
+Lighting.ClockTime = 0
+Lighting.GeographicLatitude = 20
+Lighting.Brightness = 2
+Lighting.Ambient = Color3.fromRGB(70, 60, 110)
+Lighting.OutdoorAmbient = Color3.fromRGB(110, 95, 170)
+Lighting.EnvironmentDiffuseScale = 0.4
+Lighting.EnvironmentSpecularScale = 0.6
+Lighting.ExposureCompensation = 0.2
+
+local sky = Instance.new("Sky")
+sky.Name = "CosmicSky"
+sky.StarCount = 5000
+sky.CelestialBodiesShown = true
+sky.MoonAngularSize = 20
+sky.Parent = Lighting
+
+local atmosphere = Instance.new("Atmosphere")
+atmosphere.Name = "CosmicAtmosphere"
+atmosphere.Density = 0.3
+atmosphere.Offset = 0.1
+atmosphere.Color = Color3.fromRGB(120, 90, 210)
+atmosphere.Decay = Color3.fromRGB(50, 30, 110)
+atmosphere.Glare = 0.3
+atmosphere.Haze = 1.2
+atmosphere.Parent = Lighting
+
+local bloom = Instance.new("BloomEffect")
+bloom.Name = "CosmicBloom"
+bloom.Intensity = 1
+bloom.Size = 28
+bloom.Threshold = 0.85
+bloom.Parent = Lighting
+
+local color = Instance.new("ColorCorrectionEffect")
+color.Name = "CosmicColor"
+color.Saturation = 0.15
+color.Contrast = 0.08
+color.TintColor = Color3.fromRGB(245, 240, 255)
+color.Parent = Lighting
+
+---------------------------------------------------------------------
+-- REMOVE the template baseplate / spawn
+---------------------------------------------------------------------
+if Config.RemoveDefaultBaseplate then
+	local baseplate = workspace:FindFirstChild("Baseplate")
+	if baseplate then
+		baseplate:Destroy()
+	end
+	for _, child in ipairs(workspace:GetChildren()) do
+		if child:IsA("SpawnLocation") and child.Name ~= "CosmicSpawn" then
+			child:Destroy()
+		end
+	end
+end
+
+local old = workspace:FindFirstChild("CosmicIsland")
+if old then
+	old:Destroy()
+end
+
+local island = Instance.new("Model")
+island.Name = "CosmicIsland"
+
+local function part(props)
+	local p = Instance.new("Part")
+	p.Anchored = true
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	for key, value in pairs(props) do
+		p[key] = value
+	end
+	p.Parent = props.Parent or island
+	return p
+end
+
+-- A cylinder lying flat: Roblox cylinders point along X, so rotate them.
+local FLAT = CFrame.Angles(0, 0, math.rad(90))
+local function disc(name, radius, thickness, topY, color3, material, extra)
+	local props = {
+		Name = name,
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(thickness, radius * 2, radius * 2),
+		CFrame = CFrame.new(0, topY - thickness / 2, 0) * FLAT,
+		Color = color3,
+		Material = material,
+	}
+	for key, value in pairs(extra or {}) do
+		props[key] = value
+	end
+	return part(props)
+end
+
+---------------------------------------------------------------------
+-- ISLAND BODY
+---------------------------------------------------------------------
+local ROCK = Color3.fromRGB(48, 42, 66)
+local ROCK_DARK = Color3.fromRGB(30, 26, 44)
+
+disc("Ground", ISLAND_RADIUS, 4, 0, Color3.fromRGB(62, 54, 88), Enum.Material.Slate)
+disc("EdgeGlow", ISLAND_RADIUS + 0.6, 0.6, -0.2, Color3.fromRGB(140, 100, 255), Enum.Material.Neon,
+	{ CanCollide = false })
+
+-- Stepped underside so it looks like a floating chunk of rock
+local layers = {
+	{ r = ISLAND_RADIUS - 6, y = -4, t = 6 },
+	{ r = ISLAND_RADIUS - 18, y = -10, t = 7 },
+	{ r = ISLAND_RADIUS - 32, y = -17, t = 8 },
+	{ r = ISLAND_RADIUS - 46, y = -25, t = 9 },
+	{ r = ISLAND_RADIUS - 58, y = -34, t = 10 },
+}
+for i, layer in ipairs(layers) do
+	disc("Underside" .. i, layer.r, layer.t, layer.y, (i % 2 == 0) and ROCK_DARK or ROCK, Enum.Material.Slate,
+		{ CanCollide = false })
+end
+
+-- Glowing veins running down the underside
+for i = 1, 10 do
+	local angle = (i / 10) * math.pi * 2 + rand:NextNumber(-0.2, 0.2)
+	local r = ISLAND_RADIUS - 20 - rand:NextNumber(0, 15)
+	part({
+		Name = "Vein",
+		Size = Vector3.new(0.6, rand:NextNumber(10, 22), 0.6),
+		CFrame = CFrame.new(math.cos(angle) * r, -14, math.sin(angle) * r)
+			* CFrame.Angles(rand:NextNumber(-0.3, 0.3), 0, rand:NextNumber(-0.3, 0.3)),
+		Color = Color3.fromRGB(120, 200, 255),
+		Material = Enum.Material.Neon,
+		CanCollide = false,
+	})
+end
+
+---------------------------------------------------------------------
+-- SPAWN PAD in the middle
+---------------------------------------------------------------------
+-- Invisible spawn block; the glowing discs below are what players see.
+local spawn = Instance.new("SpawnLocation")
+spawn.Name = "CosmicSpawn"
+spawn.Anchored = true
+spawn.Neutral = true
+spawn.Duration = 0 -- no forcefield bubble
+spawn.Size = Vector3.new(10, 1, 10)
+spawn.CFrame = CFrame.new(0, 1.55, 0)
+spawn.Transparency = 1
+spawn.CanCollide = false
+spawn.Parent = island
+local decal = spawn:FindFirstChildOfClass("Decal")
+if decal then
+	decal:Destroy()
+end
+
+disc("SpawnRing", 8.6, 0.9, 0.95, Color3.fromRGB(180, 140, 255), Enum.Material.Neon, { CanCollide = false })
+disc("SpawnTop", 8, 1, 1.05, Color3.fromRGB(90, 80, 130), Enum.Material.Marble)
+
+---------------------------------------------------------------------
+-- CRYSTALS around the island
+---------------------------------------------------------------------
+local crystalColors = {
+	Color3.fromRGB(150, 110, 255),
+	Color3.fromRGB(90, 200, 255),
+	Color3.fromRGB(255, 110, 210),
+	Color3.fromRGB(120, 255, 210),
+}
+
+local function crystalCluster(position, mainColor)
+	local count = rand:NextInteger(3, 5)
+	for i = 1, count do
+		local height = (i == 1) and rand:NextNumber(9, 14) or rand:NextNumber(3.5, 8)
+		local width = height * 0.22
+		local offset = (i == 1) and Vector3.zero
+			or Vector3.new(rand:NextNumber(-2.5, 2.5), 0, rand:NextNumber(-2.5, 2.5))
+		local crystal = part({
+			Name = "Crystal",
+			Size = Vector3.new(width, height, width),
+			CFrame = CFrame.new(position + offset + Vector3.new(0, height * 0.4, 0))
+				* CFrame.Angles(rand:NextNumber(-0.35, 0.35), rand:NextNumber(0, math.pi), rand:NextNumber(-0.35, 0.35)),
+			Color = mainColor,
+			Material = Enum.Material.Neon,
+			Transparency = 0.15,
+			CanCollide = (i == 1),
+		})
+		if i == 1 then
+			local light = Instance.new("PointLight")
+			light.Color = mainColor
+			light.Range = 18
+			light.Brightness = 1.5
+			light.Parent = crystal
+
+			local sparkle = Instance.new("ParticleEmitter")
+			sparkle.Texture = Config.Textures.Sparkle
+			sparkle.Rate = 3
+			sparkle.Lifetime = NumberRange.new(2, 4)
+			sparkle.Speed = NumberRange.new(0.5, 1.5)
+			sparkle.SpreadAngle = Vector2.new(180, 180)
+			sparkle.Size = NumberSequence.new({
+				NumberSequenceKeypoint.new(0, 0),
+				NumberSequenceKeypoint.new(0.5, 0.4),
+				NumberSequenceKeypoint.new(1, 0),
+			})
+			sparkle.LightEmission = 1
+			sparkle.LightInfluence = 0
+			sparkle.Color = ColorSequence.new(mainColor)
+			sparkle.Parent = crystal
+		end
+	end
+end
+
+for i = 1, 12 do
+	local angle = (i / 12) * math.pi * 2 + rand:NextNumber(-0.15, 0.15)
+	local r = ISLAND_RADIUS - rand:NextNumber(6, 14)
+	crystalCluster(Vector3.new(math.cos(angle) * r, 0, math.sin(angle) * r), crystalColors[(i % #crystalColors) + 1])
+end
+
+-- Small rocks scattered on the ground
+for _ = 1, 30 do
+	local angle = rand:NextNumber(0, math.pi * 2)
+	local r = rand:NextNumber(14, ISLAND_RADIUS - 4)
+	local size = rand:NextNumber(1, 3)
+	part({
+		Name = "Rock",
+		Size = Vector3.new(size * 1.3, size, size),
+		CFrame = CFrame.new(math.cos(angle) * r, size * 0.3, math.sin(angle) * r)
+			* CFrame.Angles(rand:NextNumber(0, 1), rand:NextNumber(0, 6), rand:NextNumber(0, 1)),
+		Color = ROCK,
+		Material = Enum.Material.Slate,
+	})
+end
+
+---------------------------------------------------------------------
+-- ASTEROIDS floating around (just scenery)
+---------------------------------------------------------------------
+for _ = 1, 26 do
+	local angle = rand:NextNumber(0, math.pi * 2)
+	local r = rand:NextNumber(ISLAND_RADIUS + 25, ISLAND_RADIUS + 140)
+	local size = rand:NextNumber(4, 16)
+	local asteroid = part({
+		Name = "Asteroid",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.one * size,
+		CFrame = CFrame.new(math.cos(angle) * r, rand:NextNumber(-60, 70), math.sin(angle) * r),
+		Color = (rand:NextNumber() < 0.5) and ROCK or ROCK_DARK,
+		Material = Enum.Material.Slate,
+		CanCollide = false,
+	})
+	if rand:NextNumber() < 0.35 then
+		local glow = Instance.new("PointLight")
+		glow.Color = crystalColors[rand:NextInteger(1, #crystalColors)]
+		glow.Range = size * 1.5
+		glow.Brightness = 1
+		glow.Parent = asteroid
+	end
+end
+
+---------------------------------------------------------------------
+-- STARDUST drifting over the island
+---------------------------------------------------------------------
+local dustArea = part({
+	Name = "StardustArea",
+	Size = Vector3.new(ISLAND_RADIUS * 2, 30, ISLAND_RADIUS * 2),
+	CFrame = CFrame.new(0, 15, 0),
+	Transparency = 1,
+	CanCollide = false,
+	CanQuery = false,
+	CanTouch = false,
+})
+local dust = Instance.new("ParticleEmitter")
+dust.Texture = Config.Textures.Sparkle
+dust.Rate = 40
+dust.Lifetime = NumberRange.new(5, 9)
+dust.Speed = NumberRange.new(0.2, 0.8)
+dust.SpreadAngle = Vector2.new(180, 180)
+dust.Size = NumberSequence.new({
+	NumberSequenceKeypoint.new(0, 0),
+	NumberSequenceKeypoint.new(0.5, 0.35),
+	NumberSequenceKeypoint.new(1, 0),
+})
+dust.LightEmission = 1
+dust.LightInfluence = 0
+dust.Color = ColorSequence.new(Color3.fromRGB(200, 180, 255), Color3.fromRGB(140, 220, 255))
+dust.Parent = dustArea
+
+---------------------------------------------------------------------
+-- SAFETY NET: anyone who falls off is sent back to spawn
+---------------------------------------------------------------------
+local net = part({
+	Name = "FallNet",
+	Size = Vector3.new(2048, 4, 2048),
+	CFrame = CFrame.new(0, -140, 0),
+	Transparency = 1,
+	CanCollide = false,
+})
+net.Touched:Connect(function(hit)
+	local character = hit.Parent
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	if humanoid and root then
+		root.AssemblyLinearVelocity = Vector3.zero
+		character:PivotTo(CFrame.new(SPAWN_POSITION))
+	end
+end)
+
+island.Parent = workspace
+]]></string>
+      </Properties>
+    </Item>
+  </Item>
+  <Item class="StarterPlayer" referent="7">
+    <Properties>
+      <string name="Name">StarterPlayer</string>
+    </Properties>
+    <Item class="StarterPlayerScripts" referent="8">
+      <Properties>
+        <string name="Name">StarterPlayerScripts</string>
+      </Properties>
+      <Item class="LocalScript" referent="9">
+        <Properties>
+          <string name="Name">AuraRenderer</string>
+          <string name="Source"><![CDATA[-- AuraRenderer (LocalScript in StarterPlayer > StarterPlayerScripts)
+-- Draws every player's aura on this screen. The server just puts an
+-- "Aura" attribute on each character; this script turns it into visuals.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local AuraData = require(ReplicatedStorage:WaitForChild("AuraData"))
+local AuraEffects = require(ReplicatedStorage:WaitForChild("AuraEffects"))
+
+local tracked = {} -- [character] = true
+local handles = {} -- [character] = aura handle
+
+-- Makes sure a character shows the right aura (or none).
+local function reconcile(character, withBurst)
+	local desired = character:GetAttribute("Aura")
+	local root = character:FindFirstChild("HumanoidRootPart")
+	local handle = handles[character]
+
+	if handle then
+		local stillValid = handle:IsAlive() and handle.Aura.Name == desired and handle.Root == root
+		if not stillValid then
+			handle:Destroy()
+			handles[character] = nil
+		end
+	end
+
+	if not handles[character] and desired and root and character.Parent then
+		handles[character] = AuraEffects.Apply(character, desired)
+		if withBurst and handles[character] then
+			local aura = AuraData.Get(desired)
+			local tier = AuraData.Tiers[aura.Tier]
+			AuraEffects.Burst(root.Position, aura.Colors, 0.6 + tier.Order * 0.2)
+		end
+	end
+end
+
+local function track(character)
+	if tracked[character] then
+		return
+	end
+	tracked[character] = true
+
+	character:GetAttributeChangedSignal("Aura"):Connect(function()
+		reconcile(character, true)
+	end)
+	-- Root part can arrive late (loading / streaming)
+	character.ChildAdded:Connect(function(child)
+		if child.Name == "HumanoidRootPart" then
+			reconcile(character, false)
+		end
+	end)
+	character.Destroying:Connect(function()
+		tracked[character] = nil
+		if handles[character] then
+			handles[character]:Destroy()
+			handles[character] = nil
+		end
+	end)
+
+	reconcile(character, false)
+end
+
+local function onPlayer(player)
+	if player.Character then
+		track(player.Character)
+	end
+	player.CharacterAdded:Connect(track)
+end
+
+Players.PlayerAdded:Connect(onPlayer)
+for _, player in ipairs(Players:GetPlayers()) do
+	onPlayer(player)
+end
+
+-- Animate every frame
+RunService.RenderStepped:Connect(function(dt)
+	for character, handle in pairs(handles) do
+		if handle:IsAlive() then
+			handle:Update(dt)
+		else
+			handle:Destroy()
+			handles[character] = nil
+		end
+	end
+end)
+
+-- Safety check twice a second (catches respawns, streaming, removed characters)
+task.spawn(function()
+	while true do
+		task.wait(0.5)
+		for character in pairs(tracked) do
+			if character.Parent == nil then
+				tracked[character] = nil
+				if handles[character] then
+					handles[character]:Destroy()
+					handles[character] = nil
+				end
+			else
+				reconcile(character, false)
+			end
+		end
+	end
+end)
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="LocalScript" referent="10">
+        <Properties>
+          <string name="Name">RollUI</string>
+          <string name="Source"><![CDATA[-- RollUI (LocalScript in StarterPlayer > StarterPlayerScripts)
+-- Builds the whole roll interface in code: roll button, auto roll,
+-- roll animation, rare cutscenes, inventory and announcements.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+local MarketplaceService = game:GetService("MarketplaceService")
+local Lighting = game:GetService("Lighting")
+local TextChatService = game:GetService("TextChatService")
+local Debris = game:GetService("Debris")
+local SoundService = game:GetService("SoundService")
+
+local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
+local AuraData = require(ReplicatedStorage:WaitForChild("AuraData"))
+
+local remotes = ReplicatedStorage:WaitForChild("CosmicRemotes")
+local RollRemote = remotes:WaitForChild("Roll")
+local GetDataRemote = remotes:WaitForChild("GetData")
+local EquipRemote = remotes:WaitForChild("Equip")
+local DataUpdatedRemote = remotes:WaitForChild("DataUpdated")
+local AnnounceRemote = remotes:WaitForChild("Announce")
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+local rand = Random.new()
+
+---------------------------------------------------------------------
+-- State
+---------------------------------------------------------------------
+local data = { Rolls = 0, Inventory = {}, Equipped = "", BestChance = 0 }
+local rolling = false
+local autoRolling = false
+local inventoryOpen = false
+local refreshInventory -- defined later
+
+---------------------------------------------------------------------
+-- Theme + UI helpers
+---------------------------------------------------------------------
+local THEME = {
+	Panel = Color3.fromRGB(18, 14, 34),
+	PanelLight = Color3.fromRGB(34, 28, 62),
+	Accent = Color3.fromRGB(150, 110, 255),
+	Accent2 = Color3.fromRGB(80, 190, 255),
+	Text = Color3.fromRGB(255, 255, 255),
+	SubText = Color3.fromRGB(190, 180, 225),
+	Good = Color3.fromRGB(90, 220, 130),
+	Bad = Color3.fromRGB(240, 80, 100),
+}
+local TITLE_FONT = Enum.Font.FredokaOne
+local BODY_FONT = Enum.Font.GothamBold
+
+local function new(className, props, children)
+	local inst = Instance.new(className)
+	local parent
+	for key, value in pairs(props or {}) do
+		if key == "Parent" then
+			parent = value
+		else
+			inst[key] = value
+		end
+	end
+	for _, child in ipairs(children or {}) do
+		child.Parent = inst
+	end
+	if parent then
+		inst.Parent = parent
+	end
+	return inst
+end
+
+local function corner(radius)
+	return new("UICorner", { CornerRadius = radius or UDim.new(0, 12) })
+end
+
+local function stroke(color, thickness, transparency)
+	return new("UIStroke", {
+		Name = "Border",
+		Color = color,
+		Thickness = thickness or 2,
+		Transparency = transparency or 0,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
+	})
+end
+
+local function textStroke(thickness)
+	return new("UIStroke", {
+		Color = Color3.new(0, 0, 0),
+		Thickness = thickness or 2,
+		Transparency = 0.3,
+		ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual,
+	})
+end
+
+local function gradient(c1, c2, rotation)
+	return new("UIGradient", { Color = ColorSequence.new(c1, c2), Rotation = rotation or 90 })
+end
+
+local function tween(inst, duration, props, style, direction)
+	local tw = TweenService:Create(
+		inst,
+		TweenInfo.new(duration, style or Enum.EasingStyle.Quad, direction or Enum.EasingDirection.Out),
+		props
+	)
+	tw:Play()
+	return tw
+end
+
+local function label(props)
+	local defaults = {
+		BackgroundTransparency = 1,
+		Font = BODY_FONT,
+		TextColor3 = THEME.Text,
+		TextScaled = false,
+		TextSize = 18,
+	}
+	for key, value in pairs(props) do
+		defaults[key] = value
+	end
+	return new("TextLabel", defaults)
+end
+
+-- Hover/press bounce for any button
+local function addButtonFeel(button)
+	local scale = button:FindFirstChildOfClass("UIScale") or new("UIScale", { Parent = button })
+	button.MouseEnter:Connect(function()
+		tween(scale, 0.12, { Scale = 1.06 })
+	end)
+	button.MouseLeave:Connect(function()
+		tween(scale, 0.12, { Scale = 1 })
+	end)
+	button.MouseButton1Down:Connect(function()
+		tween(scale, 0.06, { Scale = 0.92 })
+	end)
+	button.MouseButton1Up:Connect(function()
+		tween(scale, 0.18, { Scale = 1.06 }, Enum.EasingStyle.Back)
+	end)
+end
+
+-- Shrinks UI on small screens (phones)
+local function addAutoScale(guiObject, baseHeight)
+	local scale = new("UIScale", { Parent = guiObject })
+	local function update()
+		scale.Scale = math.clamp(camera.ViewportSize.Y / (baseHeight or 820), 0.55, 1.1)
+	end
+	update()
+	camera:GetPropertyChangedSignal("ViewportSize"):Connect(update)
+	return scale
+end
+
+local function playSound(id, volume)
+	if not id or id == "" then
+		return
+	end
+	local sound = new("Sound", { SoundId = id, Volume = volume or 0.5, Parent = SoundService })
+	sound:Play()
+	Debris:AddItem(sound, 6)
+end
+
+local function tierColor(aura)
+	return AuraData.Tiers[aura.Tier].Color
+end
+
+---------------------------------------------------------------------
+-- SCREEN
+---------------------------------------------------------------------
+local gui = new("ScreenGui", {
+	Name = "CosmicUI",
+	ResetOnSpawn = false,
+	IgnoreGuiInset = true,
+	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+	Parent = player:WaitForChild("PlayerGui"),
+})
+
+-- Layers (higher ZIndex = drawn on top)
+local dimLayer = new("Frame", {
+	Name = "Dim", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0),
+	BackgroundTransparency = 1, ZIndex = 2, Parent = gui,
+})
+local raysLayer = new("Frame", {
+	Name = "Rays", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 3,
+	Visible = false, Parent = gui,
+})
+local particleLayer = new("Frame", {
+	Name = "UIParticles", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 7, Parent = gui,
+})
+local flashLayer = new("Frame", {
+	Name = "Flash", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1),
+	BackgroundTransparency = 1, ZIndex = 10, Parent = gui,
+})
+
+---------------------------------------------------------------------
+-- TOP-LEFT STATS
+---------------------------------------------------------------------
+local statsPanel = new("Frame", {
+	Name = "Stats",
+	Position = UDim2.new(0, 16, 0, 64),
+	Size = UDim2.fromOffset(250, 78),
+	BackgroundColor3 = THEME.Panel,
+	BackgroundTransparency = 0.25,
+	ZIndex = 5,
+	Parent = gui,
+}, { corner(), stroke(THEME.Accent, 1.5, 0.4) })
+addAutoScale(statsPanel)
+local rollsLabel = label({
+	Position = UDim2.fromOffset(14, 8), Size = UDim2.new(1, -28, 0, 28),
+	Text = "🎲 Rolls: 0", TextXAlignment = Enum.TextXAlignment.Left, TextSize = 20,
+	Font = TITLE_FONT, ZIndex = 5, Parent = statsPanel,
+})
+local bestLabel = label({
+	Position = UDim2.fromOffset(14, 40), Size = UDim2.new(1, -28, 0, 26),
+	Text = "⭐ Best: none yet", TextXAlignment = Enum.TextXAlignment.Left, TextSize = 15,
+	TextColor3 = THEME.SubText, ZIndex = 5, RichText = true, TextTruncate = Enum.TextTruncate.AtEnd,
+	Parent = statsPanel,
+})
+
+---------------------------------------------------------------------
+-- BOTTOM ROLL BAR
+---------------------------------------------------------------------
+local rollBar = new("Frame", {
+	Name = "RollBar",
+	AnchorPoint = Vector2.new(0.5, 1),
+	Position = UDim2.new(0.5, 0, 1, -24),
+	Size = UDim2.fromOffset(530, 120),
+	BackgroundTransparency = 1,
+	ZIndex = 5,
+	Parent = gui,
+})
+addAutoScale(rollBar)
+
+local infoLabel = label({
+	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), Size = UDim2.new(1, 0, 0, 26),
+	Text = "", RichText = true, TextSize = 18, Font = TITLE_FONT, ZIndex = 5, Parent = rollBar,
+})
+textStroke(1.5).Parent = infoLabel
+
+local rollButton = new("TextButton", {
+	Name = "RollButton",
+	AnchorPoint = Vector2.new(0.5, 1),
+	Position = UDim2.new(0.5, 0, 1, 0),
+	Size = UDim2.fromOffset(230, 80),
+	BackgroundColor3 = Color3.new(1, 1, 1),
+	AutoButtonColor = false,
+	Text = "ROLL",
+	Font = TITLE_FONT,
+	TextSize = 44,
+	TextColor3 = THEME.Text,
+	ZIndex = 5,
+	Parent = rollBar,
+}, { corner(UDim.new(0, 18)), stroke(Color3.new(1, 1, 1), 3, 0.2), textStroke(2.5) })
+local rollGradient = new("UIGradient", {
+	Color = ColorSequence.new({
+		ColorSequenceKeypoint.new(0, Color3.fromRGB(170, 90, 255)),
+		ColorSequenceKeypoint.new(0.5, Color3.fromRGB(90, 140, 255)),
+		ColorSequenceKeypoint.new(1, Color3.fromRGB(80, 220, 255)),
+	}),
+	Parent = rollButton,
+})
+addButtonFeel(rollButton)
+
+local function sideButton(name, text, anchorX, offsetX)
+	local button = new("TextButton", {
+		Name = name,
+		AnchorPoint = Vector2.new(anchorX, 1),
+		Position = UDim2.new(0.5, offsetX, 1, -10),
+		Size = UDim2.fromOffset(135, 60),
+		BackgroundColor3 = THEME.PanelLight,
+		AutoButtonColor = false,
+		Text = text,
+		RichText = true,
+		Font = TITLE_FONT,
+		TextSize = 20,
+		TextColor3 = THEME.Text,
+		ZIndex = 5,
+		Parent = rollBar,
+	}, { corner(UDim.new(0, 14)), stroke(THEME.Accent, 2, 0.2), textStroke(1.5) })
+	addButtonFeel(button)
+	return button
+end
+
+local autoButton = sideButton("AutoButton", "", 1, -128)
+local aurasButton = sideButton("AurasButton", "✦ AURAS", 0, 128)
+
+---------------------------------------------------------------------
+-- CENTER REVEAL DISPLAY
+---------------------------------------------------------------------
+local reveal = new("Frame", {
+	Name = "Reveal",
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.4),
+	Size = UDim2.fromOffset(700, 200),
+	BackgroundTransparency = 1,
+	ZIndex = 6,
+	Visible = false,
+	Parent = gui,
+})
+addAutoScale(reveal)
+-- The reveal frame scales to the screen; popHolder inside it does the "pop".
+local popHolder = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 6, Parent = reveal })
+local popScale = new("UIScale", { Parent = popHolder })
+
+local tierLabel = label({
+	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), Size = UDim2.new(1, 0, 0, 30),
+	Text = "", Font = TITLE_FONT, TextSize = 26, ZIndex = 6, Parent = popHolder,
+})
+textStroke(2).Parent = tierLabel
+local nameLabel = label({
+	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 30), Size = UDim2.new(1, 0, 0, 96),
+	Text = "", Font = TITLE_FONT, TextSize = 84, ZIndex = 6, Parent = popHolder,
+})
+textStroke(3.5).Parent = nameLabel
+local nameGradient = new("UIGradient", { Parent = nameLabel })
+local chanceLabel = label({
+	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 126), Size = UDim2.new(1, 0, 0, 34),
+	Text = "", Font = TITLE_FONT, TextSize = 30, ZIndex = 6, Parent = popHolder,
+})
+textStroke(2).Parent = chanceLabel
+local badgeLabel = label({
+	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 166), Size = UDim2.fromOffset(170, 30),
+	Text = "", Font = TITLE_FONT, TextSize = 20, ZIndex = 6, BackgroundTransparency = 0,
+	BackgroundColor3 = THEME.Good, Visible = false, Parent = popHolder,
+})
+corner(UDim.new(1, 0)).Parent = badgeLabel
+textStroke(1.5).Parent = badgeLabel
+
+local revealTexts = { tierLabel, nameLabel, chanceLabel }
+
+local function setRevealAura(aura)
+	local c1, c2 = aura.Colors[1], aura.Colors[2]
+	-- very dark colors are unreadable as text, so brighten them
+	local function readable(c)
+		local h, s, v = c:ToHSV()
+		return Color3.fromHSV(h, s, math.max(v, 0.55))
+	end
+	nameLabel.Text = aura.Name
+	nameLabel.TextColor3 = Color3.new(1, 1, 1)
+	nameGradient.Color = ColorSequence.new(readable(c1), readable(c2))
+	chanceLabel.Text = AuraData.FormatChance(aura.Chance)
+	chanceLabel.TextColor3 = THEME.SubText
+	tierLabel.Text = string.upper(aura.Tier)
+	tierLabel.TextColor3 = tierColor(aura)
+end
+
+local function setRevealTransparency(value, duration)
+	for _, text in ipairs(revealTexts) do
+		if duration then
+			tween(text, duration, { TextTransparency = value })
+		else
+			text.TextTransparency = value
+		end
+		local s = text:FindFirstChildOfClass("UIStroke")
+		if s then
+			if duration then
+				tween(s, duration, { Transparency = math.max(value, 0.3) })
+			else
+				s.Transparency = math.max(value, 0.3)
+			end
+		end
+	end
+end
+
+---------------------------------------------------------------------
+-- CUTSCENE RAYS
+---------------------------------------------------------------------
+local rays = {}
+for i = 1, 8 do
+	local ray = new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.4),
+		Size = UDim2.new(0, 46, 2.5, 0),
+		BackgroundColor3 = Color3.new(1, 1, 1),
+		BorderSizePixel = 0,
+		Rotation = (i - 1) * (180 / 8),
+		ZIndex = 3,
+		Parent = raysLayer,
+	})
+	new("UIGradient", {
+		Rotation = 90,
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.42, 0.55),
+			NumberSequenceKeypoint.new(0.5, 0.2),
+			NumberSequenceKeypoint.new(0.58, 0.55),
+			NumberSequenceKeypoint.new(1, 1),
+		}),
+		Parent = ray,
+	})
+	table.insert(rays, ray)
+end
+
+local cutsceneHolder = new("Frame", {
+	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.4), Size = UDim2.fromOffset(900, 60),
+	BackgroundTransparency = 1, ZIndex = 6, Parent = gui,
+})
+addAutoScale(cutsceneHolder)
+local cutsceneText = label({
+	Size = UDim2.fromScale(1, 1), Text = "", Font = TITLE_FONT, TextSize = 40, ZIndex = 6,
+	TextTransparency = 1, Parent = cutsceneHolder,
+})
+local cutsceneStroke = textStroke(3)
+cutsceneStroke.Transparency = 1
+cutsceneStroke.Parent = cutsceneText
+local cutsceneScale = new("UIScale", { Parent = cutsceneText })
+
+---------------------------------------------------------------------
+-- ANNOUNCEMENT BANNER + TOASTS
+---------------------------------------------------------------------
+local banner = new("Frame", {
+	Name = "Banner",
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.new(0.5, 0, 0, -90),
+	Size = UDim2.fromOffset(620, 58),
+	BackgroundColor3 = THEME.Panel,
+	BackgroundTransparency = 0.1,
+	ZIndex = 9,
+	Parent = gui,
+}, { corner(UDim.new(0, 14)) })
+local bannerStroke = stroke(THEME.Accent, 2.5, 0)
+bannerStroke.Parent = banner
+addAutoScale(banner)
+local bannerLabel = label({
+	Size = UDim2.new(1, -20, 1, 0), Position = UDim2.fromOffset(10, 0), RichText = true,
+	Text = "", Font = TITLE_FONT, TextSize = 22, ZIndex = 9, TextWrapped = true, Parent = banner,
+})
+
+local toast = label({
+	AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -170), Size = UDim2.fromOffset(600, 30),
+	Text = "", Font = TITLE_FONT, TextSize = 22, ZIndex = 9, TextTransparency = 1, Parent = gui,
+})
+local toastStroke = textStroke(2)
+toastStroke.Parent = toast
+local toastToken = 0
+local function showToast(text, color)
+	toastToken += 1
+	local token = toastToken
+	toast.Text = text
+	toast.TextColor3 = color or THEME.Text
+	toast.TextTransparency = 0
+	toastStroke.Transparency = 0.3
+	task.delay(2.5, function()
+		if token == toastToken then
+			tween(toast, 0.4, { TextTransparency = 1 })
+			tween(toastStroke, 0.4, { Transparency = 1 })
+		end
+	end)
+end
+
+---------------------------------------------------------------------
+-- EFFECTS: camera shake, FOV punch, flash, UI particle bursts
+---------------------------------------------------------------------
+local shake = 0
+local shaking = false
+RunService.RenderStepped:Connect(function(dt)
+	local character = player.Character
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if shake > 0.01 then
+		shaking = true
+		local m = shake * 0.35
+		if humanoid then
+			humanoid.CameraOffset = Vector3.new(rand:NextNumber(-m, m), rand:NextNumber(-m, m), rand:NextNumber(-m, m))
+		end
+		shake = math.max(0, shake - dt * 2.5)
+	elseif shaking then
+		shaking = false
+		if humanoid then
+			humanoid.CameraOffset = Vector3.zero
+		end
+	end
+end)
+
+local function addShake(amount)
+	shake = math.max(shake, amount)
+end
+
+local baseFov = camera.FieldOfView
+local function fovPunch(amount)
+	camera.FieldOfView = baseFov + amount
+	tween(camera, 0.6, { FieldOfView = baseFov }, Enum.EasingStyle.Quint)
+end
+
+local function flash(strength, duration)
+	flashLayer.BackgroundTransparency = 1 - strength
+	tween(flashLayer, duration or 0.5, { BackgroundTransparency = 1 })
+end
+
+local STAR_GLYPHS = { "✦", "✧", "★", "✶" }
+local function uiBurst(colors, count, power, origin)
+	origin = origin or Vector2.new(0.5, 0.4)
+	power = power or 1
+	for _ = 1, count do
+		local angle = rand:NextNumber(0, math.pi * 2)
+		local dist = rand:NextNumber(120, 380) * power
+		local color = colors[rand:NextInteger(1, #colors)]
+		local startPos = UDim2.fromScale(origin.X, origin.Y)
+		local endPos = UDim2.new(origin.X, math.cos(angle) * dist, origin.Y, math.sin(angle) * dist)
+		local duration = rand:NextNumber(0.6, 1.2)
+		local piece
+		if rand:NextNumber() < 0.5 then
+			local size = rand:NextInteger(6, 14)
+			piece = new("Frame", {
+				AnchorPoint = Vector2.new(0.5, 0.5), Position = startPos, Size = UDim2.fromOffset(size, size),
+				BackgroundColor3 = color, BorderSizePixel = 0, ZIndex = 7, Parent = particleLayer,
+			}, { corner(UDim.new(1, 0)) })
+			tween(piece, duration, { Position = endPos, Size = UDim2.fromOffset(0, 0), BackgroundTransparency = 1 }, Enum.EasingStyle.Quart)
+		else
+			piece = label({
+				AnchorPoint = Vector2.new(0.5, 0.5), Position = startPos, Size = UDim2.fromOffset(40, 40),
+				Text = STAR_GLYPHS[rand:NextInteger(1, #STAR_GLYPHS)], TextColor3 = color,
+				TextSize = rand:NextInteger(18, 36), Font = Enum.Font.GothamBlack, ZIndex = 7,
+				Rotation = rand:NextNumber(0, 360), Parent = particleLayer,
+			})
+			tween(piece, duration, {
+				Position = endPos, TextTransparency = 1, Rotation = piece.Rotation + rand:NextNumber(-270, 270),
+			}, Enum.EasingStyle.Quart)
+		end
+		Debris:AddItem(piece, duration + 0.1)
+	end
+end
+
+---------------------------------------------------------------------
+-- INFO LINE (luck + lucky roll counter)
+---------------------------------------------------------------------
+local function currentLuck()
+	local luck = Config.BaseLuck
+	if player:GetAttribute("Pass_DoubleLuck") then
+		luck *= 2
+	end
+	luck *= (player:GetAttribute("BonusLuck") or 1)
+	return luck
+end
+
+local function formatLuck(n)
+	if n == math.floor(n) then
+		return tostring(n)
+	end
+	return string.format("%.1f", n)
+end
+
+local function updateInfo()
+	local every = Config.LuckyRollEvery
+	local untilLucky = every - (data.Rolls % every)
+	local luckText = ("<font color='#9fe8ff'>🍀 Luck x%s</font>"):format(formatLuck(currentLuck()))
+	local luckyText
+	if untilLucky == 1 then
+		luckyText = ("<font color='#ffd76a'>✨ NEXT ROLL IS LUCKY (x%s)</font>"):format(formatLuck(Config.LuckyRollMultiplier))
+	else
+		luckyText = ("<font color='#c9bff0'>Lucky roll in %d</font>"):format(untilLucky)
+	end
+	infoLabel.Text = luckText .. "   •   " .. luckyText
+end
+
+local function updateStats()
+	rollsLabel.Text = "🎲 Rolls: " .. AuraData.FormatNumber(data.Rolls)
+	local best
+	for name, count in pairs(data.Inventory) do
+		local aura = AuraData.Get(name)
+		if aura and count > 0 and (not best or aura.Chance > best.Chance) then
+			best = aura
+		end
+	end
+	if best then
+		bestLabel.Text = ("⭐ Best: <font color='#%s'>%s</font> (%s)"):format(
+			tierColor(best):ToHex(), best.Name, AuraData.FormatChance(best.Chance))
+	else
+		bestLabel.Text = "⭐ Best: none yet"
+	end
+	updateInfo()
+end
+
+---------------------------------------------------------------------
+-- AUTO ROLL BUTTON
+---------------------------------------------------------------------
+local function ownsAutoRoll()
+	return player:GetAttribute("Pass_AutoRoll") == true
+end
+
+local function updateAutoButton()
+	local autoStroke = autoButton:FindFirstChild("Border")
+	if not ownsAutoRoll() then
+		autoButton.Text = "🔒 AUTO\n<font size='13'>Game Pass</font>"
+		autoButton.BackgroundColor3 = THEME.PanelLight
+		autoStroke.Color = Color3.fromRGB(255, 200, 70)
+	elseif autoRolling then
+		autoButton.Text = "AUTO: ON"
+		autoButton.BackgroundColor3 = Color3.fromRGB(40, 120, 70)
+		autoStroke.Color = THEME.Good
+	else
+		autoButton.Text = "AUTO: OFF"
+		autoButton.BackgroundColor3 = THEME.PanelLight
+		autoStroke.Color = THEME.Accent
+	end
+end
+
+---------------------------------------------------------------------
+-- RARE ROLL CUTSCENE
+---------------------------------------------------------------------
+local raysConnection
+local function playCutscene(aura)
+	local order = AuraData.Tiers[aura.Tier].Order
+	local duration = (order >= 7) and 3.6 or (order >= 6) and 2.8 or 2
+	local color = tierColor(aura)
+
+	-- darken + spinning light rays
+	tween(dimLayer, 0.5, { BackgroundTransparency = 0.25 })
+	raysLayer.Visible = true
+	for _, ray in ipairs(rays) do
+		ray.BackgroundColor3 = aura.Colors[1]
+		ray.BackgroundTransparency = 1
+		tween(ray, 0.6, { BackgroundTransparency = 0 })
+	end
+	if raysConnection then
+		raysConnection:Disconnect()
+	end
+	raysConnection = RunService.RenderStepped:Connect(function(dt)
+		for i, ray in ipairs(rays) do
+			ray.Rotation += dt * ((i % 2 == 0) and 25 or 40)
+		end
+	end)
+
+	cutsceneText.Text = (order >= 7) and "THE UNIVERSE TREMBLES..."
+		or (order >= 6) and "Something MYTHIC approaches..."
+		or "A LEGENDARY aura approaches..."
+	cutsceneText.TextColor3 = color
+	tween(cutsceneText, 0.4, { TextTransparency = 0 })
+	tween(cutsceneStroke, 0.4, { Transparency = 0.3 })
+
+	-- heartbeat pulses with growing shake
+	local beats = math.floor(duration / 0.5)
+	for i = 1, beats do
+		cutsceneScale.Scale = 1.15
+		tween(cutsceneScale, 0.35, { Scale = 1 }, Enum.EasingStyle.Quad)
+		addShake(0.3 + i / beats * 1.2)
+		uiBurst(aura.Colors, 6, 0.6)
+		playSound(Config.Sounds.RollTick, 0.4)
+		task.wait(0.5)
+	end
+
+	tween(cutsceneText, 0.2, { TextTransparency = 1 })
+	tween(cutsceneStroke, 0.2, { Transparency = 1 })
+	flash(1, 0.9)
+	addShake(2.5)
+	tween(dimLayer, 1.2, { BackgroundTransparency = 1 })
+	for _, ray in ipairs(rays) do
+		tween(ray, 1.2, { BackgroundTransparency = 1 })
+	end
+	task.delay(1.3, function()
+		if raysConnection then
+			raysConnection:Disconnect()
+			raysConnection = nil
+		end
+		raysLayer.Visible = false
+	end)
+end
+
+---------------------------------------------------------------------
+-- ROLL ANIMATION
+---------------------------------------------------------------------
+local function playRollAnimation(result, fast)
+	local final = AuraData.Get(result.Aura)
+	local order = AuraData.Tiers[final.Tier].Order
+
+	reveal.Visible = true
+	badgeLabel.Visible = false
+	setRevealTransparency(0)
+	reveal.Position = UDim2.fromScale(0.5, 0.4)
+
+	if result.Lucky then
+		showToast("✨ LUCKY ROLL! x" .. formatLuck(Config.LuckyRollMultiplier) .. " luck", Color3.fromRGB(255, 215, 106))
+	end
+
+	-- Spin through random auras, slowing down at the end
+	local steps = fast and 7 or 16
+	local showLuck = math.max(result.Luck or 1, 1) * 40 -- show some exciting names while spinning
+	for i = 1, steps do
+		local fake = AuraData.RollRandom(showLuck, rand)
+		setRevealAura(fake)
+		popScale.Scale = 1.12
+		tween(popScale, 0.08, { Scale = 1 })
+		playSound(Config.Sounds.RollTick, 0.3)
+		local progress = i / steps
+		task.wait((fast and 0.03 or 0.04) + progress ^ 3 * (fast and 0.12 or 0.28))
+	end
+
+	-- Big rolls get a cutscene first
+	if final.Chance >= Config.CutsceneAtChance then
+		setRevealTransparency(1)
+		playCutscene(final)
+		setRevealTransparency(0)
+	end
+
+	-- REVEAL
+	setRevealAura(final)
+	popScale.Scale = 1.7
+	tween(popScale, 0.45, { Scale = 1 }, Enum.EasingStyle.Back)
+
+	local burstCount = 10 + order * 8
+	uiBurst({ final.Colors[1], final.Colors[2], tierColor(final) }, burstCount, 0.7 + order * 0.15)
+	if order >= 3 then
+		flash(math.min(0.15 + order * 0.08, 0.7), 0.4)
+		addShake(0.2 + order * 0.2)
+		fovPunch(order * 1.5)
+	end
+	if order >= 5 then
+		playSound(Config.Sounds.RevealLegendary, 0.7)
+	elseif order >= 3 then
+		playSound(Config.Sounds.RevealRare, 0.6)
+	else
+		playSound(Config.Sounds.RevealCommon, 0.5)
+	end
+
+	if result.IsNewBest and data.Rolls > 1 then
+		badgeLabel.Text = "NEW BEST!"
+		badgeLabel.BackgroundColor3 = Color3.fromRGB(255, 190, 60)
+		badgeLabel.Visible = true
+	elseif result.IsFirstTime then
+		badgeLabel.Text = "NEW!"
+		badgeLabel.BackgroundColor3 = THEME.Good
+		badgeLabel.Visible = true
+	end
+
+	-- hold, then float up and fade
+	task.wait(fast and 0.55 or (1.1 + order * 0.15))
+	badgeLabel.Visible = false
+	tween(reveal, 0.35, { Position = UDim2.fromScale(0.5, 0.36) })
+	setRevealTransparency(1, 0.35)
+	task.wait(0.35)
+	reveal.Visible = false
+end
+
+---------------------------------------------------------------------
+-- ROLLING
+---------------------------------------------------------------------
+local function doRoll(fast)
+	if rolling then
+		return
+	end
+	rolling = true
+
+	local ok, result = pcall(function()
+		return RollRemote:InvokeServer()
+	end)
+	if not ok or type(result) ~= "table" or result.Error then
+		rolling = false
+		if ok and type(result) == "table" and result.Error == "Loading" then
+			showToast("Loading your data...", THEME.SubText)
+		end
+		task.wait(0.2)
+		return
+	end
+
+	data.Rolls = result.Rolls
+	data.Inventory = result.Inventory or data.Inventory
+	updateInfo()
+
+	playRollAnimation(result, fast)
+
+	-- Equip automatically when you beat your best aura
+	local final = AuraData.Get(result.Aura)
+	if result.IsNewBest or data.Equipped == "" then
+		data.Equipped = final.Name
+		EquipRemote:FireServer(final.Name)
+	end
+	if final.Chance > data.BestChance then
+		data.BestChance = final.Chance
+	end
+
+	updateStats()
+	if inventoryOpen then
+		refreshInventory()
+	end
+	rolling = false
+end
+
+rollButton.MouseButton1Click:Connect(function()
+	if not autoRolling then
+		doRoll(false)
+	end
+end)
+
+UserInputService.InputBegan:Connect(function(input, processed)
+	if processed then
+		return
+	end
+	if input.KeyCode == Enum.KeyCode.R and not autoRolling then
+		doRoll(false)
+	end
+end)
+
+autoButton.MouseButton1Click:Connect(function()
+	if not ownsAutoRoll() then
+		local passId = Config.GamePasses.AutoRoll
+		if passId and passId ~= 0 then
+			MarketplaceService:PromptGamePassPurchase(player, passId)
+		else
+			showToast("Auto Roll pass not set up yet (CosmicConfig)", THEME.Bad)
+		end
+		return
+	end
+	autoRolling = not autoRolling
+	updateAutoButton()
+	if autoRolling then
+		task.spawn(function()
+			while autoRolling and ownsAutoRoll() do
+				doRoll(true)
+				task.wait(0.05)
+			end
+			autoRolling = false
+			updateAutoButton()
+		end)
+	end
+end)
+
+player:GetAttributeChangedSignal("Pass_AutoRoll"):Connect(updateAutoButton)
+player:GetAttributeChangedSignal("Pass_DoubleLuck"):Connect(updateInfo)
+player:GetAttributeChangedSignal("BonusLuck"):Connect(updateInfo)
+
+-- Animated shimmer on the roll button
+task.spawn(function()
+	while rollButton.Parent do
+		rollGradient.Offset = Vector2.new(-1, 0)
+		tween(rollGradient, 2.2, { Offset = Vector2.new(1, 0) }, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+		task.wait(2.2)
+		tween(rollGradient, 2.2, { Offset = Vector2.new(-1, 0) }, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
+		task.wait(2.2)
+	end
+end)
+
+---------------------------------------------------------------------
+-- INVENTORY PANEL
+---------------------------------------------------------------------
+local inventoryHolder = new("Frame", {
+	Name = "InventoryHolder",
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(0.5, 0.47),
+	Size = UDim2.fromOffset(680, 470),
+	BackgroundTransparency = 1,
+	Visible = false,
+	ZIndex = 8,
+	Parent = gui,
+})
+addAutoScale(inventoryHolder, 760)
+local inventory = new("Frame", {
+	Name = "Inventory",
+	Size = UDim2.fromScale(1, 1),
+	BackgroundColor3 = THEME.Panel,
+	BackgroundTransparency = 0.05,
+	ZIndex = 8,
+	Parent = inventoryHolder,
+}, { corner(UDim.new(0, 18)), stroke(THEME.Accent, 2.5, 0) })
+local inventoryPop = new("UIScale", { Parent = inventory })
+
+label({
+	Position = UDim2.fromOffset(22, 12), Size = UDim2.new(1, -44, 0, 40), Text = "✦ YOUR AURAS",
+	Font = TITLE_FONT, TextSize = 32, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = inventory,
+})
+local discoveredLabel = label({
+	Position = UDim2.fromOffset(22, 50), Size = UDim2.new(1, -44, 0, 22), Text = "",
+	TextSize = 15, TextColor3 = THEME.SubText, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = inventory,
+})
+local closeButton = new("TextButton", {
+	AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 14), Size = UDim2.fromOffset(42, 42),
+	BackgroundColor3 = THEME.Bad, Text = "X", Font = TITLE_FONT, TextSize = 24, TextColor3 = THEME.Text,
+	AutoButtonColor = false, ZIndex = 8, Parent = inventory,
+}, { corner(UDim.new(0, 10)), textStroke(1.5) })
+addButtonFeel(closeButton)
+
+local list = new("ScrollingFrame", {
+	Position = UDim2.fromOffset(16, 82), Size = UDim2.new(1, -32, 1, -98),
+	BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 6,
+	ScrollBarImageColor3 = THEME.Accent, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y,
+	ZIndex = 8, Parent = inventory,
+}, {
+	new("UIGridLayout", {
+		CellSize = UDim2.fromOffset(200, 170), CellPadding = UDim2.fromOffset(10, 10),
+		SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Center,
+	}),
+	new("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 8) }),
+})
+
+local function buildCard(aura, count)
+	local owned = count > 0
+	local tier = AuraData.Tiers[aura.Tier]
+	local equipped = data.Equipped == aura.Name
+
+	local card = new("Frame", {
+		Name = aura.Name,
+		BackgroundColor3 = THEME.PanelLight,
+		LayoutOrder = -aura.Chance, -- rarest first
+		ZIndex = 8,
+		Parent = list,
+	}, { corner(UDim.new(0, 12)), stroke(equipped and THEME.Good or tier.Color, equipped and 3 or 1.5, owned and 0 or 0.6) })
+
+	local nameText = label({
+		Position = UDim2.fromOffset(10, 6), Size = UDim2.new(1, -20, 0, 28),
+		Text = owned and aura.Name or "???", Font = TITLE_FONT, TextSize = 22,
+		TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = card,
+	})
+	if owned then
+		local function readable(c)
+			local h, s, v = c:ToHSV()
+			return Color3.fromHSV(h, s, math.max(v, 0.6))
+		end
+		gradient(readable(aura.Colors[1]), readable(aura.Colors[2]), 0).Parent = nameText
+	else
+		nameText.TextColor3 = Color3.fromRGB(110, 100, 140)
+	end
+
+	label({
+		Position = UDim2.fromOffset(10, 32), Size = UDim2.new(1, -20, 0, 18),
+		Text = ("%s • %s"):format(aura.Tier, AuraData.FormatChance(aura.Chance)),
+		TextSize = 13, TextColor3 = tier.Color, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = card,
+	})
+
+	if owned then
+		label({
+			AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 8), Size = UDim2.fromOffset(60, 22),
+			Text = "x" .. AuraData.FormatNumber(count), TextSize = 15, TextColor3 = THEME.SubText,
+			TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 8, Parent = card,
+		})
+		label({
+			Position = UDim2.fromOffset(10, 54), Size = UDim2.new(1, -20, 0, 18),
+			Text = ("⚡ %s"):format(aura.Power.Name), TextSize = 14, TextColor3 = Color3.fromRGB(255, 220, 120),
+			TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = card,
+		})
+		label({
+			Position = UDim2.fromOffset(10, 72), Size = UDim2.new(1, -20, 0, 34),
+			Text = aura.Power.Description, TextSize = 12, Font = Enum.Font.Gotham, TextWrapped = true,
+			TextColor3 = THEME.SubText, TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 8, Parent = card,
+		})
+		label({
+			Position = UDim2.fromOffset(10, 106), Size = UDim2.new(1, -20, 0, 16),
+			Text = ("❤ %d HP   ⚔ %d DMG"):format(tier.MaxHealth, tier.AttackDamage),
+			TextSize = 12, TextColor3 = Color3.fromRGB(255, 150, 160),
+			TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = card,
+		})
+
+		local equipButton = new("TextButton", {
+			AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -8), Size = UDim2.new(1, -20, 0, 32),
+			BackgroundColor3 = equipped and THEME.Good or THEME.Accent, AutoButtonColor = false,
+			Text = equipped and "EQUIPPED" or "EQUIP", Font = TITLE_FONT, TextSize = 18,
+			TextColor3 = THEME.Text, ZIndex = 8, Parent = card,
+		}, { corner(UDim.new(0, 8)), textStroke(1.2) })
+		addButtonFeel(equipButton)
+		equipButton.MouseButton1Click:Connect(function()
+			if data.Equipped ~= aura.Name then
+				data.Equipped = aura.Name
+				EquipRemote:FireServer(aura.Name)
+				refreshInventory()
+			end
+		end)
+	else
+		label({
+			Position = UDim2.fromOffset(10, 60), Size = UDim2.new(1, -20, 0, 60),
+			Text = "Not discovered yet.\nKeep rolling!", TextSize = 14, Font = Enum.Font.Gotham,
+			TextColor3 = Color3.fromRGB(130, 120, 160), TextWrapped = true, ZIndex = 8, Parent = card,
+		})
+	end
+end
+
+refreshInventory = function()
+	for _, child in ipairs(list:GetChildren()) do
+		if child:IsA("Frame") then
+			child:Destroy()
+		end
+	end
+	local discovered = 0
+	for _, aura in ipairs(AuraData.List) do
+		local count = data.Inventory[aura.Name] or 0
+		if count > 0 then
+			discovered += 1
+		end
+		buildCard(aura, count)
+	end
+	discoveredLabel.Text = ("Discovered %d / %d auras  •  Rarer auras = stronger duel powers"):format(
+		discovered, #AuraData.List)
+end
+
+local function setInventoryOpen(open)
+	inventoryOpen = open
+	if open then
+		refreshInventory()
+		inventoryHolder.Visible = true
+		inventoryPop.Scale = 0.8
+		tween(inventoryPop, 0.3, { Scale = 1 }, Enum.EasingStyle.Back)
+	else
+		inventoryHolder.Visible = false
+	end
+end
+
+aurasButton.MouseButton1Click:Connect(function()
+	setInventoryOpen(not inventoryOpen)
+end)
+closeButton.MouseButton1Click:Connect(function()
+	setInventoryOpen(false)
+end)
+
+---------------------------------------------------------------------
+-- ANNOUNCEMENTS (someone in the server rolled something rare)
+---------------------------------------------------------------------
+local bannerToken = 0
+local function skyShift(aura)
+	local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
+	local colorFx = Lighting:FindFirstChildOfClass("ColorCorrectionEffect")
+	if atmosphere then
+		local oldColor, oldDecay = atmosphere.Color, atmosphere.Decay
+		tween(atmosphere, 1.5, { Color = aura.Colors[2], Decay = aura.Colors[1] })
+		task.delay(10, function()
+			tween(atmosphere, 3, { Color = oldColor, Decay = oldDecay })
+		end)
+	end
+	if colorFx then
+		local oldTint = colorFx.TintColor
+		tween(colorFx, 1.5, { TintColor = aura.Colors[2]:Lerp(Color3.new(1, 1, 1), 0.6) })
+		task.delay(10, function()
+			tween(colorFx, 3, { TintColor = oldTint })
+		end)
+	end
+	flash(0.8, 1.5)
+	addShake(1.5)
+end
+
+AnnounceRemote.OnClientEvent:Connect(function(info)
+	local aura = AuraData.Get(info.Aura)
+	if not aura then
+		return
+	end
+	local hex = tierColor(aura):ToHex()
+	local message = ("✦ <b>%s</b> rolled <font color='#%s'><b>%s</b></font> (%s) ✦"):format(
+		info.PlayerName, hex, aura.Name, AuraData.FormatChance(aura.Chance))
+
+	bannerToken += 1
+	local token = bannerToken
+	bannerLabel.Text = message
+	bannerStroke.Color = tierColor(aura)
+	banner.Position = UDim2.new(0.5, 0, 0, -90)
+	tween(banner, 0.5, { Position = UDim2.new(0.5, 0, 0, 70) }, Enum.EasingStyle.Back)
+	task.delay(5, function()
+		if token == bannerToken then
+			tween(banner, 0.4, { Position = UDim2.new(0.5, 0, 0, -90) }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+		end
+	end)
+
+	-- also post it in chat
+	pcall(function()
+		local channels = TextChatService:FindFirstChild("TextChannels")
+		local general = channels and channels:FindFirstChild("RBXGeneral")
+		if general then
+			general:DisplaySystemMessage(message)
+		end
+	end)
+
+	if aura.Chance >= Config.SkyShiftAtChance then
+		skyShift(aura)
+	end
+end)
+
+---------------------------------------------------------------------
+-- DATA SYNC
+---------------------------------------------------------------------
+DataUpdatedRemote.OnClientEvent:Connect(function(snapshot)
+	data = snapshot
+	updateStats()
+	if inventoryOpen then
+		refreshInventory()
+	end
+end)
+
+updateAutoButton()
+updateStats()
+
+task.spawn(function()
+	for _ = 1, 30 do
+		local ok, snapshot = pcall(function()
+			return GetDataRemote:InvokeServer()
+		end)
+		if ok and snapshot then
+			data = snapshot
+			updateStats()
+			if data.Rolls == 0 then
+				showToast("Press ROLL (or R) to discover your first aura!", THEME.Accent2)
+			end
+			return
+		end
+		task.wait(1)
+	end
+end)
+]]></string>
+        </Properties>
+      </Item>
+    </Item>
+  </Item>
+  <Item class="Workspace" referent="11">
+    <Properties>
+      <string name="Name">Workspace</string>
+      <bool name="NeedsPivotMigration">false</bool>
+    </Properties>
+  </Item>
+</roblox>

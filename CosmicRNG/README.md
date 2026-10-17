@@ -14,7 +14,15 @@ where every aura gives you its own special power.
 - Saving (DataStore), leaderboard (Rolls + Aura)
 - Floating space island, night sky, purple atmosphere and bloom glow
 
-## Setup (about 5 minutes)
+## Easiest setup: open the ready-made place file
+
+1. Download `CosmicRNG.rbxlx`.
+2. In Roblox Studio: **File > Open from File...** and pick `CosmicRNG.rbxlx`.
+3. Press **Play**.
+
+All 7 scripts are already in the right places. Use this if the manual setup below doesn't work.
+
+## Manual setup (about 5 minutes)
 
 1. Open Roblox Studio and create a new place from the **Baseplate** template.
 2. Create these objects (right-click the service, **Insert Object**), rename them **exactly**, and paste in the matching file:
