@@ -1,6 +1,6 @@
 -- RollService (Script in ServerScriptService)
 -- The "brain" of rolling: picks auras, stores inventories, saves data,
--- checks game passes and tells everyone about rare rolls.
+-- checks game passes, sells luck boosts and tells everyone about rare rolls.
 -- Everything important happens here so exploiters can't fake rolls.
 
 local Players = game:GetService("Players")
@@ -11,6 +11,7 @@ local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
 local AuraData = require(ReplicatedStorage:WaitForChild("AuraData"))
+local Luck = require(ReplicatedStorage:WaitForChild("Luck"))
 
 ---------------------------------------------------------------------
 -- Remotes (created here so you don't have to make them by hand)
@@ -37,6 +38,8 @@ local GetDataRemote = getRemote("RemoteFunction", "GetData")
 local EquipRemote = getRemote("RemoteEvent", "Equip")
 local DataUpdatedRemote = getRemote("RemoteEvent", "DataUpdated")
 local AnnounceRemote = getRemote("RemoteEvent", "Announce")
+local RollFXRemote = getRemote("RemoteEvent", "RollFX") -- server -> everyone: show roll effects
+local RevealRemote = getRemote("RemoteEvent", "Reveal") -- roller -> server: "my reveal animation finished"
 
 ---------------------------------------------------------------------
 -- Data saving
@@ -56,6 +59,7 @@ end
 local sessions = {} -- [player] = data table
 local canSave = {} -- [player] = true only if loading worked
 local lastRollTime = {} -- [player] = os.clock()
+local pendingReveal = {} -- [player] = aura name waiting to be shown to everyone
 local rng = Random.new()
 
 local function newData()
@@ -65,6 +69,8 @@ local function newData()
 		Inventory = {}, -- [auraName] = how many you've rolled
 		Equipped = "",
 		BestChance = 0,
+		PersonalLuckEnd = 0, -- potion end time (seconds since 1970)
+		Receipts = {}, -- recent purchase IDs, so nothing is granted twice
 	}
 end
 
@@ -99,18 +105,19 @@ end
 local function saveData(player)
 	local data = sessions[player]
 	if not store or not data or not canSave[player] then
-		return
+		return false
 	end
 	for attempt = 1, 3 do
 		local ok, err = pcall(function()
 			store:SetAsync(keyFor(player), data, { player.UserId })
 		end)
 		if ok then
-			return
+			return true
 		end
 		warn(("[CosmicRNG] Save failed for %s (attempt %d): %s"):format(player.Name, attempt, tostring(err)))
 		task.wait(attempt)
 	end
+	return false
 end
 
 ---------------------------------------------------------------------
@@ -177,20 +184,7 @@ local function refreshStats(player)
 	end
 	player:SetAttribute("Rolls", data.Rolls)
 	player:SetAttribute("EquippedAura", data.Equipped)
-end
-
-local function getLuck(player, data, rollNumber)
-	local luck = Config.BaseLuck
-	if hasPass(player, "DoubleLuck") then
-		luck *= 2
-	end
-	-- Potions and events will multiply in here in a later part.
-	luck *= (player:GetAttribute("BonusLuck") or 1)
-	local lucky = rollNumber % Config.LuckyRollEvery == 0
-	if lucky then
-		luck *= Config.LuckyRollMultiplier
-	end
-	return luck, lucky
+	player:SetAttribute("BestChance", data.BestChance)
 end
 
 ---------------------------------------------------------------------
@@ -211,36 +205,65 @@ RollRemote.OnServerInvoke = function(player)
 	lastRollTime[player] = now
 
 	local rollNumber = data.Rolls + 1
-	local luck, lucky = getLuck(player, data, rollNumber)
-	local aura = AuraData.RollRandom(luck, rng)
+	local lucky = rollNumber % Luck.LuckyEvery(player) == 0
+	local luck = Luck.Get(player) * (lucky and Config.LuckyRollMultiplier or 1)
+	local count = hasPass(player, "MultiRoll") and Config.MultiRollCount or 1
+
+	local results = {}
+	local best
+	for _ = 1, count do
+		local aura = AuraData.RollRandom(luck, rng)
+		table.insert(results, aura.Name)
+		data.Inventory[aura.Name] = (data.Inventory[aura.Name] or 0) + 1
+		if not best or aura.Chance > best.Chance then
+			best = aura
+		end
+		if aura.Chance >= Config.AnnounceAtChance then
+			AnnounceRemote:FireAllClients({
+				Type = "Roll",
+				PlayerName = player.DisplayName,
+				UserId = player.UserId,
+				Aura = aura.Name,
+			})
+		end
+	end
+	-- Best result first, the rest sorted rarest first
+	table.sort(results, function(a, b)
+		return AuraData.Get(a).Chance > AuraData.Get(b).Chance
+	end)
 
 	data.Rolls = rollNumber
-	data.Inventory[aura.Name] = (data.Inventory[aura.Name] or 0) + 1
-
-	local isNewBest = aura.Chance > data.BestChance
+	local isNewBest = best.Chance > data.BestChance
 	if isNewBest then
-		data.BestChance = aura.Chance
+		data.BestChance = best.Chance
 	end
 	refreshStats(player)
 
-	if aura.Chance >= Config.AnnounceAtChance then
-		AnnounceRemote:FireAllClients({
-			PlayerName = player.DisplayName,
-			UserId = player.UserId,
-			Aura = aura.Name,
-		})
-	end
+	-- Everyone sees this player "charging up"; the reveal comes when the
+	-- roller's animation finishes (see RevealRemote below).
+	pendingReveal[player] = best.Name
+	RollFXRemote:FireAllClients({ Phase = "Start", UserId = player.UserId })
 
 	return {
-		Aura = aura.Name,
+		Aura = best.Name,
+		Results = results,
 		Rolls = data.Rolls,
 		Lucky = lucky,
 		Luck = luck,
 		IsNewBest = isNewBest,
-		IsFirstTime = data.Inventory[aura.Name] == 1,
+		IsFirstTime = data.Inventory[best.Name] == 1,
 		Inventory = data.Inventory,
 	}
 end
+
+RevealRemote.OnServerEvent:Connect(function(player)
+	local auraName = pendingReveal[player]
+	if not auraName then
+		return
+	end
+	pendingReveal[player] = nil
+	RollFXRemote:FireAllClients({ Phase = "Reveal", UserId = player.UserId, Aura = auraName })
+end)
 
 GetDataRemote.OnServerInvoke = function(player)
 	local data = sessions[player]
@@ -264,6 +287,81 @@ EquipRemote.OnServerEvent:Connect(function(player, auraName)
 	applyAuraToCharacter(player)
 	refreshStats(player)
 	DataUpdatedRemote:FireClient(player, snapshot(data))
+end)
+
+---------------------------------------------------------------------
+-- Developer products (luck potions, server luck)
+---------------------------------------------------------------------
+local productIdToKey = {}
+for key, id in pairs(Config.Products) do
+	if id ~= 0 then
+		productIdToKey[id] = key
+	end
+end
+
+local function grantProduct(player, data, key)
+	local now = Luck.Now()
+	if key == "PersonalLuck" then
+		local from = math.max(now, data.PersonalLuckEnd or 0)
+		data.PersonalLuckEnd = from + Config.PersonalBoostMinutes * 60
+		player:SetAttribute("PersonalLuckEnd", data.PersonalLuckEnd)
+		return true
+	elseif key == "ServerLuck" then
+		local from = math.max(now, ReplicatedStorage:GetAttribute("ServerLuckEnd") or 0)
+		ReplicatedStorage:SetAttribute("ServerLuckEnd", from + Config.ServerBoostMinutes * 60)
+		AnnounceRemote:FireAllClients({
+			Type = "ServerLuck",
+			PlayerName = player.DisplayName,
+			UserId = player.UserId,
+		})
+		return true
+	end
+	return false
+end
+
+MarketplaceService.ProcessReceipt = function(receipt)
+	local player = Players:GetPlayerByUserId(receipt.PlayerId)
+	local data = player and sessions[player]
+	if not data then
+		return Enum.ProductPurchaseDecision.NotProcessedYet -- try again when they rejoin
+	end
+
+	data.Receipts = data.Receipts or {}
+	if table.find(data.Receipts, receipt.PurchaseId) then
+		return Enum.ProductPurchaseDecision.PurchaseGranted -- already given
+	end
+
+	local key = productIdToKey[receipt.ProductId]
+	if not key or not grantProduct(player, data, key) then
+		warn("[CosmicRNG] Unknown product bought:", receipt.ProductId)
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+
+	table.insert(data.Receipts, receipt.PurchaseId)
+	while #data.Receipts > 50 do
+		table.remove(data.Receipts, 1)
+	end
+	-- Save right away so the purchase is never lost
+	if canSave[player] and not saveData(player) then
+		-- Roblox will retry later; undo nothing, the receipt check stops doubles
+		return Enum.ProductPurchaseDecision.NotProcessedYet
+	end
+	return Enum.ProductPurchaseDecision.PurchaseGranted
+end
+
+-- Studio testing: products with ID 0 are granted for free so you can test
+local TestProductRemote = getRemote("RemoteEvent", "TestProduct")
+TestProductRemote.OnServerEvent:Connect(function(player, key)
+	if not RunService:IsStudio() or not Config.FreePassesInStudio then
+		return
+	end
+	if type(key) ~= "string" or Config.Products[key] ~= 0 then
+		return
+	end
+	local data = sessions[player]
+	if data then
+		grantProduct(player, data, key)
+	end
 end)
 
 ---------------------------------------------------------------------
@@ -297,6 +395,7 @@ local function onPlayerAdded(player)
 	end
 	sessions[player] = data
 	canSave[player] = ok
+	player:SetAttribute("PersonalLuckEnd", data.PersonalLuckEnd or 0)
 	player:SetAttribute("DataLoaded", true)
 	refreshStats(player)
 	applyAuraToCharacter(player)
@@ -313,6 +412,7 @@ Players.PlayerRemoving:Connect(function(player)
 	sessions[player] = nil
 	canSave[player] = nil
 	lastRollTime[player] = nil
+	pendingReveal[player] = nil
 end)
 
 game:BindToClose(function()

@@ -1,20 +1,20 @@
 -- RollUI (LocalScript in StarterPlayer > StarterPlayerScripts)
--- Builds the whole roll interface in code: roll button, auto roll,
--- roll animation, rare cutscenes, inventory and announcements.
+-- The main screen: roll button, auto roll, roll animation, rare
+-- cutscenes, camera showcase, inventory and announcements.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
-local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local MarketplaceService = game:GetService("MarketplaceService")
 local Lighting = game:GetService("Lighting")
 local TextChatService = game:GetService("TextChatService")
-local Debris = game:GetService("Debris")
-local SoundService = game:GetService("SoundService")
 
 local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
 local AuraData = require(ReplicatedStorage:WaitForChild("AuraData"))
+local Luck = require(ReplicatedStorage:WaitForChild("Luck"))
+local SoundFX = require(ReplicatedStorage:WaitForChild("SoundFX"))
+local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
 
 local remotes = ReplicatedStorage:WaitForChild("CosmicRemotes")
 local RollRemote = remotes:WaitForChild("Roll")
@@ -22,10 +22,16 @@ local GetDataRemote = remotes:WaitForChild("GetData")
 local EquipRemote = remotes:WaitForChild("Equip")
 local DataUpdatedRemote = remotes:WaitForChild("DataUpdated")
 local AnnounceRemote = remotes:WaitForChild("Announce")
+local RevealRemote = remotes:WaitForChild("Reveal")
 
 local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 local rand = Random.new()
+
+local THEME = UIKit.Theme
+local TITLE_FONT = UIKit.TitleFont
+local new, corner, stroke, textStroke, tween, label =
+	UIKit.new, UIKit.corner, UIKit.stroke, UIKit.textStroke, UIKit.tween, UIKit.label
 
 ---------------------------------------------------------------------
 -- State
@@ -35,146 +41,17 @@ local rolling = false
 local autoRolling = false
 local inventoryOpen = false
 local refreshInventory -- defined later
+local setInventoryOpen -- defined later
 
----------------------------------------------------------------------
--- Theme + UI helpers
----------------------------------------------------------------------
-local THEME = {
-	Panel = Color3.fromRGB(18, 14, 34),
-	PanelLight = Color3.fromRGB(34, 28, 62),
-	Accent = Color3.fromRGB(150, 110, 255),
-	Accent2 = Color3.fromRGB(80, 190, 255),
-	Text = Color3.fromRGB(255, 255, 255),
-	SubText = Color3.fromRGB(190, 180, 225),
-	Good = Color3.fromRGB(90, 220, 130),
-	Bad = Color3.fromRGB(240, 80, 100),
-}
-local TITLE_FONT = Enum.Font.FredokaOne
-local BODY_FONT = Enum.Font.GothamBold
-
-local function new(className, props, children)
-	local inst = Instance.new(className)
-	local parent
-	for key, value in pairs(props or {}) do
-		if key == "Parent" then
-			parent = value
-		else
-			inst[key] = value
-		end
-	end
-	for _, child in ipairs(children or {}) do
-		child.Parent = inst
-	end
-	if parent then
-		inst.Parent = parent
-	end
-	return inst
-end
-
-local function corner(radius)
-	return new("UICorner", { CornerRadius = radius or UDim.new(0, 12) })
-end
-
-local function stroke(color, thickness, transparency)
-	return new("UIStroke", {
-		Name = "Border",
-		Color = color,
-		Thickness = thickness or 2,
-		Transparency = transparency or 0,
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
-	})
-end
-
-local function textStroke(thickness)
-	return new("UIStroke", {
-		Color = Color3.new(0, 0, 0),
-		Thickness = thickness or 2,
-		Transparency = 0.3,
-		ApplyStrokeMode = Enum.ApplyStrokeMode.Contextual,
-	})
-end
-
-local function gradient(c1, c2, rotation)
-	return new("UIGradient", { Color = ColorSequence.new(c1, c2), Rotation = rotation or 90 })
-end
-
-local function tween(inst, duration, props, style, direction)
-	local tw = TweenService:Create(
-		inst,
-		TweenInfo.new(duration, style or Enum.EasingStyle.Quad, direction or Enum.EasingDirection.Out),
-		props
-	)
-	tw:Play()
-	return tw
-end
-
-local function label(props)
-	local defaults = {
-		BackgroundTransparency = 1,
-		Font = BODY_FONT,
-		TextColor3 = THEME.Text,
-		TextScaled = false,
-		TextSize = 18,
-	}
-	for key, value in pairs(props) do
-		defaults[key] = value
-	end
-	return new("TextLabel", defaults)
-end
-
--- Hover/press bounce for any button
-local function addButtonFeel(button)
-	local scale = button:FindFirstChildOfClass("UIScale") or new("UIScale", { Parent = button })
-	button.MouseEnter:Connect(function()
-		tween(scale, 0.12, { Scale = 1.06 })
-	end)
-	button.MouseLeave:Connect(function()
-		tween(scale, 0.12, { Scale = 1 })
-	end)
-	button.MouseButton1Down:Connect(function()
-		tween(scale, 0.06, { Scale = 0.92 })
-	end)
-	button.MouseButton1Up:Connect(function()
-		tween(scale, 0.18, { Scale = 1.06 }, Enum.EasingStyle.Back)
-	end)
-end
-
--- Shrinks UI on small screens (phones)
-local function addAutoScale(guiObject, baseHeight)
-	local scale = new("UIScale", { Parent = guiObject })
-	local function update()
-		scale.Scale = math.clamp(camera.ViewportSize.Y / (baseHeight or 820), 0.55, 1.1)
-	end
-	update()
-	camera:GetPropertyChangedSignal("ViewportSize"):Connect(update)
-	return scale
-end
-
-local function playSound(id, volume)
-	if not id or id == "" then
-		return
-	end
-	local sound = new("Sound", { SoundId = id, Volume = volume or 0.5, Parent = SoundService })
-	sound:Play()
-	Debris:AddItem(sound, 6)
-end
-
-local function tierColor(aura)
-	return AuraData.Tiers[aura.Tier].Color
+local function tierOf(aura)
+	return AuraData.Tiers[aura.Tier]
 end
 
 ---------------------------------------------------------------------
--- SCREEN
+-- SCREEN + LAYERS
 ---------------------------------------------------------------------
-local gui = new("ScreenGui", {
-	Name = "CosmicUI",
-	ResetOnSpawn = false,
-	IgnoreGuiInset = true,
-	ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
-	Parent = player:WaitForChild("PlayerGui"),
-})
+local gui = UIKit.screen("CosmicUI", 0)
 
--- Layers (higher ZIndex = drawn on top)
 local dimLayer = new("Frame", {
 	Name = "Dim", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0),
 	BackgroundTransparency = 1, ZIndex = 2, Parent = gui,
@@ -182,9 +59,6 @@ local dimLayer = new("Frame", {
 local raysLayer = new("Frame", {
 	Name = "Rays", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 3,
 	Visible = false, Parent = gui,
-})
-local particleLayer = new("Frame", {
-	Name = "UIParticles", Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 7, Parent = gui,
 })
 local flashLayer = new("Frame", {
 	Name = "Flash", Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1),
@@ -197,13 +71,13 @@ local flashLayer = new("Frame", {
 local statsPanel = new("Frame", {
 	Name = "Stats",
 	Position = UDim2.new(0, 16, 0, 64),
-	Size = UDim2.fromOffset(250, 78),
+	Size = UDim2.fromOffset(260, 78),
 	BackgroundColor3 = THEME.Panel,
 	BackgroundTransparency = 0.25,
 	ZIndex = 5,
 	Parent = gui,
 }, { corner(), stroke(THEME.Accent, 1.5, 0.4) })
-addAutoScale(statsPanel)
+UIKit.addAutoScale(statsPanel)
 local rollsLabel = label({
 	Position = UDim2.fromOffset(14, 8), Size = UDim2.new(1, -28, 0, 28),
 	Text = "🎲 Rolls: 0", TextXAlignment = Enum.TextXAlignment.Left, TextSize = 20,
@@ -222,19 +96,36 @@ local bestLabel = label({
 local rollBar = new("Frame", {
 	Name = "RollBar",
 	AnchorPoint = Vector2.new(0.5, 1),
-	Position = UDim2.new(0.5, 0, 1, -24),
-	Size = UDim2.fromOffset(530, 120),
+	Position = UDim2.new(0.5, 0, 1, -20),
+	Size = UDim2.fromOffset(540, 150),
 	BackgroundTransparency = 1,
 	ZIndex = 5,
 	Parent = gui,
 })
-addAutoScale(rollBar)
+UIKit.addAutoScale(rollBar)
 
-local infoLabel = label({
-	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), Size = UDim2.new(1, 0, 0, 26),
-	Text = "", RichText = true, TextSize = 18, Font = TITLE_FONT, ZIndex = 5, Parent = rollBar,
+local luckLine = label({
+	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), Size = UDim2.new(1, 60, 0, 24),
+	Text = "", RichText = true, TextSize = 19, Font = TITLE_FONT, ZIndex = 5, Parent = rollBar,
 })
-textStroke(1.5).Parent = infoLabel
+textStroke(1.5).Parent = luckLine
+local luckyLine = label({
+	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 26), Size = UDim2.new(1, 0, 0, 22),
+	Text = "", RichText = true, TextSize = 17, Font = TITLE_FONT, ZIndex = 5, Parent = rollBar,
+})
+textStroke(1.5).Parent = luckyLine
+
+-- Soft glow behind the roll button
+local rollGlow = new("Frame", {
+	Name = "Glow",
+	AnchorPoint = Vector2.new(0.5, 1),
+	Position = UDim2.new(0.5, 0, 1, 6),
+	Size = UDim2.fromOffset(250, 92),
+	BackgroundColor3 = Color3.fromRGB(150, 110, 255),
+	BackgroundTransparency = 0.7,
+	ZIndex = 4,
+	Parent = rollBar,
+}, { corner(UDim.new(0, 24)) })
 
 local rollButton = new("TextButton", {
 	Name = "RollButton",
@@ -258,7 +149,7 @@ local rollGradient = new("UIGradient", {
 	}),
 	Parent = rollButton,
 })
-addButtonFeel(rollButton)
+UIKit.addButtonFeel(rollButton, true) -- the roll itself makes sound
 
 local function sideButton(name, text, anchorX, offsetX)
 	local button = new("TextButton", {
@@ -276,7 +167,7 @@ local function sideButton(name, text, anchorX, offsetX)
 		ZIndex = 5,
 		Parent = rollBar,
 	}, { corner(UDim.new(0, 14)), stroke(THEME.Accent, 2, 0.2), textStroke(1.5) })
-	addButtonFeel(button)
+	UIKit.addButtonFeel(button)
 	return button
 end
 
@@ -284,80 +175,175 @@ local autoButton = sideButton("AutoButton", "", 1, -128)
 local aurasButton = sideButton("AurasButton", "✦ AURAS", 0, 128)
 
 ---------------------------------------------------------------------
--- CENTER REVEAL DISPLAY
+-- CENTER REVEAL: glowing card + name
 ---------------------------------------------------------------------
 local reveal = new("Frame", {
 	Name = "Reveal",
 	AnchorPoint = Vector2.new(0.5, 0.5),
 	Position = UDim2.fromScale(0.5, 0.4),
-	Size = UDim2.fromOffset(700, 200),
+	Size = UDim2.fromOffset(700, 260),
 	BackgroundTransparency = 1,
 	ZIndex = 6,
 	Visible = false,
 	Parent = gui,
 })
-addAutoScale(reveal)
--- The reveal frame scales to the screen; popHolder inside it does the "pop".
+UIKit.addAutoScale(reveal)
+-- popHolder does the "pop" while reveal handles screen size
 local popHolder = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ZIndex = 6, Parent = reveal })
 local popScale = new("UIScale", { Parent = popHolder })
 
+local CARD_TRANSPARENCY = 0.15
+local card = new("Frame", {
+	Name = "Card",
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.fromScale(0.5, 0),
+	Size = UDim2.fromOffset(620, 196),
+	BackgroundColor3 = Color3.new(1, 1, 1),
+	BackgroundTransparency = CARD_TRANSPARENCY,
+	ClipsDescendants = true,
+	ZIndex = 5,
+	Parent = popHolder,
+}, { corner(UDim.new(0, 22)) })
+local cardGradient = new("UIGradient", { Rotation = 90, Parent = card })
+local cardBorder = stroke(THEME.Accent, 3, 0)
+cardBorder.Parent = card
+
+-- A white shine that sweeps across the card on reveal
+local shine = new("Frame", {
+	Name = "Shine",
+	AnchorPoint = Vector2.new(0.5, 0.5),
+	Position = UDim2.fromScale(-0.2, 0.5),
+	-- not rotated (rotated frames ignore clipping); the gradient is tilted instead
+	Size = UDim2.new(0, 160, 1, 0),
+	BackgroundColor3 = Color3.new(1, 1, 1),
+	BackgroundTransparency = 0,
+	BorderSizePixel = 0,
+	ZIndex = 5,
+	Parent = card,
+}, {
+	new("UIGradient", {
+		Rotation = 20,
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 1),
+			NumberSequenceKeypoint.new(0.5, 0.55),
+			NumberSequenceKeypoint.new(1, 1),
+		}),
+	}),
+})
+
 local tierLabel = label({
-	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0), Size = UDim2.new(1, 0, 0, 30),
+	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 12), Size = UDim2.new(1, 0, 0, 30),
 	Text = "", Font = TITLE_FONT, TextSize = 26, ZIndex = 6, Parent = popHolder,
 })
 textStroke(2).Parent = tierLabel
 local nameLabel = label({
-	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 30), Size = UDim2.new(1, 0, 0, 96),
+	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, 0, 0, 92), Size = UDim2.new(1, 0, 0, 96),
 	Text = "", Font = TITLE_FONT, TextSize = 84, ZIndex = 6, Parent = popHolder,
 })
 textStroke(3.5).Parent = nameLabel
 local nameGradient = new("UIGradient", { Parent = nameLabel })
 local chanceLabel = label({
-	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 126), Size = UDim2.new(1, 0, 0, 34),
-	Text = "", Font = TITLE_FONT, TextSize = 30, ZIndex = 6, Parent = popHolder,
+	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 142), Size = UDim2.new(1, 0, 0, 34),
+	Text = "", Font = TITLE_FONT, TextSize = 30, TextColor3 = THEME.SubText, ZIndex = 6, Parent = popHolder,
 })
 textStroke(2).Parent = chanceLabel
+
 local badgeLabel = label({
-	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 166), Size = UDim2.fromOffset(170, 30),
-	Text = "", Font = TITLE_FONT, TextSize = 20, ZIndex = 6, BackgroundTransparency = 0,
+	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0), Size = UDim2.fromOffset(170, 32),
+	Text = "", Font = TITLE_FONT, TextSize = 20, ZIndex = 7, BackgroundTransparency = 0,
 	BackgroundColor3 = THEME.Good, Visible = false, Parent = popHolder,
 })
 corner(UDim.new(1, 0)).Parent = badgeLabel
 textStroke(1.5).Parent = badgeLabel
+local badgeScale = new("UIScale", { Parent = badgeLabel })
+
+-- Triple Roll: the extra results appear as chips under the card
+local extrasRow = new("Frame", {
+	Name = "Extras",
+	AnchorPoint = Vector2.new(0.5, 0),
+	Position = UDim2.new(0.5, 0, 0, 208),
+	Size = UDim2.fromOffset(620, 36),
+	BackgroundTransparency = 1,
+	ZIndex = 6,
+	Parent = popHolder,
+}, {
+	new("UIListLayout", {
+		FillDirection = Enum.FillDirection.Horizontal,
+		HorizontalAlignment = Enum.HorizontalAlignment.Center,
+		Padding = UDim.new(0, 10),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+	}),
+})
 
 local revealTexts = { tierLabel, nameLabel, chanceLabel }
 
 local function setRevealAura(aura)
 	local c1, c2 = aura.Colors[1], aura.Colors[2]
-	-- very dark colors are unreadable as text, so brighten them
-	local function readable(c)
-		local h, s, v = c:ToHSV()
-		return Color3.fromHSV(h, s, math.max(v, 0.55))
-	end
+	local tierColor = tierOf(aura).Color
 	nameLabel.Text = aura.Name
 	nameLabel.TextColor3 = Color3.new(1, 1, 1)
-	nameGradient.Color = ColorSequence.new(readable(c1), readable(c2))
+	nameGradient.Color = ColorSequence.new(UIKit.readable(c1, 0.55), UIKit.readable(c2, 0.55))
 	chanceLabel.Text = AuraData.FormatChance(aura.Chance)
-	chanceLabel.TextColor3 = THEME.SubText
 	tierLabel.Text = string.upper(aura.Tier)
-	tierLabel.TextColor3 = tierColor(aura)
+	tierLabel.TextColor3 = tierColor
+	cardGradient.Color = ColorSequence.new(tierColor:Lerp(THEME.Panel, 0.55), THEME.Panel)
+	cardBorder.Color = tierColor
 end
 
-local function setRevealTransparency(value, duration)
-	for _, text in ipairs(revealTexts) do
+local function setRevealVisible(visible, duration)
+	local textT = visible and 0 or 1
+	local strokeT = visible and 0.3 or 1
+	local cardT = visible and CARD_TRANSPARENCY or 1
+	local borderT = visible and 0 or 1
+	local function apply(inst, props)
 		if duration then
-			tween(text, duration, { TextTransparency = value })
+			tween(inst, duration, props)
 		else
-			text.TextTransparency = value
-		end
-		local s = text:FindFirstChildOfClass("UIStroke")
-		if s then
-			if duration then
-				tween(s, duration, { Transparency = math.max(value, 0.3) })
-			else
-				s.Transparency = math.max(value, 0.3)
+			for key, value in pairs(props) do
+				inst[key] = value
 			end
 		end
+	end
+	for _, text in ipairs(revealTexts) do
+		apply(text, { TextTransparency = textT })
+		apply(text:FindFirstChild("TextOutline"), { Transparency = strokeT })
+	end
+	apply(card, { BackgroundTransparency = cardT })
+	apply(cardBorder, { Transparency = borderT })
+end
+
+local function clearExtras()
+	for _, child in ipairs(extrasRow:GetChildren()) do
+		if child:IsA("TextLabel") then
+			child:Destroy()
+		end
+	end
+end
+
+local function showExtras(names)
+	clearExtras()
+	for i, auraName in ipairs(names) do
+		local aura = AuraData.Get(auraName)
+		local chip = label({
+			Size = UDim2.fromOffset(170, 34),
+			Text = "+ " .. aura.Name,
+			Font = TITLE_FONT,
+			TextSize = 18,
+			TextColor3 = UIKit.readable(aura.Colors[1], 0.7),
+			BackgroundTransparency = 0.15,
+			BackgroundColor3 = THEME.Panel,
+			LayoutOrder = i,
+			ZIndex = 6,
+			Parent = extrasRow,
+		})
+		corner(UDim.new(1, 0)).Parent = chip
+		stroke(tierOf(aura).Color, 2, 0).Parent = chip
+		textStroke(1.5).Parent = chip
+		local chipScale = new("UIScale", { Scale = 0, Parent = chip })
+		task.delay(0.12 * i, function()
+			tween(chipScale, 0.35, { Scale = 1 }, Enum.EasingStyle.Back)
+			SoundFX.Play("Pop", { Speed = 1 + i * 0.15 })
+		end)
 	end
 end
 
@@ -394,7 +380,7 @@ local cutsceneHolder = new("Frame", {
 	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.4), Size = UDim2.fromOffset(900, 60),
 	BackgroundTransparency = 1, ZIndex = 6, Parent = gui,
 })
-addAutoScale(cutsceneHolder)
+UIKit.addAutoScale(cutsceneHolder)
 local cutsceneText = label({
 	Size = UDim2.fromScale(1, 1), Text = "", Font = TITLE_FONT, TextSize = 40, ZIndex = 6,
 	TextTransparency = 1, Parent = cutsceneHolder,
@@ -405,13 +391,13 @@ cutsceneStroke.Parent = cutsceneText
 local cutsceneScale = new("UIScale", { Parent = cutsceneText })
 
 ---------------------------------------------------------------------
--- ANNOUNCEMENT BANNER + TOASTS
+-- ANNOUNCEMENT BANNER
 ---------------------------------------------------------------------
 local banner = new("Frame", {
 	Name = "Banner",
 	AnchorPoint = Vector2.new(0.5, 0),
 	Position = UDim2.new(0.5, 0, 0, -90),
-	Size = UDim2.fromOffset(620, 58),
+	Size = UDim2.fromOffset(640, 58),
 	BackgroundColor3 = THEME.Panel,
 	BackgroundTransparency = 0.1,
 	ZIndex = 9,
@@ -419,36 +405,14 @@ local banner = new("Frame", {
 }, { corner(UDim.new(0, 14)) })
 local bannerStroke = stroke(THEME.Accent, 2.5, 0)
 bannerStroke.Parent = banner
-addAutoScale(banner)
+UIKit.addAutoScale(banner)
 local bannerLabel = label({
 	Size = UDim2.new(1, -20, 1, 0), Position = UDim2.fromOffset(10, 0), RichText = true,
 	Text = "", Font = TITLE_FONT, TextSize = 22, ZIndex = 9, TextWrapped = true, Parent = banner,
 })
 
-local toast = label({
-	AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -170), Size = UDim2.fromOffset(600, 30),
-	Text = "", Font = TITLE_FONT, TextSize = 22, ZIndex = 9, TextTransparency = 1, Parent = gui,
-})
-local toastStroke = textStroke(2)
-toastStroke.Parent = toast
-local toastToken = 0
-local function showToast(text, color)
-	toastToken += 1
-	local token = toastToken
-	toast.Text = text
-	toast.TextColor3 = color or THEME.Text
-	toast.TextTransparency = 0
-	toastStroke.Transparency = 0.3
-	task.delay(2.5, function()
-		if token == toastToken then
-			tween(toast, 0.4, { TextTransparency = 1 })
-			tween(toastStroke, 0.4, { Transparency = 1 })
-		end
-	end)
-end
-
 ---------------------------------------------------------------------
--- EFFECTS: camera shake, FOV punch, flash, UI particle bursts
+-- EFFECTS: camera shake, FOV punch, flash
 ---------------------------------------------------------------------
 local shake = 0
 local shaking = false
@@ -485,70 +449,30 @@ local function flash(strength, duration)
 	tween(flashLayer, duration or 0.5, { BackgroundTransparency = 1 })
 end
 
-local STAR_GLYPHS = { "✦", "✧", "★", "✶" }
-local function uiBurst(colors, count, power, origin)
-	origin = origin or Vector2.new(0.5, 0.4)
-	power = power or 1
-	for _ = 1, count do
-		local angle = rand:NextNumber(0, math.pi * 2)
-		local dist = rand:NextNumber(120, 380) * power
-		local color = colors[rand:NextInteger(1, #colors)]
-		local startPos = UDim2.fromScale(origin.X, origin.Y)
-		local endPos = UDim2.new(origin.X, math.cos(angle) * dist, origin.Y, math.sin(angle) * dist)
-		local duration = rand:NextNumber(0.6, 1.2)
-		local piece
-		if rand:NextNumber() < 0.5 then
-			local size = rand:NextInteger(6, 14)
-			piece = new("Frame", {
-				AnchorPoint = Vector2.new(0.5, 0.5), Position = startPos, Size = UDim2.fromOffset(size, size),
-				BackgroundColor3 = color, BorderSizePixel = 0, ZIndex = 7, Parent = particleLayer,
-			}, { corner(UDim.new(1, 0)) })
-			tween(piece, duration, { Position = endPos, Size = UDim2.fromOffset(0, 0), BackgroundTransparency = 1 }, Enum.EasingStyle.Quart)
-		else
-			piece = label({
-				AnchorPoint = Vector2.new(0.5, 0.5), Position = startPos, Size = UDim2.fromOffset(40, 40),
-				Text = STAR_GLYPHS[rand:NextInteger(1, #STAR_GLYPHS)], TextColor3 = color,
-				TextSize = rand:NextInteger(18, 36), Font = Enum.Font.GothamBlack, ZIndex = 7,
-				Rotation = rand:NextNumber(0, 360), Parent = particleLayer,
-			})
-			tween(piece, duration, {
-				Position = endPos, TextTransparency = 1, Rotation = piece.Rotation + rand:NextNumber(-270, 270),
-			}, Enum.EasingStyle.Quart)
-		end
-		Debris:AddItem(piece, duration + 0.1)
-	end
-end
-
 ---------------------------------------------------------------------
--- INFO LINE (luck + lucky roll counter)
+-- LUCK LINE + STATS
 ---------------------------------------------------------------------
-local function currentLuck()
-	local luck = Config.BaseLuck
-	if player:GetAttribute("Pass_DoubleLuck") then
-		luck *= 2
-	end
-	luck *= (player:GetAttribute("BonusLuck") or 1)
-	return luck
-end
-
-local function formatLuck(n)
-	if n == math.floor(n) then
-		return tostring(n)
-	end
-	return string.format("%.1f", n)
-end
+local BONUS_ICONS = { ["2x Luck"] = "🍀", VIP = "👑", Potion = "🧪", Server = "🌌", Event = "☄️" }
 
 local function updateInfo()
-	local every = Config.LuckyRollEvery
-	local untilLucky = every - (data.Rolls % every)
-	local luckText = ("<font color='#9fe8ff'>🍀 Luck x%s</font>"):format(formatLuck(currentLuck()))
-	local luckyText
-	if untilLucky == 1 then
-		luckyText = ("<font color='#ffd76a'>✨ NEXT ROLL IS LUCKY (x%s)</font>"):format(formatLuck(Config.LuckyRollMultiplier))
-	else
-		luckyText = ("<font color='#c9bff0'>Lucky roll in %d</font>"):format(untilLucky)
+	local total = Luck.Get(player)
+	local parts = { ("<font color='#9fe8ff'>🍀 Luck x%s</font>"):format(Luck.Format(total)) }
+	local now = Luck.Now()
+	for _, bonus in ipairs(Luck.GetBonuses(player)) do
+		if bonus.EndsAt then
+			table.insert(parts, ("<font color='#ffd76a'>%s %s</font>"):format(
+				BONUS_ICONS[bonus.Name] or "✦", Luck.FormatTime(bonus.EndsAt - now)))
+		end
 	end
-	infoLabel.Text = luckText .. "   •   " .. luckyText
+	luckLine.Text = table.concat(parts, "   ")
+
+	local every = Luck.LuckyEvery(player)
+	local untilLucky = every - (data.Rolls % every)
+	if untilLucky == 1 then
+		luckyLine.Text = ("<font color='#ffd76a'>✨ NEXT ROLL IS LUCKY (x%s)</font>"):format(Luck.Format(Config.LuckyRollMultiplier))
+	else
+		luckyLine.Text = ("<font color='#c9bff0'>Lucky roll in %d</font>"):format(untilLucky)
+	end
 end
 
 local function updateStats()
@@ -562,12 +486,19 @@ local function updateStats()
 	end
 	if best then
 		bestLabel.Text = ("⭐ Best: <font color='#%s'>%s</font> (%s)"):format(
-			tierColor(best):ToHex(), best.Name, AuraData.FormatChance(best.Chance))
+			tierOf(best).Color:ToHex(), best.Name, AuraData.FormatChance(best.Chance))
 	else
 		bestLabel.Text = "⭐ Best: none yet"
 	end
 	updateInfo()
 end
+
+task.spawn(function()
+	while gui.Parent do
+		updateInfo()
+		task.wait(0.5)
+	end
+end)
 
 ---------------------------------------------------------------------
 -- AUTO ROLL BUTTON
@@ -581,7 +512,7 @@ local function updateAutoButton()
 	if not ownsAutoRoll() then
 		autoButton.Text = "🔒 AUTO\n<font size='13'>Game Pass</font>"
 		autoButton.BackgroundColor3 = THEME.PanelLight
-		autoStroke.Color = Color3.fromRGB(255, 200, 70)
+		autoStroke.Color = THEME.Gold
 	elseif autoRolling then
 		autoButton.Text = "AUTO: ON"
 		autoButton.BackgroundColor3 = Color3.fromRGB(40, 120, 70)
@@ -598,11 +529,10 @@ end
 ---------------------------------------------------------------------
 local raysConnection
 local function playCutscene(aura)
-	local order = AuraData.Tiers[aura.Tier].Order
+	local order = tierOf(aura).Order
 	local duration = (order >= 7) and 3.6 or (order >= 6) and 2.8 or 2
-	local color = tierColor(aura)
+	local color = tierOf(aura).Color
 
-	-- darken + spinning light rays
 	tween(dimLayer, 0.5, { BackgroundTransparency = 0.25 })
 	raysLayer.Visible = true
 	for _, ray in ipairs(rays) do
@@ -619,6 +549,8 @@ local function playCutscene(aura)
 		end
 	end)
 
+	local rumble = SoundFX.Loop("Rumble", 0.8)
+
 	cutsceneText.Text = (order >= 7) and "THE UNIVERSE TREMBLES..."
 		or (order >= 6) and "Something MYTHIC approaches..."
 		or "A LEGENDARY aura approaches..."
@@ -626,17 +558,22 @@ local function playCutscene(aura)
 	tween(cutsceneText, 0.4, { TextTransparency = 0 })
 	tween(cutsceneStroke, 0.4, { Transparency = 0.3 })
 
-	-- heartbeat pulses with growing shake
+	-- heartbeat: "lub-dub", getting stronger
 	local beats = math.floor(duration / 0.5)
 	for i = 1, beats do
-		cutsceneScale.Scale = 1.15
-		tween(cutsceneScale, 0.35, { Scale = 1 }, Enum.EasingStyle.Quad)
-		addShake(0.3 + i / beats * 1.2)
-		uiBurst(aura.Colors, 6, 0.6)
-		playSound(Config.Sounds.RollTick, 0.4)
+		local strength = i / beats
+		cutsceneScale.Scale = 1.15 + strength * 0.1
+		tween(cutsceneScale, 0.35, { Scale = 1 })
+		addShake(0.3 + strength * 1.2)
+		UIKit.burst(aura.Colors, 6, 0.6)
+		SoundFX.Play("Heartbeat", { Volume = 0.6 + strength * 0.4 })
+		task.delay(0.13, function()
+			SoundFX.Play("Heartbeat", { Speed = 1.15, Volume = 0.4 + strength * 0.3 })
+		end)
 		task.wait(0.5)
 	end
 
+	SoundFX.FadeOut(rumble, 0.6)
 	tween(cutsceneText, 0.2, { TextTransparency = 1 })
 	tween(cutsceneStroke, 0.2, { Transparency = 1 })
 	flash(1, 0.9)
@@ -655,96 +592,192 @@ local function playCutscene(aura)
 end
 
 ---------------------------------------------------------------------
+-- CAMERA SHOWCASE: camera circles your character to show off the aura
+---------------------------------------------------------------------
+local function showcase(duration)
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+	if not root or not humanoid or humanoid.Health <= 0 then
+		return
+	end
+
+	tween(rollBar, 0.3, { Position = UDim2.new(0.5, 0, 1, 220) })
+	tween(statsPanel, 0.3, { Position = UDim2.new(0, -320, 0, 64) })
+
+	camera.CameraType = Enum.CameraType.Scriptable
+	local look = root.CFrame.LookVector
+	local baseAngle = math.atan2(look.Z, look.X)
+	local start = os.clock()
+	local connection = RunService.RenderStepped:Connect(function()
+		if not root.Parent then
+			return
+		end
+		local alpha = math.clamp((os.clock() - start) / duration, 0, 1)
+		local eased = 1 - (1 - alpha) ^ 2
+		local angle = baseAngle + eased * math.pi * 1.4
+		local radius = 13 - eased * 4
+		local height = 2.5 + math.sin(alpha * math.pi) * 2.5
+		local focus = root.Position + Vector3.new(0, 1, 0)
+		camera.CFrame = CFrame.lookAt(focus + Vector3.new(math.cos(angle) * radius, height, math.sin(angle) * radius), focus)
+	end)
+	task.wait(duration)
+	connection:Disconnect()
+	camera.CameraType = Enum.CameraType.Custom
+
+	tween(rollBar, 0.4, { Position = UDim2.new(0.5, 0, 1, -20) }, Enum.EasingStyle.Back)
+	tween(statsPanel, 0.4, { Position = UDim2.new(0, 16, 0, 64) }, Enum.EasingStyle.Back)
+end
+
+---------------------------------------------------------------------
 -- ROLL ANIMATION
 ---------------------------------------------------------------------
+local function revealSoundFor(order)
+	if order >= 6 then
+		return "RevealMythic"
+	elseif order == 5 then
+		return "RevealLegendary"
+	elseif order == 4 then
+		return "RevealEpic"
+	elseif order == 3 then
+		return "RevealRare"
+	end
+	return "Pop"
+end
+
 local function playRollAnimation(result, fast)
 	local final = AuraData.Get(result.Aura)
-	local order = AuraData.Tiers[final.Tier].Order
+	local order = tierOf(final).Order
 
 	reveal.Visible = true
-	badgeLabel.Visible = false
-	setRevealTransparency(0)
 	reveal.Position = UDim2.fromScale(0.5, 0.4)
+	badgeLabel.Visible = false
+	clearExtras()
+	setRevealVisible(true)
+	popScale.Scale = 0.6
+	tween(popScale, 0.2, { Scale = 1 }, Enum.EasingStyle.Back)
 
 	if result.Lucky then
-		showToast("✨ LUCKY ROLL! x" .. formatLuck(Config.LuckyRollMultiplier) .. " luck", Color3.fromRGB(255, 215, 106))
+		UIKit.toast("✨ LUCKY ROLL! x" .. Luck.Format(Config.LuckyRollMultiplier) .. " luck", THEME.Gold)
 	end
 
-	-- Spin through random auras, slowing down at the end
+	-- 1) Spin through random auras, slowing down at the end
 	local steps = fast and 7 or 16
-	local showLuck = math.max(result.Luck or 1, 1) * 40 -- show some exciting names while spinning
+	local showLuck = math.max(result.Luck or 1, 1) * 40 -- show exciting names while spinning
 	for i = 1, steps do
+		local progress = i / steps
 		local fake = AuraData.RollRandom(showLuck, rand)
 		setRevealAura(fake)
-		popScale.Scale = 1.12
+		popScale.Scale = 1.1
 		tween(popScale, 0.08, { Scale = 1 })
-		playSound(Config.Sounds.RollTick, 0.3)
-		local progress = i / steps
+		nameLabel.Rotation = rand:NextNumber(-3, 3)
+		SoundFX.Play("Tick", { Speed = 0.85 + progress * 0.9 })
 		task.wait((fast and 0.03 or 0.04) + progress ^ 3 * (fast and 0.12 or 0.28))
 	end
+	nameLabel.Rotation = 0
 
-	-- Big rolls get a cutscene first
+	-- 2) Big rolls get a cutscene first
 	if final.Chance >= Config.CutsceneAtChance then
-		setRevealTransparency(1)
+		setRevealVisible(false)
 		playCutscene(final)
-		setRevealTransparency(0)
+		setRevealVisible(true)
 	end
 
-	-- REVEAL
+	-- 3) REVEAL
 	setRevealAura(final)
+	RevealRemote:FireServer() -- everyone nearby sees the 3D reveal effect
 	popScale.Scale = 1.7
 	tween(popScale, 0.45, { Scale = 1 }, Enum.EasingStyle.Back)
+	nameLabel.Rotation = -8
+	tween(nameLabel, 0.8, { Rotation = 0 }, Enum.EasingStyle.Elastic)
+	cardBorder.Thickness = 8
+	tween(cardBorder, 0.6, { Thickness = 3 })
+	shine.Position = UDim2.fromScale(-0.2, 0.5)
+	tween(shine, 0.7, { Position = UDim2.fromScale(1.2, 0.5) }, Enum.EasingStyle.Quad, Enum.EasingDirection.InOut)
 
-	local burstCount = 10 + order * 8
-	uiBurst({ final.Colors[1], final.Colors[2], tierColor(final) }, burstCount, 0.7 + order * 0.15)
+	local colors = { final.Colors[1], final.Colors[2], tierOf(final).Color }
+	UIKit.burst(colors, 10 + order * 8, 0.7 + order * 0.15)
+	SoundFX.Play(revealSoundFor(order))
 	if order >= 3 then
 		flash(math.min(0.15 + order * 0.08, 0.7), 0.4)
 		addShake(0.2 + order * 0.2)
 		fovPunch(order * 1.5)
 	end
-	if order >= 5 then
-		playSound(Config.Sounds.RevealLegendary, 0.7)
-	elseif order >= 3 then
-		playSound(Config.Sounds.RevealRare, 0.6)
-	else
-		playSound(Config.Sounds.RevealCommon, 0.5)
-	end
 
 	if result.IsNewBest and data.Rolls > 1 then
-		badgeLabel.Text = "NEW BEST!"
-		badgeLabel.BackgroundColor3 = Color3.fromRGB(255, 190, 60)
+		badgeLabel.Text = "★ NEW BEST! ★"
+		badgeLabel.BackgroundColor3 = THEME.Gold
 		badgeLabel.Visible = true
+		UIKit.confetti(colors, 70)
+		SoundFX.Chime(1, 5)
 	elseif result.IsFirstTime then
 		badgeLabel.Text = "NEW!"
 		badgeLabel.BackgroundColor3 = THEME.Good
 		badgeLabel.Visible = true
+		SoundFX.Chime(1.2, 3)
+	end
+	if badgeLabel.Visible then
+		badgeScale.Scale = 0
+		tween(badgeScale, 0.4, { Scale = 1 }, Enum.EasingStyle.Back)
 	end
 
-	-- hold, then float up and fade
-	task.wait(fast and 0.55 or (1.1 + order * 0.15))
+	if result.Results and #result.Results > 1 then
+		local extras = {}
+		for i = 2, #result.Results do
+			table.insert(extras, result.Results[i])
+		end
+		showExtras(extras)
+	end
+
+	-- 4) Hold, maybe show off with the camera, then float away
+	local doShowcase = final.Chance >= Config.ShowcaseAtChance and (not fast or final.Chance >= 100000)
+	task.wait(fast and 0.6 or (1.2 + order * 0.15))
+	if doShowcase then
+		tween(reveal, 0.35, { Position = UDim2.fromScale(0.5, 0.14) })
+		tween(popScale, 0.35, { Scale = 0.55 })
+		showcase(2.8)
+	end
 	badgeLabel.Visible = false
-	tween(reveal, 0.35, { Position = UDim2.fromScale(0.5, 0.36) })
-	setRevealTransparency(1, 0.35)
+	tween(reveal, 0.35, { Position = UDim2.fromScale(0.5, 0.34) })
+	setRevealVisible(false, 0.35)
+	for _, chip in ipairs(extrasRow:GetChildren()) do
+		if chip:IsA("TextLabel") then
+			tween(chip, 0.3, { TextTransparency = 1, BackgroundTransparency = 1 })
+		end
+	end
 	task.wait(0.35)
 	reveal.Visible = false
+	clearExtras()
 end
 
 ---------------------------------------------------------------------
 -- ROLLING
 ---------------------------------------------------------------------
+local function setRollingLook(isRolling)
+	if isRolling then
+		rollButton.Text = autoRolling and "AUTO" or "..."
+		tween(rollButton, 0.15, { TextTransparency = 0.3 })
+	else
+		rollButton.Text = "ROLL"
+		tween(rollButton, 0.15, { TextTransparency = 0 })
+	end
+end
+
 local function doRoll(fast)
 	if rolling then
 		return
 	end
 	rolling = true
+	setRollingLook(true)
 
 	local ok, result = pcall(function()
 		return RollRemote:InvokeServer()
 	end)
 	if not ok or type(result) ~= "table" or result.Error then
 		rolling = false
+		setRollingLook(false)
 		if ok and type(result) == "table" and result.Error == "Loading" then
-			showToast("Loading your data...", THEME.SubText)
+			UIKit.toast("Loading your data...", THEME.SubText)
 		end
 		task.wait(0.2)
 		return
@@ -771,9 +804,10 @@ local function doRoll(fast)
 		refreshInventory()
 	end
 	rolling = false
+	setRollingLook(false)
 end
 
-rollButton.MouseButton1Click:Connect(function()
+rollButton.Activated:Connect(function()
 	if not autoRolling then
 		doRoll(false)
 	end
@@ -788,13 +822,13 @@ UserInputService.InputBegan:Connect(function(input, processed)
 	end
 end)
 
-autoButton.MouseButton1Click:Connect(function()
+autoButton.Activated:Connect(function()
 	if not ownsAutoRoll() then
 		local passId = Config.GamePasses.AutoRoll
 		if passId and passId ~= 0 then
 			MarketplaceService:PromptGamePassPurchase(player, passId)
 		else
-			showToast("Auto Roll pass not set up yet (CosmicConfig)", THEME.Bad)
+			UIKit.toast("Auto Roll pass not set up yet (CosmicConfig)", THEME.Bad)
 		end
 		return
 	end
@@ -813,17 +847,21 @@ autoButton.MouseButton1Click:Connect(function()
 end)
 
 player:GetAttributeChangedSignal("Pass_AutoRoll"):Connect(updateAutoButton)
-player:GetAttributeChangedSignal("Pass_DoubleLuck"):Connect(updateInfo)
-player:GetAttributeChangedSignal("BonusLuck"):Connect(updateInfo)
 
--- Animated shimmer on the roll button
+-- Shimmer + breathing glow on the roll button
 task.spawn(function()
 	while rollButton.Parent do
 		rollGradient.Offset = Vector2.new(-1, 0)
 		tween(rollGradient, 2.2, { Offset = Vector2.new(1, 0) }, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
-		task.wait(2.2)
+		tween(rollGlow, 1.1, { BackgroundTransparency = 0.45, Size = UDim2.fromOffset(262, 98) }, Enum.EasingStyle.Sine)
+		task.wait(1.1)
+		tween(rollGlow, 1.1, { BackgroundTransparency = 0.75, Size = UDim2.fromOffset(250, 92) }, Enum.EasingStyle.Sine)
+		task.wait(1.1)
 		tween(rollGradient, 2.2, { Offset = Vector2.new(-1, 0) }, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut)
-		task.wait(2.2)
+		tween(rollGlow, 1.1, { BackgroundTransparency = 0.45, Size = UDim2.fromOffset(262, 98) }, Enum.EasingStyle.Sine)
+		task.wait(1.1)
+		tween(rollGlow, 1.1, { BackgroundTransparency = 0.75, Size = UDim2.fromOffset(250, 92) }, Enum.EasingStyle.Sine)
+		task.wait(1.1)
 	end
 end)
 
@@ -840,7 +878,7 @@ local inventoryHolder = new("Frame", {
 	ZIndex = 8,
 	Parent = gui,
 })
-addAutoScale(inventoryHolder, 760)
+UIKit.addAutoScale(inventoryHolder, 760)
 local inventory = new("Frame", {
 	Name = "Inventory",
 	Size = UDim2.fromScale(1, 1),
@@ -849,7 +887,6 @@ local inventory = new("Frame", {
 	ZIndex = 8,
 	Parent = inventoryHolder,
 }, { corner(UDim.new(0, 18)), stroke(THEME.Accent, 2.5, 0) })
-local inventoryPop = new("UIScale", { Parent = inventory })
 
 label({
 	Position = UDim2.fromOffset(22, 12), Size = UDim2.new(1, -44, 0, 40), Text = "✦ YOUR AURAS",
@@ -864,7 +901,7 @@ local closeButton = new("TextButton", {
 	BackgroundColor3 = THEME.Bad, Text = "X", Font = TITLE_FONT, TextSize = 24, TextColor3 = THEME.Text,
 	AutoButtonColor = false, ZIndex = 8, Parent = inventory,
 }, { corner(UDim.new(0, 10)), textStroke(1.5) })
-addButtonFeel(closeButton)
+UIKit.addButtonFeel(closeButton)
 
 local list = new("ScrollingFrame", {
 	Position = UDim2.fromOffset(16, 82), Size = UDim2.new(1, -32, 1, -98),
@@ -876,33 +913,42 @@ local list = new("ScrollingFrame", {
 		CellSize = UDim2.fromOffset(200, 170), CellPadding = UDim2.fromOffset(10, 10),
 		SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Center,
 	}),
-	new("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 8) }),
+	new("UIPadding", { PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 8) }),
 })
 
-local function buildCard(aura, count)
+local function buildCard(aura, count, index, animate)
 	local owned = count > 0
-	local tier = AuraData.Tiers[aura.Tier]
+	local tier = tierOf(aura)
 	local equipped = data.Equipped == aura.Name
 
-	local card = new("Frame", {
+	local cardFrame = new("Frame", {
 		Name = aura.Name,
 		BackgroundColor3 = THEME.PanelLight,
 		LayoutOrder = -aura.Chance, -- rarest first
 		ZIndex = 8,
 		Parent = list,
 	}, { corner(UDim.new(0, 12)), stroke(equipped and THEME.Good or tier.Color, equipped and 3 or 1.5, owned and 0 or 0.6) })
+	local cardScale = new("UIScale", { Parent = cardFrame })
+	if animate then
+		cardScale.Scale = 0.6
+		task.delay(index * 0.015, function()
+			tween(cardScale, 0.3, { Scale = 1 }, Enum.EasingStyle.Back)
+		end)
+	end
+	cardFrame.MouseEnter:Connect(function()
+		tween(cardScale, 0.12, { Scale = 1.04 })
+	end)
+	cardFrame.MouseLeave:Connect(function()
+		tween(cardScale, 0.12, { Scale = 1 })
+	end)
 
 	local nameText = label({
 		Position = UDim2.fromOffset(10, 6), Size = UDim2.new(1, -20, 0, 28),
 		Text = owned and aura.Name or "???", Font = TITLE_FONT, TextSize = 22,
-		TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = card,
+		TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = cardFrame,
 	})
 	if owned then
-		local function readable(c)
-			local h, s, v = c:ToHSV()
-			return Color3.fromHSV(h, s, math.max(v, 0.6))
-		end
-		gradient(readable(aura.Colors[1]), readable(aura.Colors[2]), 0).Parent = nameText
+		UIKit.gradient(UIKit.readable(aura.Colors[1]), UIKit.readable(aura.Colors[2]), 0).Parent = nameText
 	else
 		nameText.TextColor3 = Color3.fromRGB(110, 100, 140)
 	end
@@ -910,97 +956,128 @@ local function buildCard(aura, count)
 	label({
 		Position = UDim2.fromOffset(10, 32), Size = UDim2.new(1, -20, 0, 18),
 		Text = ("%s • %s"):format(aura.Tier, AuraData.FormatChance(aura.Chance)),
-		TextSize = 13, TextColor3 = tier.Color, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = card,
+		TextSize = 13, TextColor3 = tier.Color, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = cardFrame,
 	})
 
 	if owned then
 		label({
 			AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -10, 0, 8), Size = UDim2.fromOffset(60, 22),
 			Text = "x" .. AuraData.FormatNumber(count), TextSize = 15, TextColor3 = THEME.SubText,
-			TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 8, Parent = card,
+			TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 8, Parent = cardFrame,
 		})
 		label({
 			Position = UDim2.fromOffset(10, 54), Size = UDim2.new(1, -20, 0, 18),
 			Text = ("⚡ %s"):format(aura.Power.Name), TextSize = 14, TextColor3 = Color3.fromRGB(255, 220, 120),
-			TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = card,
+			TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = cardFrame,
 		})
 		label({
 			Position = UDim2.fromOffset(10, 72), Size = UDim2.new(1, -20, 0, 34),
 			Text = aura.Power.Description, TextSize = 12, Font = Enum.Font.Gotham, TextWrapped = true,
 			TextColor3 = THEME.SubText, TextXAlignment = Enum.TextXAlignment.Left,
-			TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 8, Parent = card,
+			TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 8, Parent = cardFrame,
 		})
 		label({
 			Position = UDim2.fromOffset(10, 106), Size = UDim2.new(1, -20, 0, 16),
 			Text = ("❤ %d HP   ⚔ %d DMG"):format(tier.MaxHealth, tier.AttackDamage),
 			TextSize = 12, TextColor3 = Color3.fromRGB(255, 150, 160),
-			TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = card,
+			TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 8, Parent = cardFrame,
 		})
 
 		local equipButton = new("TextButton", {
 			AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -8), Size = UDim2.new(1, -20, 0, 32),
 			BackgroundColor3 = equipped and THEME.Good or THEME.Accent, AutoButtonColor = false,
 			Text = equipped and "EQUIPPED" or "EQUIP", Font = TITLE_FONT, TextSize = 18,
-			TextColor3 = THEME.Text, ZIndex = 8, Parent = card,
+			TextColor3 = THEME.Text, ZIndex = 8, Parent = cardFrame,
 		}, { corner(UDim.new(0, 8)), textStroke(1.2) })
-		addButtonFeel(equipButton)
-		equipButton.MouseButton1Click:Connect(function()
+		UIKit.addButtonFeel(equipButton, true)
+		equipButton.Activated:Connect(function()
 			if data.Equipped ~= aura.Name then
 				data.Equipped = aura.Name
 				EquipRemote:FireServer(aura.Name)
-				refreshInventory()
+				SoundFX.Play("Equip")
+				UIKit.burst({ aura.Colors[1], aura.Colors[2] }, 14, 0.5, Vector2.new(0.5, 0.5))
+				refreshInventory(false)
 			end
 		end)
 	else
 		label({
 			Position = UDim2.fromOffset(10, 60), Size = UDim2.new(1, -20, 0, 60),
 			Text = "Not discovered yet.\nKeep rolling!", TextSize = 14, Font = Enum.Font.Gotham,
-			TextColor3 = Color3.fromRGB(130, 120, 160), TextWrapped = true, ZIndex = 8, Parent = card,
+			TextColor3 = Color3.fromRGB(130, 120, 160), TextWrapped = true, ZIndex = 8, Parent = cardFrame,
 		})
 	end
 end
 
-refreshInventory = function()
+refreshInventory = function(animate)
 	for _, child in ipairs(list:GetChildren()) do
 		if child:IsA("Frame") then
 			child:Destroy()
 		end
 	end
 	local discovered = 0
-	for _, aura in ipairs(AuraData.List) do
+	for index, aura in ipairs(AuraData.List) do
 		local count = data.Inventory[aura.Name] or 0
 		if count > 0 then
 			discovered += 1
 		end
-		buildCard(aura, count)
+		buildCard(aura, count, #AuraData.List - index, animate)
 	end
 	discoveredLabel.Text = ("Discovered %d / %d auras  •  Rarer auras = stronger duel powers"):format(
 		discovered, #AuraData.List)
 end
 
-local function setInventoryOpen(open)
+setInventoryOpen = function(open)
+	if open == inventoryOpen then
+		return
+	end
 	inventoryOpen = open
 	if open then
-		refreshInventory()
+		UIKit.announcePanel("Inventory")
+		refreshInventory(true)
 		inventoryHolder.Visible = true
-		inventoryPop.Scale = 0.8
-		tween(inventoryPop, 0.3, { Scale = 1 }, Enum.EasingStyle.Back)
+		UIKit.popIn(inventory)
 	else
 		inventoryHolder.Visible = false
 	end
 end
 
-aurasButton.MouseButton1Click:Connect(function()
+aurasButton.Activated:Connect(function()
 	setInventoryOpen(not inventoryOpen)
 end)
-closeButton.MouseButton1Click:Connect(function()
+closeButton.Activated:Connect(function()
 	setInventoryOpen(false)
+end)
+UIKit.PanelOpened:Connect(function(name)
+	if name ~= "Inventory" then
+		setInventoryOpen(false)
+	end
 end)
 
 ---------------------------------------------------------------------
--- ANNOUNCEMENTS (someone in the server rolled something rare)
+-- ANNOUNCEMENTS
 ---------------------------------------------------------------------
 local bannerToken = 0
+local function showBanner(message, color)
+	bannerToken += 1
+	local token = bannerToken
+	bannerLabel.Text = message
+	bannerStroke.Color = color
+	banner.Position = UDim2.new(0.5, 0, 0, -90)
+	tween(banner, 0.5, { Position = UDim2.new(0.5, 0, 0, 70) }, Enum.EasingStyle.Back)
+	task.delay(5, function()
+		if token == bannerToken then
+			tween(banner, 0.4, { Position = UDim2.new(0.5, 0, 0, -90) }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+		end
+	end)
+	pcall(function()
+		local channels = TextChatService:FindFirstChild("TextChannels")
+		local general = channels and channels:FindFirstChild("RBXGeneral")
+		if general then
+			general:DisplaySystemMessage(message)
+		end
+	end)
+end
+
 local function skyShift(aura)
 	local atmosphere = Lighting:FindFirstChildOfClass("Atmosphere")
 	local colorFx = Lighting:FindFirstChildOfClass("ColorCorrectionEffect")
@@ -1023,35 +1100,24 @@ local function skyShift(aura)
 end
 
 AnnounceRemote.OnClientEvent:Connect(function(info)
+	if info.Type == "ServerLuck" then
+		showBanner(("🌌 <b>%s</b> activated <font color='#ffd76a'><b>SERVER LUCK</b></font>! x%s luck for everyone!"):format(
+			info.PlayerName, Luck.Format(Config.LuckMultipliers.ServerBoost)), THEME.Gold)
+		UIKit.confetti({ THEME.Gold, THEME.Accent, THEME.Accent2 }, 80)
+		SoundFX.Chime(1, 5)
+		return
+	end
+
 	local aura = AuraData.Get(info.Aura)
 	if not aura then
 		return
 	end
-	local hex = tierColor(aura):ToHex()
-	local message = ("✦ <b>%s</b> rolled <font color='#%s'><b>%s</b></font> (%s) ✦"):format(
-		info.PlayerName, hex, aura.Name, AuraData.FormatChance(aura.Chance))
-
-	bannerToken += 1
-	local token = bannerToken
-	bannerLabel.Text = message
-	bannerStroke.Color = tierColor(aura)
-	banner.Position = UDim2.new(0.5, 0, 0, -90)
-	tween(banner, 0.5, { Position = UDim2.new(0.5, 0, 0, 70) }, Enum.EasingStyle.Back)
-	task.delay(5, function()
-		if token == bannerToken then
-			tween(banner, 0.4, { Position = UDim2.new(0.5, 0, 0, -90) }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
-		end
-	end)
-
-	-- also post it in chat
-	pcall(function()
-		local channels = TextChatService:FindFirstChild("TextChannels")
-		local general = channels and channels:FindFirstChild("RBXGeneral")
-		if general then
-			general:DisplaySystemMessage(message)
-		end
-	end)
-
+	local hex = tierOf(aura).Color:ToHex()
+	showBanner(("✦ <b>%s</b> rolled <font color='#%s'><b>%s</b></font> (%s) ✦"):format(
+		info.PlayerName, hex, aura.Name, AuraData.FormatChance(aura.Chance)), tierOf(aura).Color)
+	if info.UserId ~= player.UserId then
+		SoundFX.Play("Pop", { Volume = 0.7 })
+	end
 	if aura.Chance >= Config.SkyShiftAtChance then
 		skyShift(aura)
 	end
@@ -1064,14 +1130,62 @@ DataUpdatedRemote.OnClientEvent:Connect(function(snapshot)
 	data = snapshot
 	updateStats()
 	if inventoryOpen then
-		refreshInventory()
+		refreshInventory(false)
 	end
 end)
 
 updateAutoButton()
 updateStats()
 
+---------------------------------------------------------------------
+-- INTRO: title card, then the UI slides in
+---------------------------------------------------------------------
+local function playIntro()
+	rollBar.Position = UDim2.new(0.5, 0, 1, 220)
+	statsPanel.Position = UDim2.new(0, -320, 0, 64)
+
+	local holder = new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.42), Size = UDim2.fromOffset(800, 200),
+		BackgroundTransparency = 1, ZIndex = 9, Parent = gui,
+	})
+	UIKit.addAutoScale(holder)
+	local title = label({
+		Size = UDim2.new(1, 0, 0, 130), Text = "COSMIC RNG", Font = TITLE_FONT, TextSize = 120, ZIndex = 9, Parent = holder,
+	})
+	textStroke(5).Parent = title
+	local titleGradient = UIKit.gradient(Color3.fromRGB(190, 140, 255), Color3.fromRGB(90, 220, 255), 0)
+	titleGradient.Parent = title
+	local subtitle = label({
+		Position = UDim2.fromOffset(0, 130), Size = UDim2.new(1, 0, 0, 40), Text = "roll the universe",
+		Font = TITLE_FONT, TextSize = 32, TextColor3 = THEME.SubText, TextTransparency = 1, ZIndex = 9, Parent = holder,
+	})
+	local titleScale = new("UIScale", { Scale = 0.3, Parent = title })
+
+	tween(titleScale, 0.8, { Scale = 1 }, Enum.EasingStyle.Back)
+	tween(titleGradient, 2.5, { Rotation = 360 }, Enum.EasingStyle.Linear)
+	SoundFX.Play("RevealEpic", { Volume = 0.6 })
+	UIKit.burst({ Color3.fromRGB(190, 140, 255), Color3.fromRGB(90, 220, 255), Color3.new(1, 1, 1) }, 40, 1.2, Vector2.new(0.5, 0.42))
+	task.wait(0.5)
+	tween(subtitle, 0.6, { TextTransparency = 0 })
+	task.wait(1.6)
+	tween(title, 0.5, { TextTransparency = 1 })
+	tween(title:FindFirstChild("TextOutline"), 0.5, { Transparency = 1 })
+	tween(subtitle, 0.5, { TextTransparency = 1 })
+	tween(titleScale, 0.5, { Scale = 1.3 })
+	SoundFX.Play("Whoosh")
+	tween(rollBar, 0.6, { Position = UDim2.new(0.5, 0, 1, -20) }, Enum.EasingStyle.Back)
+	tween(statsPanel, 0.6, { Position = UDim2.new(0, 16, 0, 64) }, Enum.EasingStyle.Back)
+	task.wait(0.6)
+	holder:Destroy()
+end
+
 task.spawn(function()
+	local introOk, introError = pcall(playIntro)
+	if not introOk then
+		warn("[RollUI] intro failed:", introError)
+		rollBar.Position = UDim2.new(0.5, 0, 1, -20)
+		statsPanel.Position = UDim2.new(0, 16, 0, 64)
+	end
 	for _ = 1, 30 do
 		local ok, snapshot = pcall(function()
 			return GetDataRemote:InvokeServer()
@@ -1080,7 +1194,7 @@ task.spawn(function()
 			data = snapshot
 			updateStats()
 			if data.Rolls == 0 then
-				showToast("Press ROLL (or R) to discover your first aura!", THEME.Accent2)
+				UIKit.toast("Press ROLL (or R) to discover your first aura!", THEME.Accent2)
 			end
 			return
 		end
