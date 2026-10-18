@@ -732,7 +732,7 @@ portalSignText.BackgroundTransparency = 1
 portalSignText.Size = UDim2.fromScale(1, 1)
 portalSignText.Font = Enum.Font.FredokaOne
 portalSignText.TextScaled = true
-portalSignText.Text = "🌀 LUCKY ISLE • x" .. Config.LuckyIsland.LuckMultiplier .. " LUCK"
+portalSignText.Text = "🌀 LUCKY ISLE • ALL LUCK x" .. Config.LuckyIsland.LuckMultiplier
 portalSignText.TextColor3 = GOLD
 portalSignText.Parent = portalSignGui
 

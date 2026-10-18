@@ -57,6 +57,10 @@ game pass IDs in `CosmicConfig`).
 
 - Press **E** at an egg to see the price, the pets, their chances and a 3D preview. Hatching plays an animation: the egg wobbles, cracks and the pet pops out.
 - Equip up to **3 pets** in the **🐾 PETS** menu (or press EQUIP BEST). Every equipped pet adds luck.
+- **Merging:** got 3 of the same pet? Press **MERGE 3** on its card:
+  - 3 normal pets → 1 **✨ Golden** pet (shiny gold, x1.25 luck: a +24% pet becomes +30%).
+  - 3 Golden pets → 1 **🌈 Rainbow** pet (cycles through every color, x1.6 luck: +24% becomes +38%).
+  - A merge animation shows the 3 pets flying together. Equipped copies are swapped for the merged pet automatically.
 - Pets float behind you, and everyone can see them. Each kind moves its own way: wings flap, fish wiggle, stars spin, wisps have orbiting lights, and blobs and bunnies bounce.
 - Rare hatches (Legendary and up) are announced to the server. Everything is in the `PetData` module.
 
@@ -110,6 +114,7 @@ Side menu (2 columns) with **LIMITED**, **DUEL**, **STORE**, **REBIRTH**, **PETS
     | Long sky serpents | Their bodies follow the head in waves |
 - The **rebirth islands are bigger** too (radius 100), with more trees, spikes, geysers, towers and palms.
   - Lucky Isle has twin golden moons, Frostfall a frozen ringed planet, Ember Isle a burning red sun and Neon Nexus a neon-ringed planet.
+- **Island luck multiplies ALL your luck.** If you have x30 luck and walk onto Lucky Isle (x2), you roll with x60. A popup counts it up when you arrive (x30 → x60), and your luck line shows it as "x60 (x30 × 2 island)". Rebirth islands work the same way.
 - **Lucky Isle portal**: walk into the portal (or press **E**) to travel to **Lucky Isle**. It's white marble, gold, rose and teal, and gives **x2 luck** while you stand on it. The sky turns pink and gold while you're there, and a return portal takes you back.
   - Open to everyone. Set `Config.LuckyIsland.RequireVIP = true` to make it VIP-only.
 - **Parkour** (step on the start pad to begin; the timer shows at the top):
@@ -153,6 +158,10 @@ Open **⭐ REBIRTH** on the left (a green **!** shows when you're ready).
   - **Magma Run** (Ember): over a lava sea (touching it sends you back), with rocks that bob up and down, fire bars, half-lava platforms and a geyser jump pad. Gives **x4 luck for 7 min**.
   - **Pulse Grid** (Neon Nexus): a square spiral of platforms that blink in a wave, fast lasers, sliding platforms and thin beams. Gives **x5 luck for 8 min**.
 - Every number is in `Config.Rebirth` and `Config.RebirthIslands`.
+
+### Signs and name tags
+- Every floating sign in the world is a bit smaller, see-through, and drawn on top of objects, so a wall or platform never cuts the text off. Signs fade out more the further away you are (`NameplateStyler`).
+- Player name tags are smaller and slightly see-through too.
 
 ### Sprinting
 Hold **Shift** to sprint, or tap the **RUN** button on phones.
@@ -244,7 +253,7 @@ All sounds are made from Roblox's built-in sound files, so they always work:
 |---|---|---|
 | ReplicatedStorage | ModuleScript | `CosmicConfig`, `AuraData`, `AuraImages`, `AuraEffects`, `CombatAnim`, `Luck`, `Rebirth`, `PetData`, `SoundFX`, `UIKit` |
 | ServerScriptService | Script | `RollService`, `WorldSetup`, `LuckyIsland`, `RebirthIslands`, `SkyDecor`, `PetWorld`, `DropService`, `Parkour`, `DuelService`, `Movement`, `Leaderboard` |
-| StarterPlayer > StarterPlayerScripts | LocalScript | `AuraRenderer`, `RollUI`, `StoreUI`, `WorldFX`, `ParkourClient`, `DuelClient`, `DuelFX`, `Sprint`, `RebirthClient`, `IslandFX`, `SkyFX`, `PetClient`, `DropClient`, `LimitedOffer` |
+| StarterPlayer > StarterPlayerScripts | LocalScript | `AuraRenderer`, `RollUI`, `StoreUI`, `WorldFX`, `ParkourClient`, `DuelClient`, `DuelFX`, `Sprint`, `RebirthClient`, `IslandFX`, `SkyFX`, `PetClient`, `DropClient`, `LimitedOffer`, `NameplateStyler` |
 
 ## Adding the aura pictures
 Roblox can only show pictures that are uploaded to Roblox, so this is a one-time step:

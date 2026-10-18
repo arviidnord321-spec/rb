@@ -1811,7 +1811,7 @@ function Luck.GetBonuses(player)
 
 	-- Standing on Lucky Isle (the server sets this, so it can't be faked)
 	if player:GetAttribute("OnLuckyIsland") then
-		table.insert(bonuses, { Name = "Lucky Isle", Multiplier = Config.LuckyIsland.LuckMultiplier, Show = true })
+		table.insert(bonuses, { Name = "Lucky Isle", Multiplier = Config.LuckyIsland.LuckMultiplier, Show = true, Island = true })
 	end
 
 	-- Rebirths: permanent luck
@@ -1825,7 +1825,7 @@ function Luck.GetBonuses(player)
 	if islandKey then
 		for _, islandInfo in ipairs(Config.RebirthIslands) do
 			if islandInfo.Key == islandKey then
-				table.insert(bonuses, { Name = islandInfo.Name, Icon = islandInfo.Icon, Multiplier = islandInfo.LuckMultiplier, Show = true })
+				table.insert(bonuses, { Name = islandInfo.Name, Icon = islandInfo.Icon, Multiplier = islandInfo.LuckMultiplier, Show = true, Island = true })
 			end
 		end
 	end
@@ -1878,6 +1878,17 @@ function Luck.LuckyEvery(player)
 		return Config.Rebirth.LuckyEveryAt4
 	end
 	return Config.LuckyRollEvery
+end
+
+-- The island bonus (Lucky Isle or a rebirth island) you're standing on, or nil.
+-- Islands multiply ALL your other luck: x30 luck on an x2 island = x60.
+function Luck.IslandBonus(player)
+	for _, bonus in ipairs(Luck.GetBonuses(player)) do
+		if bonus.Island then
+			return bonus
+		end
+	end
+	return nil
 end
 
 function Luck.Format(n)
@@ -2031,12 +2042,81 @@ for _, egg in ipairs(PetData.Eggs) do
 	egg.TotalWeight = total
 end
 
-function PetData.Get(name)
-	return PetData.ByName[name]
+---------------------------------------------------------------------
+-- MERGING: 3 of the same pet -> 1 GOLDEN pet, 3 golden -> 1 RAINBOW pet.
+-- Merged pets are saved as "Golden:Star Kitten" / "Rainbow:Star Kitten".
+---------------------------------------------------------------------
+PetData.MergeCount = 3
+PetData.Variants = {
+	Golden = { Order = 2, Icon = "✨", Multiplier = 1.25, Next = "Rainbow" }, -- 24% luck -> 30%
+	Rainbow = { Order = 3, Icon = "🌈", Multiplier = 1.6 }, -- 24% luck -> 38%
+}
+local GOLD_COLORS = { Color3.fromRGB(255, 200, 60), Color3.fromRGB(255, 245, 170) }
+
+local variantCache = {}
+
+-- "Golden:Star Kitten" -> "Golden", "Star Kitten"   ("Star Kitten" -> nil, "Star Kitten")
+function PetData.SplitKey(key)
+	local variant, base = string.match(key, "^(%a+):(.+)$")
+	if variant and PetData.Variants[variant] then
+		return variant, base
+	end
+	return nil, key
+end
+
+-- Works for normal pets AND merged pets. For a merged pet you get a copy
+-- with the boosted Luck, Name = the saved key, DisplayName = "Golden Star Kitten".
+function PetData.Get(key)
+	if type(key) ~= "string" then
+		return nil
+	end
+	local plain = PetData.ByName[key]
+	if plain then
+		return plain
+	end
+	if variantCache[key] then
+		return variantCache[key]
+	end
+	local variant, baseName = PetData.SplitKey(key)
+	local base = variant and PetData.ByName[baseName]
+	if not base then
+		return nil
+	end
+	local info = PetData.Variants[variant]
+	local pet = table.clone(base)
+	pet.Name = key
+	pet.BaseName = base.Name
+	pet.DisplayName = variant .. " " .. base.Name
+	pet.Variant = variant
+	pet.Luck = math.floor(base.Luck * info.Multiplier * 1000 + 0.5) / 1000
+	if variant == "Golden" then
+		pet.Colors = GOLD_COLORS
+	end
+	variantCache[key] = pet
+	return pet
+end
+
+-- the name to show on screen
+function PetData.Display(key)
+	local pet = PetData.Get(key)
+	return pet and (pet.DisplayName or pet.Name) or tostring(key)
+end
+
+-- what 3 of this pet merge into (nil if it can't merge any further)
+function PetData.MergeResult(key)
+	local variant, baseName = PetData.SplitKey(key)
+	if not PetData.ByName[baseName] then
+		return nil
+	end
+	if not variant then
+		return "Golden:" .. baseName
+	end
+	local nextVariant = PetData.Variants[variant].Next
+	return nextVariant and (nextVariant .. ":" .. baseName) or nil
 end
 
 function PetData.RarityOf(name)
-	local pet = PetData.ByName[name]
+	local pet = PetData.Get(name)
 	return pet and PetData.Rarities[pet.Rarity]
 end
 
@@ -2066,7 +2146,7 @@ end
 function PetData.LuckFrom(names)
 	local total = 1
 	for _, name in ipairs(names or {}) do
-		local pet = PetData.ByName[name]
+		local pet = PetData.Get(name)
 		if pet then
 			total += pet.Luck
 		end
@@ -2924,6 +3004,65 @@ UIKit.PanelOpened = panelEvent.Event -- fires with the panel's name
 
 function UIKit.announcePanel(name)
 	panelEvent:Fire(name)
+end
+
+-- Big "your luck just got multiplied" popup when you arrive on an island:
+--   LUCKY ISLE / ALL YOUR LUCK x2 / x30 -> x60 (the last number counts up)
+local function shortNumber(n)
+	if n >= 1000 then
+		local withCommas = tostring(math.floor(n + 0.5)):reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
+		return withCommas
+	end
+	local text = string.format("%.2f", n):gsub("0+$", ""):gsub("%.$", "")
+	return text
+end
+local boostToken = 0
+function UIKit.luckBoost(icon, placeName, multiplier, before, after, color)
+	local layer = getFxGui()
+	boostToken += 1
+	local token = boostToken
+	local old = layer:FindFirstChild("LuckBoost")
+	if old then
+		old:Destroy()
+	end
+	local card = new("Frame", {
+		Name = "LuckBoost", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, -160), Size = UDim2.fromOffset(520, 128),
+		BackgroundColor3 = THEME.Panel, BackgroundTransparency = 0.12, Parent = layer,
+	}, { UIKit.corner(UDim.new(0, 18)), UIKit.stroke(color, 2.5, 0) })
+	UIKit.addAutoScale(card)
+	local title = UIKit.label({ Position = UDim2.fromOffset(0, 8), Size = UDim2.new(1, 0, 0, 28), Text = icon .. " " .. placeName:upper(),
+		Font = UIKit.TitleFont, TextSize = 26, TextColor3 = color, Parent = card })
+	UIKit.textStroke(2).Parent = title
+	UIKit.label({ Position = UDim2.fromOffset(0, 36), Size = UDim2.new(1, 0, 0, 22), Text = ("ALL YOUR LUCK IS MULTIPLIED x%s"):format(shortNumber(multiplier)),
+		Font = UIKit.TitleFont, TextSize = 18, TextColor3 = THEME.Text, Parent = card })
+	local numbers = UIKit.label({ Position = UDim2.fromOffset(0, 62), Size = UDim2.new(1, 0, 0, 56), RichText = true, Text = "",
+		Font = UIKit.TitleFont, TextSize = 42, Parent = card })
+	UIKit.textStroke(2.5).Parent = numbers
+	tween(card, 0.45, { Position = UDim2.new(0.5, 0, 0, 96) }, Enum.EasingStyle.Back)
+	SoundFX.Chime(1, 5)
+	task.spawn(function()
+		-- count up from your old luck to the new luck
+		local steps = 24
+		for i = 0, steps do
+			if token ~= boostToken or not card.Parent then
+				return
+			end
+			local f = i / steps
+			local value = before + (after - before) * (1 - (1 - f) ^ 3)
+			numbers.Text = ("<font color='#bfb4e1'>x%s</font>  →  <font color='#78ffaa'>x%s</font>"):format(shortNumber(before), shortNumber(value))
+			if i % 4 == 0 then
+				SoundFX.Play("Tick", { Speed = 1 + f, Volume = 0.6 })
+			end
+			task.wait(0.04)
+		end
+		UIKit.burst({ color, THEME.Good, Color3.new(1, 1, 1) }, 24, 0.8, Vector2.new(0.5, 0.2))
+		task.wait(3.2)
+		if token == boostToken and card.Parent then
+			tween(card, 0.4, { Position = UDim2.new(0.5, 0, 0, -160) }, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+			task.wait(0.45)
+			card:Destroy()
+		end
+	end)
 end
 
 -- Pop-in animation for a panel (needs a UIScale named "PopScale")
@@ -5232,7 +5371,7 @@ addSparkles(orb, Color3.fromRGB(255, 230, 170), 16, 0.7)
 ringModel("LuckyRing1", ORB, 5.2, 28, 0.35, GOLD, core)
 ringModel("LuckyRing2", ORB, 6.8, 34, 0.3, ROSE, core)
 ringModel("LuckyRing3", ORB, 8.4, 40, 0.3, TEAL, core)
-billboard(orb, "🍀 LUCKY ISLE • x" .. LUCKY.LuckMultiplier .. " LUCK", GOLD, Vector3.new(0, 10, 0))
+billboard(orb, "🍀 LUCKY ISLE • ALL YOUR LUCK x" .. LUCKY.LuckMultiplier, GOLD, Vector3.new(0, 10, 0))
 
 ---------------------------------------------------------------------
 -- COLONNADE: a circle of marble columns with a golden ring on top
@@ -5569,7 +5708,7 @@ local function addPrompt(zone, actionText, objectText, onTriggered)
 	prompt.Parent = zone
 	prompt.Triggered:Connect(onTriggered)
 end
-addPrompt(mainZone, "Travel", "Lucky Isle (x" .. LUCKY.LuckMultiplier .. " luck)", enterMainPortal)
+addPrompt(mainZone, "Travel", "Lucky Isle (ALL luck x" .. LUCKY.LuckMultiplier .. ")", enterMainPortal)
 addPrompt(returnZone, "Travel", "Back to Cosmic Island", enterReturnPortal)
 
 -- Who is standing on Lucky Isle? (gives the luck bonus)
@@ -7343,7 +7482,7 @@ local function makeIsland(info, style)
 	signText.Font = Enum.Font.FredokaOne
 	signText.TextScaled = true
 	signText.RichText = true
-	signText.Text = ("%s %s\n<font size='60'>x%s LUCK HERE</font>"):format(info.Icon, info.Name:upper(), tostring(info.LuckMultiplier))
+	signText.Text = ("%s %s\n<font size='60'>ALL YOUR LUCK x%s HERE</font>"):format(info.Icon, info.Name:upper(), tostring(info.LuckMultiplier))
 	signText.TextColor3 = info.Color
 	signText.Parent = signGui
 
@@ -8207,7 +8346,7 @@ for index, info in ipairs(Config.RebirthIslands) do
 		Transparency = 0.2,
 	})
 	lock:SetAttribute("NeedRebirths", info.Rebirths)
-	local sign = billboard(swirl, ("%s <b>%s</b>\nx%s luck • Rebirth %d"):format(info.Icon, info.Name:upper(), tostring(info.LuckMultiplier), info.Rebirths),
+	local sign = billboard(swirl, ("%s <b>%s</b>\nALL luck x%s • Rebirth %d"):format(info.Icon, info.Name:upper(), tostring(info.LuckMultiplier), info.Rebirths),
 		info.Color, Vector3.new(0, 6.6, 0), UDim2.fromOffset(300, 70), 120)
 	sign.Name = "PortalSign"
 	sign:SetAttribute("NeedRebirths", info.Rebirths)
@@ -8295,7 +8434,7 @@ end
 local MAIN_RETURN = {} -- [key] = where you come out on the main island
 for _, portal in ipairs(gatePortals) do
 	MAIN_RETURN[portal.Info.Key] = portal.Exit
-	addPrompt(portal.Zone, ("%s (x%s luck)"):format(portal.Info.Name, tostring(portal.Info.LuckMultiplier)), function(player)
+	addPrompt(portal.Zone, ("%s (ALL luck x%s)"):format(portal.Info.Name, tostring(portal.Info.LuckMultiplier)), function(player)
 		enterGatePortal(player, portal)
 	end)
 end
@@ -8886,6 +9025,31 @@ PetRemote.OnServerInvoke = function(player, action, petName)
 		end
 	elseif action == "UnequipAll" then
 		data.EquippedPets = {}
+	elseif action == "Merge" and type(petName) == "string" and PetData.Get(petName) then
+		-- 3 of the same pet become 1 golden (or rainbow) pet
+		local result = PetData.MergeResult(petName)
+		if not result or ownedCount(data, petName) < PetData.MergeCount then
+			return { Error = "CantMerge", Pets = data.Pets, EquippedPets = data.EquippedPets }
+		end
+		data.Pets[petName] -= PetData.MergeCount
+		if data.Pets[petName] <= 0 then
+			data.Pets[petName] = nil
+		end
+		-- if you had more of them equipped than you still own, swap in the merged pet
+		local swapped = false
+		while equippedCount(data, petName) > ownedCount(data, petName) do
+			local index = table.find(data.EquippedPets, petName)
+			if not swapped then
+				data.EquippedPets[index] = result
+				swapped = true
+			else
+				table.remove(data.EquippedPets, index)
+			end
+		end
+		givePet(data, result)
+		refreshStats(player)
+		DataUpdatedRemote:FireClient(player, snapshot(data))
+		return { Merged = result, Pets = data.Pets, EquippedPets = data.EquippedPets }
 	end
 	refreshStats(player)
 	return { Pets = data.Pets, EquippedPets = data.EquippedPets }
@@ -10789,7 +10953,7 @@ portalSignText.BackgroundTransparency = 1
 portalSignText.Size = UDim2.fromScale(1, 1)
 portalSignText.Font = Enum.Font.FredokaOne
 portalSignText.TextScaled = true
-portalSignText.Text = "🌀 LUCKY ISLE • x" .. Config.LuckyIsland.LuckMultiplier .. " LUCK"
+portalSignText.Text = "🌀 LUCKY ISLE • ALL LUCK x" .. Config.LuckyIsland.LuckMultiplier
 portalSignText.TextColor3 = GOLD
 portalSignText.Parent = portalSignGui
 
@@ -11454,8 +11618,8 @@ local function buildTag(character)
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "AuraTag_" .. player.Name
 	gui.Adornee = head
-	gui.Size = UDim2.fromOffset(240, 70)
-	gui.StudsOffset = Vector3.new(0, 3.4, 0)
+	gui.Size = UDim2.fromOffset(200, 56)
+	gui.StudsOffset = Vector3.new(0, 3.2, 0)
 	gui.MaxDistance = 75
 	gui.LightInfluence = 0
 	gui.ResetOnSpawn = false
@@ -11476,10 +11640,11 @@ local function buildTag(character)
 		l.TextSize = size
 		l.Text = text
 		l.TextColor3 = color
+		l.TextTransparency = 0.12 -- a little see-through
 		l.Parent = gui
 		local outline = Instance.new("UIStroke")
-		outline.Thickness = 1.6
-		outline.Transparency = 0.25
+		outline.Thickness = 1.4
+		outline.Transparency = 0.45
 		outline.Parent = l
 		return l
 	end
@@ -11493,16 +11658,16 @@ local function buildTag(character)
 		if vip then
 			table.insert(parts, "👑 VIP")
 		end
-		local top = line(1, table.concat(parts, "  "), 16, GOLD)
+		local top = line(1, table.concat(parts, "  "), 13, GOLD)
 		top.RichText = true
 	end
 	if aura then
-		local nameLine = line(2, aura.Name, 24, Color3.new(1, 1, 1))
+		local nameLine = line(2, aura.Name, 19, Color3.new(1, 1, 1))
 		gradient = Instance.new("UIGradient")
 		gradient.Color = ColorSequence.new(readable(aura.Colors[1]), readable(aura.Colors[2]))
 		gradient.Parent = nameLine
 		local tier = AuraData.Tiers[aura.Tier]
-		line(3, ("%s • %s"):format(aura.Tier, AuraData.FormatChance(aura.Chance)), 13, tier.Color, Enum.Font.GothamBold)
+		line(3, ("%s • %s"):format(aura.Tier, AuraData.FormatChance(aura.Chance)), 11, tier.Color, Enum.Font.GothamBold)
 	end
 
 	tags[character] = {
@@ -14340,6 +14505,7 @@ local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
 local SoundFX = require(ReplicatedStorage:WaitForChild("SoundFX"))
+local Luck = require(ReplicatedStorage:WaitForChild("Luck"))
 local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
 
 local player = Players.LocalPlayer
@@ -14534,8 +14700,8 @@ player:GetAttributeChangedSignal("OnRebirthIsland"):Connect(function()
 	if key then
 		for _, info in ipairs(Config.RebirthIslands) do
 			if info.Key == key then
-				UIKit.toast(("%s Welcome to %s! x%s luck here"):format(info.Icon, info.Name, tostring(info.LuckMultiplier)), info.Color)
-				SoundFX.Chime(0.9, 5)
+				local after = Luck.Get(player)
+				UIKit.luckBoost(info.Icon, info.Name, info.LuckMultiplier, after / info.LuckMultiplier, after, info.Color)
 			end
 		end
 	end
@@ -14785,6 +14951,150 @@ end)
       </Item>
       <Item class="LocalScript" referent="31">
         <Properties>
+          <string name="Name">NameplateStyler</string>
+          <string name="Source"><![CDATA[-- NameplateStyler (LocalScript in StarterPlayer > StarterPlayerScripts)
+-- Makes every floating sign in the world (parkour, portals, eggs, cores,
+-- islands...) easy to read:
+--   * drawn on top of objects, so a wall or platform never cuts the text off
+--   * a bit smaller and sized in the world, so far-away signs shrink instead
+--     of covering your screen
+--   * see-through, and they fade out more the further away you are
+-- Only map signs are changed (not health bars or player name tags).
+
+local Players = game:GetService("Players")
+
+local camera = workspace.CurrentCamera
+
+-- the map models whose signs we style
+local ROOTS = {
+	"CosmicIsland", "LuckyIsland", "ParkourCourses", "RebirthIslands",
+	"PetHatcheries", "DuelIsland", "CosmicSkyDecor",
+}
+local PIXELS_PER_STUD = 48 -- 320 px wide sign -> about 6.7 studs wide
+local NEAR = 30 -- closer than this: clearest
+local BASE_TEXT = 0.12 -- text transparency up close
+local FAR_TEXT = 0.6 -- text transparency at the edge of its range
+
+local styled = {} -- [BillboardGui] = { Labels = {...}, Strokes = {...} }
+
+local function isCharacterPart(gui)
+	local node = gui.Parent
+	while node and node ~= workspace do
+		if node:IsA("Model") and Players:GetPlayerFromCharacter(node) then
+			return true
+		end
+		node = node.Parent
+	end
+	return false
+end
+
+local function anchorPosition(gui)
+	local target = gui.Adornee or gui.Parent
+	if target and target:IsA("BasePart") then
+		return target.Position + gui.StudsOffset
+	elseif target and target:IsA("Attachment") then
+		return target.WorldPosition + gui.StudsOffset
+	end
+	return nil
+end
+
+local applying = false
+local function resize(gui)
+	local size = gui.Size
+	-- pixel sizes become world sizes (and 20% smaller than before)
+	if size.X.Offset > 0 or size.Y.Offset > 0 then
+		applying = true
+		gui.Size = UDim2.new(size.X.Offset / PIXELS_PER_STUD, 0, size.Y.Offset / PIXELS_PER_STUD, 0)
+		applying = false
+	end
+end
+
+local function style(gui)
+	if styled[gui] or isCharacterPart(gui) then
+		return
+	end
+	local entry = { Labels = {}, Strokes = {} }
+	styled[gui] = entry
+	gui.AlwaysOnTop = true
+	gui.LightInfluence = 0
+	gui.MaxDistance = math.min(gui.MaxDistance > 0 and gui.MaxDistance or 150, 180)
+	resize(gui)
+	-- if a script changes the size later, convert the new size too
+	gui:GetPropertyChangedSignal("Size"):Connect(function()
+		if not applying then
+			resize(gui)
+		end
+	end)
+	local function collect(item)
+		if item:IsA("TextLabel") then
+			table.insert(entry.Labels, item)
+		elseif item:IsA("UIStroke") then
+			table.insert(entry.Strokes, item)
+		end
+	end
+	for _, item in ipairs(gui:GetDescendants()) do
+		collect(item)
+	end
+	gui.DescendantAdded:Connect(collect)
+	gui.Destroying:Connect(function()
+		styled[gui] = nil
+	end)
+end
+
+local function watchRoot(root)
+	for _, item in ipairs(root:GetDescendants()) do
+		if item:IsA("BillboardGui") then
+			style(item)
+		end
+	end
+	root.DescendantAdded:Connect(function(item)
+		if item:IsA("BillboardGui") then
+			task.defer(style, item)
+		end
+	end)
+end
+
+for _, name in ipairs(ROOTS) do
+	task.spawn(function()
+		local root = workspace:WaitForChild(name, 60)
+		if root then
+			watchRoot(root)
+		end
+	end)
+end
+-- roots that get rebuilt later (or show up after we start)
+workspace.ChildAdded:Connect(function(child)
+	if table.find(ROOTS, child.Name) then
+		watchRoot(child)
+	end
+end)
+
+-- fade with distance (a few times a second is plenty)
+task.spawn(function()
+	while true do
+		task.wait(0.2)
+		local eye = camera.CFrame.Position
+		for gui, entry in pairs(styled) do
+			local position = anchorPosition(gui)
+			if position then
+				local range = math.max(gui.MaxDistance, NEAR + 1)
+				local f = math.clamp(((position - eye).Magnitude - NEAR) / (range - NEAR), 0, 1)
+				local textT = BASE_TEXT + (FAR_TEXT - BASE_TEXT) * f
+				for _, label in ipairs(entry.Labels) do
+					label.TextTransparency = textT
+				end
+				for _, s in ipairs(entry.Strokes) do
+					s.Transparency = math.clamp(0.45 + f * 0.4, 0, 1)
+				end
+			end
+		end
+	end
+end)
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="LocalScript" referent="32">
+        <Properties>
           <string name="Name">ParkourClient</string>
           <string name="Source"><![CDATA[-- ParkourClient (LocalScript in StarterPlayer > StarterPlayerScripts)
 -- Runs the parkour bits that must be smooth on your own screen:
@@ -15016,7 +15326,7 @@ end
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="32">
+      <Item class="LocalScript" referent="33">
         <Properties>
           <string name="Name">PetClient</string>
           <string name="Source"><![CDATA[-- PetClient (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -15192,6 +15502,34 @@ local function buildPet(petName)
 		p:SetAttribute("Offset", p.CFrame)
 	end
 	model.PrimaryPart = model:FindFirstChild("Body")
+	-- merged pets: golden ones shine, rainbow ones shift through every color
+	if pet.Variant == "Golden" then
+		for _, p in ipairs(model:GetChildren()) do
+			if p:IsA("BasePart") and p.Name ~= "Eye" and p.Name ~= "Pupil" then
+				p.Reflectance = 0.25
+			end
+		end
+	elseif pet.Variant == "Rainbow" then
+		model:SetAttribute("Rainbow", true)
+	end
+	if pet.Variant and model.PrimaryPart then
+		local shine = Instance.new("ParticleEmitter")
+		shine.Texture = Config.Textures.Sparkle
+		shine.Rate = 10
+		shine.Lifetime = NumberRange.new(0.5, 1)
+		shine.Speed = NumberRange.new(0.5, 1.5)
+		shine.SpreadAngle = Vector2.new(180, 180)
+		shine.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.35), NumberSequenceKeypoint.new(1, 0) })
+		shine.LightEmission = 1
+		shine.Color = pet.Variant == "Golden" and ColorSequence.new(Color3.fromRGB(255, 220, 90))
+			or ColorSequence.new({
+				ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 80, 80)),
+				ColorSequenceKeypoint.new(0.33, Color3.fromRGB(255, 240, 80)),
+				ColorSequenceKeypoint.new(0.66, Color3.fromRGB(80, 220, 255)),
+				ColorSequenceKeypoint.new(1, Color3.fromRGB(220, 90, 255)),
+			})
+		shine.Parent = model.PrimaryPart
+	end
 	-- rare pets sparkle
 	local order = PetData.Rarities[pet.Rarity].Order
 	if order >= 4 and model.PrimaryPart then
@@ -15214,6 +15552,18 @@ local function buildPet(petName)
 		light.Parent = model.PrimaryPart
 	end
 	return model
+end
+
+-- rainbow pets slowly cycle through every color
+local function rainbowTick(model, t)
+	if not model:GetAttribute("Rainbow") then
+		return
+	end
+	for index, p in ipairs(model:GetChildren()) do
+		if p:IsA("BasePart") and p.Name ~= "Eye" and p.Name ~= "Pupil" then
+			p.Color = Color3.fromHSV((t * 0.25 + index * 0.07) % 1, 0.7, 1)
+		end
+	end
 end
 
 -- moves every piece of a pet: base = where the body goes, t = time
@@ -15331,6 +15681,7 @@ RunService.RenderStepped:Connect(function(dt)
 				local target = facing * slot * CFrame.new(0, math.sin(t * 2 + pet.Phase) * 0.35, 0)
 				pet.Current = pet.Current and pet.Current:Lerp(target, math.min(1, dt * 7)) or target
 				posePet(pet.Model, pet.Current, t, pet.Shape, pet.Phase)
+				rainbowTick(pet.Model, t + pet.Phase)
 			end
 		end
 	end
@@ -15357,6 +15708,7 @@ local function preview(parent, petName, zoom)
 		cam.Parent = viewport
 		viewport.CurrentCamera = cam
 		posePet(model, CFrame.Angles(0, math.rad(25), 0), 0, PetData.Get(petName).Shape, 0)
+		rainbowTick(model, 0)
 	end
 	return viewport, model
 end
@@ -15459,12 +15811,109 @@ local function petAction(action, petName)
 end
 
 local refreshPanel -- defined below
+local mergePets -- defined below
+local setOpen -- defined below
 local function refreshSoon()
 	task.defer(function()
 		if refreshPanel then
 			refreshPanel()
 		end
 	end)
+end
+
+
+---------------------------------------------------------------------
+-- MERGING: 3 of the same pet -> golden -> rainbow
+---------------------------------------------------------------------
+local mergeFx = UIKit.screen("CosmicMergeFX", 46)
+local function mergeAnimation(fromKey, toKey)
+	local from, to = PetData.Get(fromKey), PetData.Get(toKey)
+	if not from or not to then
+		return
+	end
+	local golden = to.Variant == "Golden"
+	local color = golden and Color3.fromRGB(255, 210, 80) or Color3.fromRGB(200, 120, 255)
+	local dim = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 1, Parent = mergeFx })
+	tween(dim, 0.3, { BackgroundTransparency = 0.35 })
+	-- three copies fly together
+	local copies = {}
+	for i = -1, 1 do
+		local frame = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, i * 260, 0.45, 0), Size = UDim2.fromOffset(200, 200), BackgroundTransparency = 1, Parent = mergeFx })
+		preview(frame, fromKey)
+		local scale = new("UIScale", { Scale = 0, Parent = frame })
+		tween(scale, 0.3, { Scale = 1 }, Enum.EasingStyle.Back)
+		table.insert(copies, { Frame = frame, Scale = scale })
+	end
+	SoundFX.Play("Whoosh")
+	task.wait(0.6)
+	for _, c in ipairs(copies) do
+		tween(c.Frame, 0.45, { Position = UDim2.fromScale(0.5, 0.45), Rotation = 360 }, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+		tween(c.Scale, 0.45, { Scale = 0.4 }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+	end
+	SoundFX.Riser(0.45, { Volume = 0.6 })
+	task.wait(0.47)
+	for _, c in ipairs(copies) do
+		c.Frame:Destroy()
+	end
+	-- flash, then the merged pet
+	local flash = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = color, BackgroundTransparency = 0, Parent = mergeFx })
+	tween(flash, 0.7, { BackgroundTransparency = 1 })
+	SoundFX.Play("RevealLegendary", { Volume = 0.8 })
+	UIKit.burst({ color, Color3.new(1, 1, 1) }, 50, 1.3, Vector2.new(0.5, 0.45))
+	local result = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.42), Size = UDim2.fromOffset(300, 300), BackgroundTransparency = 1, Parent = mergeFx })
+	local glow = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(280, 280), BackgroundColor3 = color, BackgroundTransparency = 0.6, Parent = result }, { corner(UDim.new(1, 0)) })
+	local _, model = preview(result, toKey, 0.8)
+	local resultScale = new("UIScale", { Scale = 0.2, Parent = result })
+	tween(resultScale, 0.5, { Scale = 1 }, Enum.EasingStyle.Back)
+	local variant = PetData.Variants[to.Variant]
+	local name = label({ AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0.64), Size = UDim2.fromOffset(800, 52), Text = variant.Icon .. " " .. PetData.Display(toKey):upper(), Font = TITLE_FONT, TextSize = 46, TextColor3 = color, Parent = mergeFx })
+	textStroke(3).Parent = name
+	local info = label({ AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0.64, 56), Size = UDim2.fromOffset(800, 30),
+		Text = ("+%d%% luck  →  +%d%% luck"):format(math.floor(from.Luck * 100 + 0.5), math.floor(to.Luck * 100 + 0.5)), Font = TITLE_FONT, TextSize = 28, TextColor3 = THEME.Good, Parent = mergeFx })
+	textStroke(2).Parent = info
+	UIKit.confetti({ color, THEME.Gold, Color3.new(1, 1, 1) }, 60)
+	local start = os.clock()
+	local spin = RunService.RenderStepped:Connect(function()
+		local t = os.clock() - start
+		glow.Rotation = t * 50
+		if model then
+			posePet(model, CFrame.Angles(0, t * 1.6, 0), t, to.Shape, 0)
+			rainbowTick(model, t)
+		end
+	end)
+	task.wait(2.4)
+	tween(dim, 0.4, { BackgroundTransparency = 1 })
+	tween(name, 0.4, { TextTransparency = 1 })
+	tween(info, 0.4, { TextTransparency = 1 })
+	tween(resultScale, 0.4, { Scale = 0 }, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+	task.wait(0.45)
+	spin:Disconnect()
+	for _, item in ipairs({ dim, flash, result, name, info }) do
+		item:Destroy()
+	end
+end
+
+local merging = false
+mergePets = function(petKey)
+	if merging then
+		return
+	end
+	merging = true
+	local ok, result = pcall(function()
+		return PetRemote:InvokeServer("Merge", petKey)
+	end)
+	if ok and type(result) == "table" then
+		myData.Pets = result.Pets or myData.Pets
+		myData.EquippedPets = result.EquippedPets or myData.EquippedPets
+		if result.Merged then
+			setOpen(false)
+			mergeAnimation(petKey, result.Merged)
+			setOpen(true)
+		else
+			UIKit.toast("You need 3 of the same pet to merge", THEME.Bad)
+		end
+	end
+	merging = false
 end
 
 refreshPanel = function()
@@ -15497,7 +15946,25 @@ refreshPanel = function()
 		}, { corner(UDim.new(0, 12)), stroke(rarity.Color, on > 0 and 3 or 1.5, on > 0 and 0 or 0.4) })
 		local view = new("Frame", { Position = UDim2.fromOffset(6, 4), Size = UDim2.new(1, -12, 0, 90), BackgroundTransparency = 1, Parent = card })
 		preview(view, pet.Name)
-		label({ Position = UDim2.fromOffset(4, 94), Size = UDim2.new(1, -8, 0, 20), Text = pet.Name, Font = TITLE_FONT, TextSize = 15, TextColor3 = UIKit.readable(rarity.Color), Parent = card })
+		local variant = pet.Variant and PetData.Variants[pet.Variant]
+		local shownName = (variant and (variant.Icon .. " ") or "") .. PetData.Display(pet.Name)
+		label({ Position = UDim2.fromOffset(4, 94), Size = UDim2.new(1, -8, 0, 20), Text = shownName, Font = TITLE_FONT, TextSize = 15, TextScaled = #shownName > 16,
+			TextColor3 = pet.Variant == "Golden" and Color3.fromRGB(255, 215, 90) or UIKit.readable(rarity.Color), Parent = card })
+		-- 3 of the same? merge them into a golden (or rainbow) pet
+		local mergeInto = PetData.MergeResult(pet.Name)
+		if mergeInto and count >= PetData.MergeCount then
+			local nextVariant = PetData.SplitKey(mergeInto)
+			local merge = new("TextButton", {
+				AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -4, 0, 4), Size = UDim2.fromOffset(78, 24), ZIndex = 3,
+				BackgroundColor3 = nextVariant == "Golden" and Color3.fromRGB(220, 160, 30) or Color3.fromRGB(170, 80, 220),
+				Text = ("%s MERGE 3"):format(PetData.Variants[nextVariant].Icon), Font = TITLE_FONT, TextSize = 12,
+				TextColor3 = THEME.Text, AutoButtonColor = false, Parent = card,
+			}, { corner(UDim.new(0, 8)), textStroke(1) })
+			UIKit.addButtonFeel(merge)
+			merge.Activated:Connect(function()
+				mergePets(pet.Name)
+			end)
+		end
 		label({ Position = UDim2.fromOffset(4, 114), Size = UDim2.new(1, -8, 0, 16), Text = ("%s • +%d%% luck"):format(pet.Rarity, math.floor(pet.Luck * 100 + 0.5)), TextSize = 12, TextColor3 = THEME.SubText, Parent = card })
 		label({ Position = UDim2.fromOffset(4, 134), Size = UDim2.new(1, -8, 0, 26), Text = on > 0 and ("✅ EQUIPPED" .. (on > 1 and (" x" .. on) or "")) or ("x" .. count .. "  • tap to equip"), Font = TITLE_FONT, TextSize = 13,
 			TextColor3 = on > 0 and THEME.Good or THEME.Text, Parent = card })
@@ -15516,7 +15983,7 @@ refreshPanel = function()
 	end
 end
 
-local function setOpen(value)
+setOpen = function(value)
 	if value == open then
 		return
 	end
@@ -15876,7 +16343,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="33">
+      <Item class="LocalScript" referent="34">
         <Properties>
           <string name="Name">RebirthClient</string>
           <string name="Source"><![CDATA[-- RebirthClient (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -16669,7 +17136,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="34">
+      <Item class="LocalScript" referent="35">
         <Properties>
           <string name="Name">RollUI</string>
           <string name="Source"><![CDATA[-- RollUI (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -17179,12 +17646,18 @@ local BONUS_ICONS = { ["2x Luck"] = "🍀", VIP = "👑", Potion = "🧪", Serve
 local function updateInfo()
 	local total = Luck.Get(player)
 	local parts = { ("<font color='#9fe8ff'>🍀 Luck x%s</font>"):format(Luck.Format(total)) }
+	-- on an island, show that the island multiplies everything: "x60 (x30 × 2)"
+	local island = Luck.IslandBonus(player)
+	if island then
+		parts[1] = ("<font color='#9fe8ff'>🍀 Luck <b>x%s</b></font> <font color='#bfb4e1'>(x%s × %s island)</font>"):format(
+			Luck.Format(total), Luck.Format(total / island.Multiplier), Luck.Format(island.Multiplier))
+	end
 	local now = Luck.Now()
 	for _, bonus in ipairs(Luck.GetBonuses(player)) do
 		if bonus.EndsAt then
 			table.insert(parts, ("<font color='#ffd76a'>%s %s</font>"):format(
 				BONUS_ICONS[bonus.Name] or "✦", Luck.FormatTime(bonus.EndsAt - now)))
-		elseif bonus.Show then
+		elseif bonus.Show and not bonus.Island then
 			table.insert(parts, ("<font color='#ffb4dc'>%s %s x%s</font>"):format(
 				bonus.Icon or BONUS_ICONS[bonus.Name] or "✦", bonus.Name, Luck.Format(bonus.Multiplier)))
 		end
@@ -18029,7 +18502,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="35">
+      <Item class="LocalScript" referent="36">
         <Properties>
           <string name="Name">SkyFX</string>
           <string name="Source"><![CDATA[-- SkyFX (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -18356,7 +18829,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="36">
+      <Item class="LocalScript" referent="37">
         <Properties>
           <string name="Name">Sprint</string>
           <string name="Source"><![CDATA[-- Sprint (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -18598,7 +19071,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="37">
+      <Item class="LocalScript" referent="38">
         <Properties>
           <string name="Name">StoreUI</string>
           <string name="Source"><![CDATA[-- StoreUI (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -18955,7 +19428,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="38">
+      <Item class="LocalScript" referent="39">
         <Properties>
           <string name="Name">WorldFX</string>
           <string name="Source"><![CDATA[-- WorldFX (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -18972,6 +19445,7 @@ local Debris = game:GetService("Debris")
 
 local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
 local SoundFX = require(ReplicatedStorage:WaitForChild("SoundFX"))
+local Luck = require(ReplicatedStorage:WaitForChild("Luck"))
 local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
 
 local player = Players.LocalPlayer
@@ -19211,8 +19685,10 @@ player:GetAttributeChangedSignal("OnLuckyIsland"):Connect(function()
 	end
 	wasOnRoyal = on
 	if on then
-		UIKit.toast(("🍀 Welcome to Lucky Isle! x%s luck here"):format(tostring(Config.LuckyIsland.LuckMultiplier)), UIKit.Theme.Gold)
-		SoundFX.Chime(1, 5)
+		-- show what the island does to ALL your luck: x30 -> x60
+		local multiplier = Config.LuckyIsland.LuckMultiplier
+		local after = Luck.Get(player)
+		UIKit.luckBoost("🍀", "Lucky Isle", multiplier, after / multiplier, after, UIKit.Theme.Gold)
 	end
 end)
 
@@ -19264,7 +19740,7 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="39">
+  <Item class="Workspace" referent="40">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>

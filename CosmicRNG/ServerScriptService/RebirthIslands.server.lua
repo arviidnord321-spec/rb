@@ -373,7 +373,7 @@ local function makeIsland(info, style)
 	signText.Font = Enum.Font.FredokaOne
 	signText.TextScaled = true
 	signText.RichText = true
-	signText.Text = ("%s %s\n<font size='60'>x%s LUCK HERE</font>"):format(info.Icon, info.Name:upper(), tostring(info.LuckMultiplier))
+	signText.Text = ("%s %s\n<font size='60'>ALL YOUR LUCK x%s HERE</font>"):format(info.Icon, info.Name:upper(), tostring(info.LuckMultiplier))
 	signText.TextColor3 = info.Color
 	signText.Parent = signGui
 
@@ -1237,7 +1237,7 @@ for index, info in ipairs(Config.RebirthIslands) do
 		Transparency = 0.2,
 	})
 	lock:SetAttribute("NeedRebirths", info.Rebirths)
-	local sign = billboard(swirl, ("%s <b>%s</b>\nx%s luck • Rebirth %d"):format(info.Icon, info.Name:upper(), tostring(info.LuckMultiplier), info.Rebirths),
+	local sign = billboard(swirl, ("%s <b>%s</b>\nALL luck x%s • Rebirth %d"):format(info.Icon, info.Name:upper(), tostring(info.LuckMultiplier), info.Rebirths),
 		info.Color, Vector3.new(0, 6.6, 0), UDim2.fromOffset(300, 70), 120)
 	sign.Name = "PortalSign"
 	sign:SetAttribute("NeedRebirths", info.Rebirths)
@@ -1325,7 +1325,7 @@ end
 local MAIN_RETURN = {} -- [key] = where you come out on the main island
 for _, portal in ipairs(gatePortals) do
 	MAIN_RETURN[portal.Info.Key] = portal.Exit
-	addPrompt(portal.Zone, ("%s (x%s luck)"):format(portal.Info.Name, tostring(portal.Info.LuckMultiplier)), function(player)
+	addPrompt(portal.Zone, ("%s (ALL luck x%s)"):format(portal.Info.Name, tostring(portal.Info.LuckMultiplier)), function(player)
 		enterGatePortal(player, portal)
 	end)
 end

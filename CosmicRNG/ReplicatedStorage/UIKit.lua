@@ -280,6 +280,65 @@ function UIKit.announcePanel(name)
 	panelEvent:Fire(name)
 end
 
+-- Big "your luck just got multiplied" popup when you arrive on an island:
+--   LUCKY ISLE / ALL YOUR LUCK x2 / x30 -> x60 (the last number counts up)
+local function shortNumber(n)
+	if n >= 1000 then
+		local withCommas = tostring(math.floor(n + 0.5)):reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
+		return withCommas
+	end
+	local text = string.format("%.2f", n):gsub("0+$", ""):gsub("%.$", "")
+	return text
+end
+local boostToken = 0
+function UIKit.luckBoost(icon, placeName, multiplier, before, after, color)
+	local layer = getFxGui()
+	boostToken += 1
+	local token = boostToken
+	local old = layer:FindFirstChild("LuckBoost")
+	if old then
+		old:Destroy()
+	end
+	local card = new("Frame", {
+		Name = "LuckBoost", AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, -160), Size = UDim2.fromOffset(520, 128),
+		BackgroundColor3 = THEME.Panel, BackgroundTransparency = 0.12, Parent = layer,
+	}, { UIKit.corner(UDim.new(0, 18)), UIKit.stroke(color, 2.5, 0) })
+	UIKit.addAutoScale(card)
+	local title = UIKit.label({ Position = UDim2.fromOffset(0, 8), Size = UDim2.new(1, 0, 0, 28), Text = icon .. " " .. placeName:upper(),
+		Font = UIKit.TitleFont, TextSize = 26, TextColor3 = color, Parent = card })
+	UIKit.textStroke(2).Parent = title
+	UIKit.label({ Position = UDim2.fromOffset(0, 36), Size = UDim2.new(1, 0, 0, 22), Text = ("ALL YOUR LUCK IS MULTIPLIED x%s"):format(shortNumber(multiplier)),
+		Font = UIKit.TitleFont, TextSize = 18, TextColor3 = THEME.Text, Parent = card })
+	local numbers = UIKit.label({ Position = UDim2.fromOffset(0, 62), Size = UDim2.new(1, 0, 0, 56), RichText = true, Text = "",
+		Font = UIKit.TitleFont, TextSize = 42, Parent = card })
+	UIKit.textStroke(2.5).Parent = numbers
+	tween(card, 0.45, { Position = UDim2.new(0.5, 0, 0, 96) }, Enum.EasingStyle.Back)
+	SoundFX.Chime(1, 5)
+	task.spawn(function()
+		-- count up from your old luck to the new luck
+		local steps = 24
+		for i = 0, steps do
+			if token ~= boostToken or not card.Parent then
+				return
+			end
+			local f = i / steps
+			local value = before + (after - before) * (1 - (1 - f) ^ 3)
+			numbers.Text = ("<font color='#bfb4e1'>x%s</font>  →  <font color='#78ffaa'>x%s</font>"):format(shortNumber(before), shortNumber(value))
+			if i % 4 == 0 then
+				SoundFX.Play("Tick", { Speed = 1 + f, Volume = 0.6 })
+			end
+			task.wait(0.04)
+		end
+		UIKit.burst({ color, THEME.Good, Color3.new(1, 1, 1) }, 24, 0.8, Vector2.new(0.5, 0.2))
+		task.wait(3.2)
+		if token == boostToken and card.Parent then
+			tween(card, 0.4, { Position = UDim2.new(0.5, 0, 0, -160) }, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+			task.wait(0.45)
+			card:Destroy()
+		end
+	end)
+end
+
 -- Pop-in animation for a panel (needs a UIScale named "PopScale")
 function UIKit.popIn(guiObject)
 	local pop = guiObject:FindFirstChild("PopScale") or new("UIScale", { Name = "PopScale", Parent = guiObject })

@@ -128,12 +128,81 @@ for _, egg in ipairs(PetData.Eggs) do
 	egg.TotalWeight = total
 end
 
-function PetData.Get(name)
-	return PetData.ByName[name]
+---------------------------------------------------------------------
+-- MERGING: 3 of the same pet -> 1 GOLDEN pet, 3 golden -> 1 RAINBOW pet.
+-- Merged pets are saved as "Golden:Star Kitten" / "Rainbow:Star Kitten".
+---------------------------------------------------------------------
+PetData.MergeCount = 3
+PetData.Variants = {
+	Golden = { Order = 2, Icon = "✨", Multiplier = 1.25, Next = "Rainbow" }, -- 24% luck -> 30%
+	Rainbow = { Order = 3, Icon = "🌈", Multiplier = 1.6 }, -- 24% luck -> 38%
+}
+local GOLD_COLORS = { Color3.fromRGB(255, 200, 60), Color3.fromRGB(255, 245, 170) }
+
+local variantCache = {}
+
+-- "Golden:Star Kitten" -> "Golden", "Star Kitten"   ("Star Kitten" -> nil, "Star Kitten")
+function PetData.SplitKey(key)
+	local variant, base = string.match(key, "^(%a+):(.+)$")
+	if variant and PetData.Variants[variant] then
+		return variant, base
+	end
+	return nil, key
+end
+
+-- Works for normal pets AND merged pets. For a merged pet you get a copy
+-- with the boosted Luck, Name = the saved key, DisplayName = "Golden Star Kitten".
+function PetData.Get(key)
+	if type(key) ~= "string" then
+		return nil
+	end
+	local plain = PetData.ByName[key]
+	if plain then
+		return plain
+	end
+	if variantCache[key] then
+		return variantCache[key]
+	end
+	local variant, baseName = PetData.SplitKey(key)
+	local base = variant and PetData.ByName[baseName]
+	if not base then
+		return nil
+	end
+	local info = PetData.Variants[variant]
+	local pet = table.clone(base)
+	pet.Name = key
+	pet.BaseName = base.Name
+	pet.DisplayName = variant .. " " .. base.Name
+	pet.Variant = variant
+	pet.Luck = math.floor(base.Luck * info.Multiplier * 1000 + 0.5) / 1000
+	if variant == "Golden" then
+		pet.Colors = GOLD_COLORS
+	end
+	variantCache[key] = pet
+	return pet
+end
+
+-- the name to show on screen
+function PetData.Display(key)
+	local pet = PetData.Get(key)
+	return pet and (pet.DisplayName or pet.Name) or tostring(key)
+end
+
+-- what 3 of this pet merge into (nil if it can't merge any further)
+function PetData.MergeResult(key)
+	local variant, baseName = PetData.SplitKey(key)
+	if not PetData.ByName[baseName] then
+		return nil
+	end
+	if not variant then
+		return "Golden:" .. baseName
+	end
+	local nextVariant = PetData.Variants[variant].Next
+	return nextVariant and (nextVariant .. ":" .. baseName) or nil
 end
 
 function PetData.RarityOf(name)
-	local pet = PetData.ByName[name]
+	local pet = PetData.Get(name)
 	return pet and PetData.Rarities[pet.Rarity]
 end
 
@@ -163,7 +232,7 @@ end
 function PetData.LuckFrom(names)
 	local total = 1
 	for _, name in ipairs(names or {}) do
-		local pet = PetData.ByName[name]
+		local pet = PetData.Get(name)
 		if pet then
 			total += pet.Luck
 		end

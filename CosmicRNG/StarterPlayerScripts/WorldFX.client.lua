@@ -12,6 +12,7 @@ local Debris = game:GetService("Debris")
 
 local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
 local SoundFX = require(ReplicatedStorage:WaitForChild("SoundFX"))
+local Luck = require(ReplicatedStorage:WaitForChild("Luck"))
 local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
 
 local player = Players.LocalPlayer
@@ -251,8 +252,10 @@ player:GetAttributeChangedSignal("OnLuckyIsland"):Connect(function()
 	end
 	wasOnRoyal = on
 	if on then
-		UIKit.toast(("🍀 Welcome to Lucky Isle! x%s luck here"):format(tostring(Config.LuckyIsland.LuckMultiplier)), UIKit.Theme.Gold)
-		SoundFX.Chime(1, 5)
+		-- show what the island does to ALL your luck: x30 -> x60
+		local multiplier = Config.LuckyIsland.LuckMultiplier
+		local after = Luck.Get(player)
+		UIKit.luckBoost("🍀", "Lucky Isle", multiplier, after / multiplier, after, UIKit.Theme.Gold)
 	end
 end)
 

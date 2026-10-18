@@ -37,7 +37,7 @@ function Luck.GetBonuses(player)
 
 	-- Standing on Lucky Isle (the server sets this, so it can't be faked)
 	if player:GetAttribute("OnLuckyIsland") then
-		table.insert(bonuses, { Name = "Lucky Isle", Multiplier = Config.LuckyIsland.LuckMultiplier, Show = true })
+		table.insert(bonuses, { Name = "Lucky Isle", Multiplier = Config.LuckyIsland.LuckMultiplier, Show = true, Island = true })
 	end
 
 	-- Rebirths: permanent luck
@@ -51,7 +51,7 @@ function Luck.GetBonuses(player)
 	if islandKey then
 		for _, islandInfo in ipairs(Config.RebirthIslands) do
 			if islandInfo.Key == islandKey then
-				table.insert(bonuses, { Name = islandInfo.Name, Icon = islandInfo.Icon, Multiplier = islandInfo.LuckMultiplier, Show = true })
+				table.insert(bonuses, { Name = islandInfo.Name, Icon = islandInfo.Icon, Multiplier = islandInfo.LuckMultiplier, Show = true, Island = true })
 			end
 		end
 	end
@@ -104,6 +104,17 @@ function Luck.LuckyEvery(player)
 		return Config.Rebirth.LuckyEveryAt4
 	end
 	return Config.LuckyRollEvery
+end
+
+-- The island bonus (Lucky Isle or a rebirth island) you're standing on, or nil.
+-- Islands multiply ALL your other luck: x30 luck on an x2 island = x60.
+function Luck.IslandBonus(player)
+	for _, bonus in ipairs(Luck.GetBonuses(player)) do
+		if bonus.Island then
+			return bonus
+		end
+	end
+	return nil
 end
 
 function Luck.Format(n)

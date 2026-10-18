@@ -104,8 +104,8 @@ local function buildTag(character)
 	local gui = Instance.new("BillboardGui")
 	gui.Name = "AuraTag_" .. player.Name
 	gui.Adornee = head
-	gui.Size = UDim2.fromOffset(240, 70)
-	gui.StudsOffset = Vector3.new(0, 3.4, 0)
+	gui.Size = UDim2.fromOffset(200, 56)
+	gui.StudsOffset = Vector3.new(0, 3.2, 0)
 	gui.MaxDistance = 75
 	gui.LightInfluence = 0
 	gui.ResetOnSpawn = false
@@ -126,10 +126,11 @@ local function buildTag(character)
 		l.TextSize = size
 		l.Text = text
 		l.TextColor3 = color
+		l.TextTransparency = 0.12 -- a little see-through
 		l.Parent = gui
 		local outline = Instance.new("UIStroke")
-		outline.Thickness = 1.6
-		outline.Transparency = 0.25
+		outline.Thickness = 1.4
+		outline.Transparency = 0.45
 		outline.Parent = l
 		return l
 	end
@@ -143,16 +144,16 @@ local function buildTag(character)
 		if vip then
 			table.insert(parts, "👑 VIP")
 		end
-		local top = line(1, table.concat(parts, "  "), 16, GOLD)
+		local top = line(1, table.concat(parts, "  "), 13, GOLD)
 		top.RichText = true
 	end
 	if aura then
-		local nameLine = line(2, aura.Name, 24, Color3.new(1, 1, 1))
+		local nameLine = line(2, aura.Name, 19, Color3.new(1, 1, 1))
 		gradient = Instance.new("UIGradient")
 		gradient.Color = ColorSequence.new(readable(aura.Colors[1]), readable(aura.Colors[2]))
 		gradient.Parent = nameLine
 		local tier = AuraData.Tiers[aura.Tier]
-		line(3, ("%s • %s"):format(aura.Tier, AuraData.FormatChance(aura.Chance)), 13, tier.Color, Enum.Font.GothamBold)
+		line(3, ("%s • %s"):format(aura.Tier, AuraData.FormatChance(aura.Chance)), 11, tier.Color, Enum.Font.GothamBold)
 	end
 
 	tags[character] = {

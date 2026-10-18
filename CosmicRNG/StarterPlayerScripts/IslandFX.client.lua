@@ -11,6 +11,7 @@ local RunService = game:GetService("RunService")
 
 local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
 local SoundFX = require(ReplicatedStorage:WaitForChild("SoundFX"))
+local Luck = require(ReplicatedStorage:WaitForChild("Luck"))
 local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
 
 local player = Players.LocalPlayer
@@ -205,8 +206,8 @@ player:GetAttributeChangedSignal("OnRebirthIsland"):Connect(function()
 	if key then
 		for _, info in ipairs(Config.RebirthIslands) do
 			if info.Key == key then
-				UIKit.toast(("%s Welcome to %s! x%s luck here"):format(info.Icon, info.Name, tostring(info.LuckMultiplier)), info.Color)
-				SoundFX.Chime(0.9, 5)
+				local after = Luck.Get(player)
+				UIKit.luckBoost(info.Icon, info.Name, info.LuckMultiplier, after / info.LuckMultiplier, after, info.Color)
 			end
 		end
 	end

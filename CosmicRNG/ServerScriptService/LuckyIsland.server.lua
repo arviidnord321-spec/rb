@@ -337,7 +337,7 @@ addSparkles(orb, Color3.fromRGB(255, 230, 170), 16, 0.7)
 ringModel("LuckyRing1", ORB, 5.2, 28, 0.35, GOLD, core)
 ringModel("LuckyRing2", ORB, 6.8, 34, 0.3, ROSE, core)
 ringModel("LuckyRing3", ORB, 8.4, 40, 0.3, TEAL, core)
-billboard(orb, "🍀 LUCKY ISLE • x" .. LUCKY.LuckMultiplier .. " LUCK", GOLD, Vector3.new(0, 10, 0))
+billboard(orb, "🍀 LUCKY ISLE • ALL YOUR LUCK x" .. LUCKY.LuckMultiplier, GOLD, Vector3.new(0, 10, 0))
 
 ---------------------------------------------------------------------
 -- COLONNADE: a circle of marble columns with a golden ring on top
@@ -674,7 +674,7 @@ local function addPrompt(zone, actionText, objectText, onTriggered)
 	prompt.Parent = zone
 	prompt.Triggered:Connect(onTriggered)
 end
-addPrompt(mainZone, "Travel", "Lucky Isle (x" .. LUCKY.LuckMultiplier .. " luck)", enterMainPortal)
+addPrompt(mainZone, "Travel", "Lucky Isle (ALL luck x" .. LUCKY.LuckMultiplier .. ")", enterMainPortal)
 addPrompt(returnZone, "Travel", "Back to Cosmic Island", enterReturnPortal)
 
 -- Who is standing on Lucky Isle? (gives the luck bonus)

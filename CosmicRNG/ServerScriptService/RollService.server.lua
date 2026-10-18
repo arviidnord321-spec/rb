@@ -522,6 +522,31 @@ PetRemote.OnServerInvoke = function(player, action, petName)
 		end
 	elseif action == "UnequipAll" then
 		data.EquippedPets = {}
+	elseif action == "Merge" and type(petName) == "string" and PetData.Get(petName) then
+		-- 3 of the same pet become 1 golden (or rainbow) pet
+		local result = PetData.MergeResult(petName)
+		if not result or ownedCount(data, petName) < PetData.MergeCount then
+			return { Error = "CantMerge", Pets = data.Pets, EquippedPets = data.EquippedPets }
+		end
+		data.Pets[petName] -= PetData.MergeCount
+		if data.Pets[petName] <= 0 then
+			data.Pets[petName] = nil
+		end
+		-- if you had more of them equipped than you still own, swap in the merged pet
+		local swapped = false
+		while equippedCount(data, petName) > ownedCount(data, petName) do
+			local index = table.find(data.EquippedPets, petName)
+			if not swapped then
+				data.EquippedPets[index] = result
+				swapped = true
+			else
+				table.remove(data.EquippedPets, index)
+			end
+		end
+		givePet(data, result)
+		refreshStats(player)
+		DataUpdatedRemote:FireClient(player, snapshot(data))
+		return { Merged = result, Pets = data.Pets, EquippedPets = data.EquippedPets }
 	end
 	refreshStats(player)
 	return { Pets = data.Pets, EquippedPets = data.EquippedPets }

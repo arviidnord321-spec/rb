@@ -505,12 +505,18 @@ local BONUS_ICONS = { ["2x Luck"] = "🍀", VIP = "👑", Potion = "🧪", Serve
 local function updateInfo()
 	local total = Luck.Get(player)
 	local parts = { ("<font color='#9fe8ff'>🍀 Luck x%s</font>"):format(Luck.Format(total)) }
+	-- on an island, show that the island multiplies everything: "x60 (x30 × 2)"
+	local island = Luck.IslandBonus(player)
+	if island then
+		parts[1] = ("<font color='#9fe8ff'>🍀 Luck <b>x%s</b></font> <font color='#bfb4e1'>(x%s × %s island)</font>"):format(
+			Luck.Format(total), Luck.Format(total / island.Multiplier), Luck.Format(island.Multiplier))
+	end
 	local now = Luck.Now()
 	for _, bonus in ipairs(Luck.GetBonuses(player)) do
 		if bonus.EndsAt then
 			table.insert(parts, ("<font color='#ffd76a'>%s %s</font>"):format(
 				BONUS_ICONS[bonus.Name] or "✦", Luck.FormatTime(bonus.EndsAt - now)))
-		elseif bonus.Show then
+		elseif bonus.Show and not bonus.Island then
 			table.insert(parts, ("<font color='#ffb4dc'>%s %s x%s</font>"):format(
 				bonus.Icon or BONUS_ICONS[bonus.Name] or "✦", bonus.Name, Luck.Format(bonus.Multiplier)))
 		end

@@ -171,6 +171,34 @@ local function buildPet(petName)
 		p:SetAttribute("Offset", p.CFrame)
 	end
 	model.PrimaryPart = model:FindFirstChild("Body")
+	-- merged pets: golden ones shine, rainbow ones shift through every color
+	if pet.Variant == "Golden" then
+		for _, p in ipairs(model:GetChildren()) do
+			if p:IsA("BasePart") and p.Name ~= "Eye" and p.Name ~= "Pupil" then
+				p.Reflectance = 0.25
+			end
+		end
+	elseif pet.Variant == "Rainbow" then
+		model:SetAttribute("Rainbow", true)
+	end
+	if pet.Variant and model.PrimaryPart then
+		local shine = Instance.new("ParticleEmitter")
+		shine.Texture = Config.Textures.Sparkle
+		shine.Rate = 10
+		shine.Lifetime = NumberRange.new(0.5, 1)
+		shine.Speed = NumberRange.new(0.5, 1.5)
+		shine.SpreadAngle = Vector2.new(180, 180)
+		shine.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.35), NumberSequenceKeypoint.new(1, 0) })
+		shine.LightEmission = 1
+		shine.Color = pet.Variant == "Golden" and ColorSequence.new(Color3.fromRGB(255, 220, 90))
+			or ColorSequence.new({
+				ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 80, 80)),
+				ColorSequenceKeypoint.new(0.33, Color3.fromRGB(255, 240, 80)),
+				ColorSequenceKeypoint.new(0.66, Color3.fromRGB(80, 220, 255)),
+				ColorSequenceKeypoint.new(1, Color3.fromRGB(220, 90, 255)),
+			})
+		shine.Parent = model.PrimaryPart
+	end
 	-- rare pets sparkle
 	local order = PetData.Rarities[pet.Rarity].Order
 	if order >= 4 and model.PrimaryPart then
@@ -193,6 +221,18 @@ local function buildPet(petName)
 		light.Parent = model.PrimaryPart
 	end
 	return model
+end
+
+-- rainbow pets slowly cycle through every color
+local function rainbowTick(model, t)
+	if not model:GetAttribute("Rainbow") then
+		return
+	end
+	for index, p in ipairs(model:GetChildren()) do
+		if p:IsA("BasePart") and p.Name ~= "Eye" and p.Name ~= "Pupil" then
+			p.Color = Color3.fromHSV((t * 0.25 + index * 0.07) % 1, 0.7, 1)
+		end
+	end
 end
 
 -- moves every piece of a pet: base = where the body goes, t = time
@@ -310,6 +350,7 @@ RunService.RenderStepped:Connect(function(dt)
 				local target = facing * slot * CFrame.new(0, math.sin(t * 2 + pet.Phase) * 0.35, 0)
 				pet.Current = pet.Current and pet.Current:Lerp(target, math.min(1, dt * 7)) or target
 				posePet(pet.Model, pet.Current, t, pet.Shape, pet.Phase)
+				rainbowTick(pet.Model, t + pet.Phase)
 			end
 		end
 	end
@@ -336,6 +377,7 @@ local function preview(parent, petName, zoom)
 		cam.Parent = viewport
 		viewport.CurrentCamera = cam
 		posePet(model, CFrame.Angles(0, math.rad(25), 0), 0, PetData.Get(petName).Shape, 0)
+		rainbowTick(model, 0)
 	end
 	return viewport, model
 end
@@ -438,12 +480,109 @@ local function petAction(action, petName)
 end
 
 local refreshPanel -- defined below
+local mergePets -- defined below
+local setOpen -- defined below
 local function refreshSoon()
 	task.defer(function()
 		if refreshPanel then
 			refreshPanel()
 		end
 	end)
+end
+
+
+---------------------------------------------------------------------
+-- MERGING: 3 of the same pet -> golden -> rainbow
+---------------------------------------------------------------------
+local mergeFx = UIKit.screen("CosmicMergeFX", 46)
+local function mergeAnimation(fromKey, toKey)
+	local from, to = PetData.Get(fromKey), PetData.Get(toKey)
+	if not from or not to then
+		return
+	end
+	local golden = to.Variant == "Golden"
+	local color = golden and Color3.fromRGB(255, 210, 80) or Color3.fromRGB(200, 120, 255)
+	local dim = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 1, Parent = mergeFx })
+	tween(dim, 0.3, { BackgroundTransparency = 0.35 })
+	-- three copies fly together
+	local copies = {}
+	for i = -1, 1 do
+		local frame = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(0.5, i * 260, 0.45, 0), Size = UDim2.fromOffset(200, 200), BackgroundTransparency = 1, Parent = mergeFx })
+		preview(frame, fromKey)
+		local scale = new("UIScale", { Scale = 0, Parent = frame })
+		tween(scale, 0.3, { Scale = 1 }, Enum.EasingStyle.Back)
+		table.insert(copies, { Frame = frame, Scale = scale })
+	end
+	SoundFX.Play("Whoosh")
+	task.wait(0.6)
+	for _, c in ipairs(copies) do
+		tween(c.Frame, 0.45, { Position = UDim2.fromScale(0.5, 0.45), Rotation = 360 }, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+		tween(c.Scale, 0.45, { Scale = 0.4 }, Enum.EasingStyle.Quad, Enum.EasingDirection.In)
+	end
+	SoundFX.Riser(0.45, { Volume = 0.6 })
+	task.wait(0.47)
+	for _, c in ipairs(copies) do
+		c.Frame:Destroy()
+	end
+	-- flash, then the merged pet
+	local flash = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = color, BackgroundTransparency = 0, Parent = mergeFx })
+	tween(flash, 0.7, { BackgroundTransparency = 1 })
+	SoundFX.Play("RevealLegendary", { Volume = 0.8 })
+	UIKit.burst({ color, Color3.new(1, 1, 1) }, 50, 1.3, Vector2.new(0.5, 0.45))
+	local result = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.42), Size = UDim2.fromOffset(300, 300), BackgroundTransparency = 1, Parent = mergeFx })
+	local glow = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(280, 280), BackgroundColor3 = color, BackgroundTransparency = 0.6, Parent = result }, { corner(UDim.new(1, 0)) })
+	local _, model = preview(result, toKey, 0.8)
+	local resultScale = new("UIScale", { Scale = 0.2, Parent = result })
+	tween(resultScale, 0.5, { Scale = 1 }, Enum.EasingStyle.Back)
+	local variant = PetData.Variants[to.Variant]
+	local name = label({ AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0.64), Size = UDim2.fromOffset(800, 52), Text = variant.Icon .. " " .. PetData.Display(toKey):upper(), Font = TITLE_FONT, TextSize = 46, TextColor3 = color, Parent = mergeFx })
+	textStroke(3).Parent = name
+	local info = label({ AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0.64, 56), Size = UDim2.fromOffset(800, 30),
+		Text = ("+%d%% luck  →  +%d%% luck"):format(math.floor(from.Luck * 100 + 0.5), math.floor(to.Luck * 100 + 0.5)), Font = TITLE_FONT, TextSize = 28, TextColor3 = THEME.Good, Parent = mergeFx })
+	textStroke(2).Parent = info
+	UIKit.confetti({ color, THEME.Gold, Color3.new(1, 1, 1) }, 60)
+	local start = os.clock()
+	local spin = RunService.RenderStepped:Connect(function()
+		local t = os.clock() - start
+		glow.Rotation = t * 50
+		if model then
+			posePet(model, CFrame.Angles(0, t * 1.6, 0), t, to.Shape, 0)
+			rainbowTick(model, t)
+		end
+	end)
+	task.wait(2.4)
+	tween(dim, 0.4, { BackgroundTransparency = 1 })
+	tween(name, 0.4, { TextTransparency = 1 })
+	tween(info, 0.4, { TextTransparency = 1 })
+	tween(resultScale, 0.4, { Scale = 0 }, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+	task.wait(0.45)
+	spin:Disconnect()
+	for _, item in ipairs({ dim, flash, result, name, info }) do
+		item:Destroy()
+	end
+end
+
+local merging = false
+mergePets = function(petKey)
+	if merging then
+		return
+	end
+	merging = true
+	local ok, result = pcall(function()
+		return PetRemote:InvokeServer("Merge", petKey)
+	end)
+	if ok and type(result) == "table" then
+		myData.Pets = result.Pets or myData.Pets
+		myData.EquippedPets = result.EquippedPets or myData.EquippedPets
+		if result.Merged then
+			setOpen(false)
+			mergeAnimation(petKey, result.Merged)
+			setOpen(true)
+		else
+			UIKit.toast("You need 3 of the same pet to merge", THEME.Bad)
+		end
+	end
+	merging = false
 end
 
 refreshPanel = function()
@@ -476,7 +615,25 @@ refreshPanel = function()
 		}, { corner(UDim.new(0, 12)), stroke(rarity.Color, on > 0 and 3 or 1.5, on > 0 and 0 or 0.4) })
 		local view = new("Frame", { Position = UDim2.fromOffset(6, 4), Size = UDim2.new(1, -12, 0, 90), BackgroundTransparency = 1, Parent = card })
 		preview(view, pet.Name)
-		label({ Position = UDim2.fromOffset(4, 94), Size = UDim2.new(1, -8, 0, 20), Text = pet.Name, Font = TITLE_FONT, TextSize = 15, TextColor3 = UIKit.readable(rarity.Color), Parent = card })
+		local variant = pet.Variant and PetData.Variants[pet.Variant]
+		local shownName = (variant and (variant.Icon .. " ") or "") .. PetData.Display(pet.Name)
+		label({ Position = UDim2.fromOffset(4, 94), Size = UDim2.new(1, -8, 0, 20), Text = shownName, Font = TITLE_FONT, TextSize = 15, TextScaled = #shownName > 16,
+			TextColor3 = pet.Variant == "Golden" and Color3.fromRGB(255, 215, 90) or UIKit.readable(rarity.Color), Parent = card })
+		-- 3 of the same? merge them into a golden (or rainbow) pet
+		local mergeInto = PetData.MergeResult(pet.Name)
+		if mergeInto and count >= PetData.MergeCount then
+			local nextVariant = PetData.SplitKey(mergeInto)
+			local merge = new("TextButton", {
+				AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -4, 0, 4), Size = UDim2.fromOffset(78, 24), ZIndex = 3,
+				BackgroundColor3 = nextVariant == "Golden" and Color3.fromRGB(220, 160, 30) or Color3.fromRGB(170, 80, 220),
+				Text = ("%s MERGE 3"):format(PetData.Variants[nextVariant].Icon), Font = TITLE_FONT, TextSize = 12,
+				TextColor3 = THEME.Text, AutoButtonColor = false, Parent = card,
+			}, { corner(UDim.new(0, 8)), textStroke(1) })
+			UIKit.addButtonFeel(merge)
+			merge.Activated:Connect(function()
+				mergePets(pet.Name)
+			end)
+		end
 		label({ Position = UDim2.fromOffset(4, 114), Size = UDim2.new(1, -8, 0, 16), Text = ("%s • +%d%% luck"):format(pet.Rarity, math.floor(pet.Luck * 100 + 0.5)), TextSize = 12, TextColor3 = THEME.SubText, Parent = card })
 		label({ Position = UDim2.fromOffset(4, 134), Size = UDim2.new(1, -8, 0, 26), Text = on > 0 and ("✅ EQUIPPED" .. (on > 1 and (" x" .. on) or "")) or ("x" .. count .. "  • tap to equip"), Font = TITLE_FONT, TextSize = 13,
 			TextColor3 = on > 0 and THEME.Good or THEME.Text, Parent = card })
@@ -495,7 +652,7 @@ refreshPanel = function()
 	end
 end
 
-local function setOpen(value)
+setOpen = function(value)
 	if value == open then
 		return
 	end
