@@ -20,10 +20,9 @@ game pass IDs in `CosmicConfig`).
   1. **Ground shot:** a thin beam comes down from a swirling portal in the sky and gets wider. Rune rings climb and spin around it, glowing lights spiral up it, sparkles drift along it, and a magic circle lights up on the ground.
   2. **Sky shot:** the camera is up beside the portal, looking down the beam at the island far below. **Your own avatar** bursts out of the portal in a flash, glowing with an outline, a soft aura and sparkles.
   3. **The fall:** you dive, spinning, with a comet trail, wind streaks and sonic-boom rings. The camera rides above you, then beside you, then watches from the ground.
-  4. **The landing (slow motion):** a superhero landing: one knee down, fist in the ground, the other arm swept back.
+  4. **The landing:** you land on one knee with a thud and a puff of dust, then raise your fist high behind your head and **punch the ground in slow motion**. The BANG happens when the fist hits:
      - There's a short flash, shockwave rings, and glowing cracks spreading from the fist with a small crater.
-     - Rocks fly up, sparks burst, and the ground shakes.
-     - The dust rolls outward, so you can still see the pose.
+     - Rocks fly up, sparks burst, the dust rolls outward and the ground shakes.
      - Then there's a close-up of the fist crackling with energy, and a hero shot rising to your face with "✦ YOUR NAME HAS ARRIVED ✦".
   5. You stand up, the glow fades, the camera swings behind you, and the menus slide in.
 - Only the joining player sees it, and they can press **SKIP**. It plays once per join, not when you respawn.
