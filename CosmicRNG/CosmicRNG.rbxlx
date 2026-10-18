@@ -1485,7 +1485,7 @@ Config.PassInfo = {
 	{ Key = "DoubleLuck", Icon = "🍀", Name = "2x Luck", Description = "Permanently doubles your luck on every roll." },
 	{ Key = "MultiRoll", Icon = "🎲", Name = "Triple Roll", Description = "Every roll gives you 3 auras at once." },
 	{ Key = "LuckyCharm", Icon = "✨", Name = "Lucky Charm", Description = "Lucky roll every 5 rolls instead of every 10." },
-	{ Key = "VIP", Icon = "👑", Name = "VIP", Description = "x1.25 luck on every roll and a gold VIP tag." },
+	{ Key = "VIP", Icon = "👑", Name = "VIP", Description = "x1.25 luck, VIP Sanctum (+x1.5 luck, daily chest), faster Lucky Wheel and trading with anyone." },
 }
 
 ---------------------------------------------------------------------
@@ -1606,6 +1606,41 @@ Config.LuckyIsland = {
 	Radius = 75,
 	LuckMultiplier = 2, -- extra luck while you stand on it
 	RequireVIP = false, -- true = only VIP pass owners may use the portal
+	-- the VIP SANCTUM: a floating terrace off the south edge, VIP pass only
+	Sanctum = {
+		Offset = Vector3.new(0, 0, 112), -- from the island center
+		Radius = 26,
+		LuckMultiplier = 1.5, -- on top of Lucky Isle's x2
+	},
+}
+
+-- LUCKY WHEEL on Lucky Isle: a free spin every 30 minutes (15 with VIP)
+-- Reward fields work like quest rewards: Potion (minutes), BoostRolls, Aura + Count
+Config.LuckyWheel = {
+	CooldownMinutes = 30,
+	VipCooldownMinutes = 15,
+	Prizes = {
+		{ Label = "5 min x2 luck", Weight = 30, Color = Color3.fromRGB(120, 200, 255), Reward = { Potion = 5 } },
+		{ Label = "2x Comet", Weight = 18, Color = Color3.fromRGB(120, 230, 140), Reward = { Aura = "Comet", Count = 2 } },
+		{ Label = "10 min x2 luck", Weight = 18, Color = Color3.fromRGB(150, 130, 255), Reward = { Potion = 10 } },
+		{ Label = "1 Cosmic Roll", Weight = 12, Color = Color3.fromRGB(255, 200, 80), Reward = { BoostRolls = 1 } },
+		{ Label = "1x Nebula", Weight = 10, Color = Color3.fromRGB(255, 120, 200), Reward = { Aura = "Nebula", Count = 1 } },
+		{ Label = "25 min x2 luck", Weight = 6, Color = Color3.fromRGB(90, 230, 210), Reward = { Potion = 25 } },
+		{ Label = "3 Cosmic Rolls", Weight = 4, Color = Color3.fromRGB(255, 150, 60), Reward = { BoostRolls = 3 } },
+		{ Label = "Solar Flare", Weight = 1.6, Color = Color3.fromRGB(255, 90, 40), Reward = { Aura = "Solar Flare", Count = 1 } },
+		{ Label = "JACKPOT: Black Hole", Weight = 0.4, Color = Color3.fromRGB(20, 10, 30), Reward = { Aura = "Black Hole", Count = 1 } },
+	},
+}
+
+-- VIP CHEST in the Sanctum: VIP pass owners can open it once a day
+Config.VipChest = { BoostRolls = 2, Potion = 15, Aura = "Pulsar", Count = 2 }
+
+-- TRADING: swap auras and pets with other players.
+-- At least ONE of the two players needs the VIP pass.
+Config.Trading = {
+	RequireVIP = true,
+	MaxSlots = 8, -- different items each side can offer
+	ConfirmSeconds = 3, -- countdown after both press READY
 }
 
 ---------------------------------------------------------------------
@@ -1815,6 +1850,10 @@ function Luck.GetBonuses(player)
 	-- Standing on Lucky Isle (the server sets this, so it can't be faked)
 	if player:GetAttribute("OnLuckyIsland") then
 		table.insert(bonuses, { Name = "Lucky Isle", Multiplier = Config.LuckyIsland.LuckMultiplier, Show = true, Island = true })
+	end
+	-- the VIP Sanctum on Lucky Isle stacks on top
+	if player:GetAttribute("InVIPSanctum") then
+		table.insert(bonuses, { Name = "VIP Sanctum", Icon = "👑", Multiplier = Config.LuckyIsland.Sanctum.LuckMultiplier, Show = true })
 	end
 
 	-- Rebirths: permanent luck
@@ -5193,6 +5232,9 @@ end
 --   * standing on the island gives extra luck (Config.LuckyIsland.LuckMultiplier)
 --   * the return portal takes you back
 --   * if Config.LuckyIsland.RequireVIP is true, only VIP pass owners may come
+--   * the LUCKY WHEEL (free spin every 30 min, 15 with VIP)
+--   * the VIP SANCTUM: a golden terrace (VIP pass only) with extra luck, a
+--     throne, a golden fountain, a daily VIP chest and a trading desk
 -- Same vibe as the main island, but white marble + gold, rose and teal.
 
 local Players = game:GetService("Players")
@@ -5245,12 +5287,12 @@ island.Name = "LuckyIsland"
 island.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
 
 local function part(props)
-	local p = Instance.new("Part")
+	local p = Instance.new(props.ClassName or "Part")
 	p.Anchored = true
 	p.TopSurface = Enum.SurfaceType.Smooth
 	p.BottomSurface = Enum.SurfaceType.Smooth
 	for key, value in pairs(props) do
-		if key ~= "Parent" then
+		if key ~= "Parent" and key ~= "ClassName" then
 			p[key] = value
 		end
 	end
@@ -5419,6 +5461,7 @@ local function billboard(target, text, color3, offset, size)
 	label.Size = UDim2.fromScale(1, 1)
 	label.Font = Enum.Font.FredokaOne
 	label.TextScaled = true
+	label.RichText = true
 	label.Text = text
 	label.TextColor3 = color3
 	label.Parent = gui
@@ -5788,6 +5831,251 @@ local returnZone = part({
 	CanTouch = false,
 })
 
+---------------------------------------------------------------------
+-- 🎡 LUCKY WHEEL (south side, facing the middle of the island)
+-- Press E to spin (free every 30 min, 15 with VIP). RollService picks the
+-- prize; the VipIslandClient script spins the wheel on your screen.
+---------------------------------------------------------------------
+local wheelModel = Instance.new("Model")
+wheelModel.Name = "LuckyWheel"
+wheelModel.Parent = island
+local WHEEL_BASE = at(Vector3.new(0, 0, 46))
+local WHEEL_CENTER = WHEEL_BASE + Vector3.new(0, 9.5, 0)
+local WHEEL_RADIUS = 6.5
+local stand = part({
+	Name = "WheelStand",
+	Size = Vector3.new(12, 1.4, 5),
+	CFrame = CFrame.new(WHEEL_BASE + Vector3.new(0, 0.7, 0)),
+	Color = MARBLE_DARK,
+	Material = Enum.Material.Marble,
+	Parent = wheelModel,
+})
+for _, side in ipairs({ -1, 1 }) do
+	part({ Name = "WheelPillar", Size = Vector3.new(1.2, 10, 1.2), CFrame = CFrame.new(WHEEL_BASE + Vector3.new(side * 7.4, 5.6, 0.8)), Color = GOLD, Material = Enum.Material.Metal, Parent = wheelModel })
+	local cap = part({ Name = "WheelPillarCap", Shape = Enum.PartType.Ball, Size = Vector3.one * 1.8, CFrame = CFrame.new(WHEEL_BASE + Vector3.new(side * 7.4, 11.3, 0.8)), Color = ROSE, Material = Enum.Material.Neon, CanCollide = false, Parent = wheelModel })
+	addLight(cap, ROSE, 14, 1.5)
+end
+part({ Name = "Axle", Shape = Enum.PartType.Cylinder, Size = Vector3.new(15, 0.8, 0.8), CFrame = CFrame.new(WHEEL_CENTER + Vector3.new(0, 0, 0.8)), Color = GOLD, Material = Enum.Material.Metal, Parent = wheelModel })
+
+-- the part that spins: a disc, colored slices, gold spokes, rim lights, labels
+local spin = Instance.new("Model")
+spin.Name = "WheelSpin"
+spin.Parent = wheelModel
+local facing = CFrame.new(WHEEL_CENTER) -- front of the wheel faces -Z (toward the island's middle)
+part({ Name = "WheelDisc", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.6, WHEEL_RADIUS * 2 + 0.8, WHEEL_RADIUS * 2 + 0.8), CFrame = facing * CFrame.Angles(0, math.pi / 2, 0), Color = GOLD, Material = Enum.Material.Metal, CanCollide = false, Parent = spin })
+local prizes = Config.LuckyWheel.Prizes
+local count = #prizes
+for i, prize in ipairs(prizes) do
+	local a = (i - 1) / count * math.pi * 2
+	-- each slice is a real triangle (two wedges) so slices never overlap
+	local radial = Vector3.new(-math.sin(a), math.cos(a), 0)
+	local tangent = Vector3.new(math.cos(a), math.sin(a), 0)
+	local length = (WHEEL_RADIUS - 0.2) * math.cos(math.pi / count)
+	local halfWidth = (WHEEL_RADIUS - 0.2) * math.sin(math.pi / count)
+	local rim = radial * length
+	for _, sideSign in ipairs({ -1, 1 }) do
+		local t = tangent * sideSign
+		local center = rim + t * (halfWidth / 2) - radial * (length / 2) + Vector3.new(0, 0, -0.36)
+		part({
+			ClassName = "WedgePart",
+			Name = "Slice" .. i,
+			Size = Vector3.new(0.12, halfWidth, length),
+			CFrame = facing * CFrame.fromMatrix(center, t:Cross(radial), t, radial),
+			Color = prize.Color,
+			Material = Enum.Material.SmoothPlastic,
+			CanCollide = false,
+			Parent = spin,
+		})
+	end
+	local slice = part({
+		Name = "SliceLabel" .. i,
+		Size = Vector3.new(halfWidth * 1.1, length * 0.55, 0.05),
+		CFrame = facing * CFrame.Angles(0, 0, a) * CFrame.new(0, length * 0.6, -0.45),
+		Transparency = 1,
+		CanCollide = false,
+		CanQuery = false,
+		Parent = spin,
+	})
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = Enum.NormalId.Front
+	gui.LightInfluence = 0
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 50
+	gui.Parent = slice
+	local text = Instance.new("TextLabel")
+	text.BackgroundTransparency = 1
+	text.Size = UDim2.fromScale(1, 1)
+	text.Font = Enum.Font.FredokaOne
+	text.TextScaled = true
+	text.TextWrapped = true
+	text.Text = prize.Label
+	text.TextColor3 = Color3.new(1, 1, 1)
+	text.Parent = gui
+	local outline = Instance.new("UIStroke")
+	outline.Thickness = 2
+	outline.Parent = text
+	-- gold spoke between slices
+	local b = a + math.pi / count
+	part({ Name = "Spoke", Size = Vector3.new(0.18, WHEEL_RADIUS, 0.2), CFrame = facing * CFrame.Angles(0, 0, b) * CFrame.new(0, WHEEL_RADIUS / 2, -0.42), Color = GOLD, Material = Enum.Material.Neon, CanCollide = false, Parent = spin })
+	local bulb = part({ Name = "RimLight", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.55, CFrame = facing * CFrame.Angles(0, 0, b) * CFrame.new(0, WHEEL_RADIUS + 0.15, -0.45), Color = Color3.new(1, 1, 1), Material = Enum.Material.Neon, CanCollide = false, Parent = spin })
+	bulb:SetAttribute("Bulb", i)
+end
+local hub = part({ Name = "Hub", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.5, 2.2, 2.2), CFrame = facing * CFrame.new(0, 0, -0.5) * CFrame.Angles(0, math.pi / 2, 0), Color = ROSE, Material = Enum.Material.Neon, CanCollide = false, Parent = spin })
+addLight(hub, GOLD, 18, 1.5)
+spin.WorldPivot = facing
+-- the pointer at the top (doesn't spin)
+part({ Name = "Pointer", Size = Vector3.new(1.2, 1.6, 0.5), CFrame = facing * CFrame.new(0, WHEEL_RADIUS + 1.1, -0.7) * CFrame.Angles(0, 0, math.rad(45)), Color = TEAL, Material = Enum.Material.Neon, CanCollide = false, Parent = wheelModel })
+billboard(stand, "🎡 LUCKY WHEEL", GOLD, Vector3.new(0, 15.5, 0), UDim2.fromOffset(300, 50))
+local wheelPrompt = Instance.new("ProximityPrompt")
+wheelPrompt.Name = "WheelPrompt"
+wheelPrompt.ActionText = "Spin"
+wheelPrompt.ObjectText = "Lucky Wheel (free)"
+wheelPrompt.HoldDuration = 0
+wheelPrompt.MaxActivationDistance = 14
+wheelPrompt.RequiresLineOfSight = false
+wheelPrompt.Parent = stand
+
+---------------------------------------------------------------------
+-- 👑 VIP SANCTUM: a floating golden terrace off the south edge,
+-- reached by a bridge. Only VIP pass owners may go in.
+---------------------------------------------------------------------
+local SANCTUM = Config.LuckyIsland.Sanctum
+local S_CENTER = CENTER + SANCTUM.Offset
+local S_RADIUS = SANCTUM.Radius
+local sanctum = Instance.new("Model")
+sanctum.Name = "VipSanctum"
+sanctum.Parent = island
+local function sAt(x, y, z)
+	return S_CENTER + Vector3.new(x, y, z)
+end
+local function sDisc(name, radius, thickness, topY, color3, material, extra)
+	local props = {
+		Name = name,
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(thickness, radius * 2, radius * 2),
+		CFrame = CFrame.new(sAt(0, topY - thickness / 2, 0)) * FLAT,
+		Color = color3,
+		Material = material,
+		Parent = sanctum,
+	}
+	for key, value in pairs(extra or {}) do
+		props[key] = value
+	end
+	return part(props)
+end
+sDisc("SanctumFloor", S_RADIUS, 3, 0, MARBLE, Enum.Material.Marble)
+sDisc("SanctumGold", S_RADIUS - 3, 0.2, 0.08, Color3.fromRGB(255, 225, 140), Enum.Material.Marble)
+sDisc("SanctumGlow", S_RADIUS + 0.6, 0.6, -0.2, GOLD, Enum.Material.Neon, { CanCollide = false })
+for i, layer in ipairs({ { 0.85, -3, 4 }, { 0.6, -7, 5 }, { 0.32, -12, 6 } }) do
+	sDisc("SanctumRock" .. i, S_RADIUS * layer[1], layer[3], layer[2], (i % 2 == 0) and WINE_DARK or WINE, Enum.Material.Slate, { CanCollide = false })
+end
+ringModel("SanctumTrim", sAt(0, 0.25, 0), S_RADIUS - 0.4, 90, 0.5, GOLD, sanctum)
+ringModel("SanctumInner", sAt(0, 0.25, 0), S_RADIUS - 3, 80, 0.3, ROSE, sanctum)
+
+-- the golden bridge from Lucky Isle to the Sanctum
+local bridgeStart = RADIUS - 3
+local bridgeEnd = SANCTUM.Offset.Z - S_RADIUS + 3
+local bridgeLength = bridgeEnd - bridgeStart
+part({ Name = "VipBridge", Size = Vector3.new(9, 1, bridgeLength), CFrame = CFrame.new(at(Vector3.new(0, -0.5, bridgeStart + bridgeLength / 2))), Color = MARBLE, Material = Enum.Material.Marble, Parent = sanctum })
+for _, side in ipairs({ -1, 1 }) do
+	part({ Name = "BridgeRail", Size = Vector3.new(0.5, 1.4, bridgeLength), CFrame = CFrame.new(at(Vector3.new(side * 4.4, 0.7, bridgeStart + bridgeLength / 2))), Color = GOLD, Material = Enum.Material.Metal, Parent = sanctum })
+	part({ Name = "BridgeGlow", Size = Vector3.new(0.2, 0.2, bridgeLength), CFrame = CFrame.new(at(Vector3.new(side * 4.4, 1.5, bridgeStart + bridgeLength / 2))), Color = ROSE, Material = Enum.Material.Neon, CanCollide = false, Parent = sanctum })
+end
+
+-- the VIP gate: a golden arch with a shimmering force field
+local GATE_Z = SANCTUM.Offset.Z - S_RADIUS + 3
+for _, side in ipairs({ -1, 1 }) do
+	column(at(Vector3.new(side * 5.2, 0, GATE_Z)), 11, 1, sanctum)
+end
+part({ Name = "GateBeam", Size = Vector3.new(12.5, 1.4, 1.6), CFrame = CFrame.new(at(Vector3.new(0, 11.8, GATE_Z))), Color = GOLD, Material = Enum.Material.Metal, Parent = sanctum })
+local crown = part({ Name = "GateCrown", Size = Vector3.new(3, 2, 0.6), CFrame = CFrame.new(at(Vector3.new(0, 13.6, GATE_Z))), Color = GOLD, Material = Enum.Material.Neon, CanCollide = false, Parent = sanctum })
+addLight(crown, GOLD, 20, 2)
+local gatePane = part({ Name = "GatePane", Size = Vector3.new(9, 10.5, 0.3), CFrame = CFrame.new(at(Vector3.new(0, 5.6, GATE_Z))), Color = GOLD, Material = Enum.Material.ForceField, Transparency = 0.15, CanCollide = false, Parent = sanctum })
+billboard(gatePane, "👑 VIP SANCTUM\n<font size='38'>VIP pass only • extra x" .. tostring(SANCTUM.LuckMultiplier) .. " luck</font>", GOLD, Vector3.new(0, 8.8, 0), UDim2.fromOffset(340, 80))
+
+-- a golden fountain in the middle
+sDisc("FountainBasin", 7, 1.6, 1.6, MARBLE_DARK, Enum.Material.Marble)
+sDisc("FountainWater", 6.2, 0.2, 1.65, Color3.fromRGB(255, 220, 120), Enum.Material.Neon, { CanCollide = false, Transparency = 0.2 })
+sDisc("FountainTier", 3, 1.2, 4, MARBLE, Enum.Material.Marble)
+sDisc("FountainTop", 1.4, 1, 6, GOLD, Enum.Material.Metal)
+local spout = part({ Name = "FountainSpout", Shape = Enum.PartType.Ball, Size = Vector3.one * 1.6, CFrame = CFrame.new(sAt(0, 7.2, 0)), Color = GOLD, Material = Enum.Material.Neon, CanCollide = false, Parent = sanctum })
+addLight(spout, GOLD, 30, 2.5)
+local coins = Instance.new("ParticleEmitter")
+coins.Texture = Config.Textures.Sparkle
+coins.Rate = 30
+coins.Lifetime = NumberRange.new(1.2, 1.8)
+coins.Speed = NumberRange.new(10, 14)
+coins.SpreadAngle = Vector2.new(25, 25)
+coins.Acceleration = Vector3.new(0, -22, 0)
+coins.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.5), NumberSequenceKeypoint.new(1, 0.2) })
+coins.LightEmission = 1
+coins.LightInfluence = 0
+coins.Color = ColorSequence.new(Color3.fromRGB(255, 230, 120), Color3.fromRGB(255, 180, 60))
+coins.EmissionDirection = Enum.NormalId.Top
+coins.Parent = spout
+
+-- the VIP throne at the back
+local throneBase = sAt(0, 0, 17)
+part({ Name = "ThroneDais", Size = Vector3.new(10, 1.2, 7), CFrame = CFrame.new(throneBase + Vector3.new(0, 0.6, 0)), Color = WINE, Material = Enum.Material.Fabric, Parent = sanctum })
+part({ Name = "ThroneStep", Size = Vector3.new(8, 0.6, 2), CFrame = CFrame.new(throneBase + Vector3.new(0, 0.3, -4.2)), Color = GOLD, Material = Enum.Material.Metal, Parent = sanctum })
+local throne = Instance.new("Seat")
+throne.Name = "VipThrone"
+throne.Anchored = true
+throne.Size = Vector3.new(4, 1, 3.4)
+throne.CFrame = CFrame.lookAt(throneBase + Vector3.new(0, 2, 0), throneBase + Vector3.new(0, 2, -10))
+throne.Color = ROSE
+throne.Material = Enum.Material.Fabric
+throne.TopSurface = Enum.SurfaceType.Smooth
+throne.Parent = sanctum
+part({ Name = "ThroneBack", Size = Vector3.new(4.4, 7, 0.8), CFrame = throne.CFrame * CFrame.new(0, 3.5, 1.7), Color = GOLD, Material = Enum.Material.Metal, Parent = sanctum })
+part({ Name = "ThroneCushion", Size = Vector3.new(3.6, 5.4, 0.3), CFrame = throne.CFrame * CFrame.new(0, 3.3, 1.25), Color = WINE, Material = Enum.Material.Fabric, Parent = sanctum })
+for _, side in ipairs({ -1, 1 }) do
+	part({ Name = "ThroneArm", Size = Vector3.new(0.7, 1.4, 3.2), CFrame = throne.CFrame * CFrame.new(side * 2.3, 0.9, 0), Color = GOLD, Material = Enum.Material.Metal, Parent = sanctum })
+end
+local throneGem = part({ Name = "ThroneGem", Size = Vector3.one * 1.2, CFrame = throne.CFrame * CFrame.new(0, 7.6, 1.7) * CFrame.Angles(math.rad(45), 0, math.rad(45)), Color = TEAL, Material = Enum.Material.Neon, CanCollide = false, Parent = sanctum })
+addLight(throneGem, TEAL, 16, 1.5)
+billboard(throneGem, "👑 VIP THRONE", GOLD, Vector3.new(0, 2.5, 0), UDim2.fromOffset(240, 40))
+
+-- the VIP chest (once a day)
+local chestBase = sAt(-12, 0, 6)
+local chest = part({ Name = "VipChest", Size = Vector3.new(4, 2.4, 2.8), CFrame = CFrame.lookAt(chestBase + Vector3.new(0, 1.2, 0), sAt(0, 1.2, 0)), Color = WINE, Material = Enum.Material.Wood, Parent = sanctum })
+part({ Name = "ChestLid", Size = Vector3.new(4.2, 0.9, 3), CFrame = chest.CFrame * CFrame.new(0, 1.6, 0), Color = WINE_DARK, Material = Enum.Material.Wood, Parent = sanctum })
+for _, x in ipairs({ -1.4, 0, 1.4 }) do
+	part({ Name = "ChestBand", Size = Vector3.new(0.3, 3.4, 3.1), CFrame = chest.CFrame * CFrame.new(x, 0.45, 0), Color = GOLD, Material = Enum.Material.Metal, CanCollide = false, Parent = sanctum })
+end
+local lock = part({ Name = "ChestLock", Size = Vector3.new(0.8, 0.9, 0.3), CFrame = chest.CFrame * CFrame.new(0, 0.9, -1.55), Color = GOLD, Material = Enum.Material.Neon, CanCollide = false, Parent = sanctum })
+addLight(lock, GOLD, 12, 1.5)
+addSparkles(lock, GOLD, 6, 0.4)
+billboard(chest, "🎁 VIP CHEST\n<font size='34'>free every day</font>", GOLD, Vector3.new(0, 4, 0), UDim2.fromOffset(220, 60))
+local chestPrompt = Instance.new("ProximityPrompt")
+chestPrompt.Name = "ChestPrompt"
+chestPrompt.ActionText = "Open"
+chestPrompt.ObjectText = "VIP Chest"
+chestPrompt.HoldDuration = 0.5
+chestPrompt.MaxActivationDistance = 10
+chestPrompt.RequiresLineOfSight = false
+chestPrompt.Parent = chest
+
+-- a trading desk (trading itself works from the 🤝 TRADE menu anywhere)
+local desk = part({ Name = "TradeDesk", Size = Vector3.new(6, 2.6, 2.4), CFrame = CFrame.lookAt(sAt(12, 1.3, 6), sAt(0, 1.3, 0)), Color = MARBLE_DARK, Material = Enum.Material.Marble, Parent = sanctum })
+part({ Name = "DeskTop", Size = Vector3.new(6.4, 0.3, 2.8), CFrame = desk.CFrame * CFrame.new(0, 1.45, 0), Color = GOLD, Material = Enum.Material.Metal, Parent = sanctum })
+local scales = part({ Name = "DeskScales", Shape = Enum.PartType.Ball, Size = Vector3.one * 1.1, CFrame = desk.CFrame * CFrame.new(0, 2.3, 0), Color = TEAL, Material = Enum.Material.Neon, CanCollide = false, Parent = sanctum })
+addLight(scales, TEAL, 12, 1.2)
+billboard(desk, "🤝 VIP TRADING\n<font size='30'>open TRADE in the menu</font>", TEAL, Vector3.new(0, 4.2, 0), UDim2.fromOffset(240, 60))
+
+-- crowned obelisks around the edge
+for i = 1, 6 do
+	local a = (i / 6) * math.pi * 2 + math.pi / 6
+	local p = sAt(math.cos(a) * (S_RADIUS - 3), 0, math.sin(a) * (S_RADIUS - 3))
+	if math.abs(math.cos(a)) > 0.2 or math.sin(a) > 0 then -- leave the gate side open
+		part({ Name = "Obelisk", Size = Vector3.new(1.6, 8, 1.6), CFrame = CFrame.new(p + Vector3.new(0, 4, 0)), Color = MARBLE, Material = Enum.Material.Marble, Parent = sanctum })
+		local top = part({ Name = "ObeliskCrown", Size = Vector3.one * 1.3, CFrame = CFrame.new(p + Vector3.new(0, 8.8, 0)) * CFrame.Angles(math.rad(45), 0, math.rad(45)), Color = (i % 2 == 0) and ROSE or GOLD, Material = Enum.Material.Neon, CanCollide = false, Parent = sanctum })
+		addLight(top, top.Color, 14, 1.2)
+	end
+end
+local sanctumDust = part({ Name = "SanctumDust", Size = Vector3.new(S_RADIUS * 2, 10, S_RADIUS * 2), CFrame = CFrame.new(sAt(0, 6, 0)), Transparency = 1, CanCollide = false, CanQuery = false, CanTouch = false, Parent = sanctum })
+addSparkles(sanctumDust, GOLD, 25, 0.35)
+
 island.Parent = workspace
 
 ---------------------------------------------------------------------
@@ -5867,11 +6155,22 @@ addPrompt(mainZone, "Travel", "Lucky Isle (ALL luck x" .. LUCKY.LuckMultiplier .
 addPrompt(returnZone, "Travel", "Back to Cosmic Island", enterReturnPortal)
 
 -- Who is standing on Lucky Isle? (gives the luck bonus)
+local SANCTUM_CENTER = CENTER + Config.LuckyIsland.Sanctum.Offset
+local SANCTUM_RADIUS = Config.LuckyIsland.Sanctum.Radius
+local function inSanctum(position)
+	local offset = position - SANCTUM_CENTER
+	local flat = Vector3.new(offset.X, 0, offset.Z)
+	-- the gate stands at the sanctum's edge: everything past it counts
+	return flat.Magnitude < SANCTUM_RADIUS + 2 and offset.Z > -SANCTUM_RADIUS + 3.6 and offset.Y > -10 and offset.Y < 60
+end
 local function onIsland(position)
 	local offset = position - CENTER
 	local flat = Vector3.new(offset.X, 0, offset.Z)
-	return flat.Magnitude < RADIUS + 8 and offset.Y > -20 and offset.Y < 80
+	-- the bridge and the VIP Sanctum count as Lucky Isle too
+	local onBridge = math.abs(offset.X) < 6 and offset.Z > RADIUS - 5 and offset.Z < Config.LuckyIsland.Sanctum.Offset.Z
+	return (flat.Magnitude < RADIUS + 8 or onBridge or inSanctum(position)) and offset.Y > -20 and offset.Y < 80
 end
+local SANCTUM_KICK = CFrame.lookAt(at(Vector3.new(0, 4, RADIUS - 8)), at(Vector3.new(0, 4, 0)))
 
 task.spawn(function()
 	local loops = 0
@@ -5896,6 +6195,19 @@ task.spawn(function()
 				end
 				if player:GetAttribute("OnLuckyIsland") ~= here then
 					player:SetAttribute("OnLuckyIsland", here)
+				end
+				-- VIP Sanctum: VIP pass owners only
+				local sanctum = root ~= nil and here and inSanctum(root.Position)
+				if sanctum and not player:GetAttribute("Pass_VIP") then
+					if root and not busy[player] then
+						root.AssemblyLinearVelocity = Vector3.zero
+						player.Character:PivotTo(SANCTUM_KICK)
+						PortalFXRemote:FireClient(player, "DeniedSanctum")
+					end
+					sanctum = false
+				end
+				if player:GetAttribute("InVIPSanctum") ~= sanctum then
+					player:SetAttribute("InVIPSanctum", sanctum)
 				end
 			end
 		end
@@ -8700,6 +9012,8 @@ local PetRemote = getRemote("RemoteFunction", "PetAction") -- equip / unequip pe
 local QuestRemote = getRemote("RemoteFunction", "Quest") -- daily reward + quests
 local QuestUpdatedRemote = getRemote("RemoteEvent", "QuestUpdated") -- server -> player: quest progress
 local SaveSettingsRemote = getRemote("RemoteEvent", "SaveSettings") -- player's sound settings
+local WheelRemote = getRemote("RemoteFunction", "SpinWheel") -- Lucky Wheel on Lucky Isle
+local VipChestRemote = getRemote("RemoteFunction", "VipChest") -- daily chest in the VIP Sanctum
 
 ---------------------------------------------------------------------
 -- Data saving
@@ -8742,6 +9056,8 @@ local function newData()
 		Daily = { Streak = 0, LastClaimDay = -1 }, -- daily login reward
 		Quests = { Day = -1, List = {}, Bonus = false }, -- today's quests
 		Settings = { Music = 1, Sfx = 1, Muted = false }, -- sound sliders
+		WheelNext = 0, -- when the next free Lucky Wheel spin is ready (os.time)
+		VipChestDay = -1, -- last day the VIP chest was opened
 		Receipts = {}, -- recent purchase IDs, so nothing is granted twice
 	}
 end
@@ -8877,6 +9193,8 @@ local function refreshStats(player)
 	player:SetAttribute("BoostRolls", data.BoostRolls or 0)
 	player:SetAttribute("PermanentLuck", data.PermanentLuck or 1)
 	player:SetAttribute("LimitedBought", data.LimitedBought or "")
+	player:SetAttribute("WheelNext", data.WheelNext or 0)
+	player:SetAttribute("VipChestDay", data.VipChestDay or -1)
 	-- perks that unlock passes
 	for key in pairs(Config.GamePasses) do
 		if rebirthGrants(player, key) and not player:GetAttribute("Pass_" .. key) then
@@ -9260,6 +9578,87 @@ task.spawn(function()
 end)
 
 ---------------------------------------------------------------------
+-- LUCKY WHEEL + VIP CHEST (Lucky Isle)
+---------------------------------------------------------------------
+local function nearPart(player, path, range)
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local node = workspace
+	for _, name in ipairs(path) do
+		node = node and node:FindFirstChild(name)
+	end
+	return root ~= nil and node ~= nil and node:IsA("BasePart") and (node.Position - root.Position).Magnitude < range
+end
+
+local function wheelCooldown(player)
+	local wheel = Config.LuckyWheel
+	return (player:GetAttribute("Pass_VIP") and wheel.VipCooldownMinutes or wheel.CooldownMinutes) * 60
+end
+
+WheelRemote.OnServerInvoke = function(player)
+	local data = sessions[player]
+	if not data then
+		return { Error = "Loading" }
+	end
+	if not nearPart(player, { "LuckyIsland", "LuckyWheel", "WheelStand" }, 20) then
+		return { Error = "TooFar" }
+	end
+	local now = os.time()
+	if now < (data.WheelNext or 0) then
+		return { Error = "Cooldown", Left = data.WheelNext - now }
+	end
+	data.WheelNext = now + wheelCooldown(player)
+	player:SetAttribute("WheelNext", data.WheelNext)
+	-- weighted pick
+	local prizes = Config.LuckyWheel.Prizes
+	local total = 0
+	for _, prize in ipairs(prizes) do
+		total += prize.Weight
+	end
+	local pickValue = rng:NextNumber() * total
+	local index = #prizes
+	for i, prize in ipairs(prizes) do
+		pickValue -= prize.Weight
+		if pickValue <= 0 then
+			index = i
+			break
+		end
+	end
+	local prize = prizes[index]
+	-- the reward lands after the wheel stops spinning on the player's screen
+	task.delay(4.6, function()
+		if sessions[player] == data then
+			grantReward(player, data, prize.Reward)
+			if index >= #prizes - 1 then
+				AnnounceRemote:FireAllClients({ Type = "Wheel", PlayerName = player.DisplayName, UserId = player.UserId, Prize = prize.Label })
+			end
+		end
+	end)
+	return { Index = index, Next = data.WheelNext }
+end
+
+VipChestRemote.OnServerInvoke = function(player)
+	local data = sessions[player]
+	if not data then
+		return { Error = "Loading" }
+	end
+	if not player:GetAttribute("Pass_VIP") then
+		return { Error = "NotVIP" }
+	end
+	if not nearPart(player, { "LuckyIsland", "VipSanctum", "VipChest" }, 14) then
+		return { Error = "TooFar" }
+	end
+	local today = QuestData.Today()
+	if data.VipChestDay == today then
+		return { Error = "Claimed", ResetIn = QuestData.SecondsToReset() }
+	end
+	data.VipChestDay = today
+	player:SetAttribute("VipChestDay", today)
+	grantReward(player, data, Config.VipChest)
+	return { Granted = Config.VipChest }
+end
+
+---------------------------------------------------------------------
 -- PETS: hatch eggs by paying with auras, equip up to 3 for luck
 ---------------------------------------------------------------------
 local hatchBusy = {}
@@ -9606,6 +10005,22 @@ task.spawn(function()
 		end
 	end)
 end)
+
+---------------------------------------------------------------------
+-- TRADING (see the TradeService module)
+---------------------------------------------------------------------
+require(script.Parent:WaitForChild("TradeService"))({
+	Config = Config,
+	AuraData = AuraData,
+	PetData = PetData,
+	sessions = sessions,
+	getRemote = getRemote,
+	snapshot = snapshot,
+	refreshStats = refreshStats,
+	applyAuraToCharacter = applyAuraToCharacter,
+	saveData = saveData,
+	DataUpdatedRemote = DataUpdatedRemote,
+})
 
 ---------------------------------------------------------------------
 -- Join / leave
@@ -10785,7 +11200,335 @@ root.Parent = workspace
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="23">
+    <Item class="ModuleScript" referent="23">
+      <Properties>
+        <string name="Name">TradeService</string>
+        <string name="Source"><![CDATA[-- TradeService (ModuleScript in ServerScriptService)
+-- Player-to-player trading of auras and pets. Started by RollService (which
+-- owns everyone's saved data) so a trade moves items in one safe step.
+--
+-- How a trade works:
+--   1. Player A sends a request (🤝 TRADE menu). At least ONE of the two
+--      players needs the VIP pass (Config.Trading.RequireVIP).
+--   2. Player B accepts -> both see the trade window.
+--   3. Both add auras / pets. Any change un-readies both players.
+--   4. Both press READY -> a short countdown -> the server checks that both
+--      still own everything, then swaps it all at once and saves.
+
+return function(api)
+	local Players = game:GetService("Players")
+	local Config = api.Config
+	local AuraData = api.AuraData
+	local PetData = api.PetData
+	local sessions = api.sessions
+	local SETTINGS = Config.Trading
+
+	local TradeRemote = api.getRemote("RemoteEvent", "Trade")
+
+	local trades = {} -- [player] = trade (both players point at the same trade)
+	local requests = {} -- [target] = { From = player, At = os.clock() }
+	local lastAction = {} -- [player] = os.clock(), simple spam guard
+
+	local function send(player, message)
+		if player and player.Parent then
+			TradeRemote:FireClient(player, message)
+		end
+	end
+
+	local function hasVIP(player)
+		return player:GetAttribute("Pass_VIP") == true
+	end
+
+	local function busy(player)
+		return trades[player] ~= nil or player:GetAttribute("InDuel") == true
+	end
+
+	-- how many of an item the player owns right now
+	local function owned(player, kind, name)
+		local data = sessions[player]
+		if not data then
+			return 0
+		end
+		if kind == "Aura" then
+			return (data.Inventory or {})[name] or 0
+		elseif kind == "Pet" then
+			return (data.Pets or {})[name] or 0
+		end
+		return 0
+	end
+
+	local function offerList(offer)
+		local list = {}
+		for key, count in pairs(offer) do
+			local kind, name = string.match(key, "^(%a+)|(.+)$")
+			table.insert(list, { Kind = kind, Name = name, Count = count })
+		end
+		table.sort(list, function(a, b)
+			if a.Kind ~= b.Kind then
+				return a.Kind < b.Kind
+			end
+			return a.Name < b.Name
+		end)
+		return list
+	end
+
+	local function other(trade, player)
+		return trade.A == player and trade.B or trade.A
+	end
+
+	local function push(trade)
+		for _, player in ipairs({ trade.A, trade.B }) do
+			local partner = other(trade, player)
+			send(player, {
+				Type = "Update",
+				Partner = partner.DisplayName,
+				PartnerId = partner.UserId,
+				Mine = offerList(trade.Offers[player]),
+				Theirs = offerList(trade.Offers[partner]),
+				MyReady = trade.Ready[player] == true,
+				TheirReady = trade.Ready[partner] == true,
+				Counting = trade.Counting == true,
+			})
+		end
+	end
+
+	local function close(trade, reason)
+		for _, player in ipairs({ trade.A, trade.B }) do
+			if trades[player] == trade then
+				trades[player] = nil
+			end
+			send(player, { Type = "Closed", Reason = reason })
+		end
+	end
+
+	local function startTrade(a, b)
+		local trade = { A = a, B = b, Offers = { [a] = {}, [b] = {} }, Ready = {}, Version = 0 }
+		trades[a] = trade
+		trades[b] = trade
+		for _, player in ipairs({ a, b }) do
+			send(player, { Type = "Open", Partner = other(trade, player).DisplayName })
+		end
+		push(trade)
+	end
+
+	-- remove items from one save and give them to the other
+	local function moveItems(from, to, offer)
+		local fromData, toData = sessions[from], sessions[to]
+		for key, count in pairs(offer) do
+			local kind, name = string.match(key, "^(%a+)|(.+)$")
+			if kind == "Aura" then
+				fromData.Inventory[name] -= count
+				if fromData.Inventory[name] <= 0 then
+					fromData.Inventory[name] = nil
+					if fromData.Equipped == name then
+						fromData.Equipped = ""
+					end
+				end
+				toData.Inventory[name] = (toData.Inventory[name] or 0) + count
+				local aura = AuraData.Get(name)
+				if aura and aura.Chance > (toData.BestChance or 0) then
+					toData.BestChance = aura.Chance
+				end
+			elseif kind == "Pet" then
+				fromData.Pets[name] -= count
+				local left = fromData.Pets[name]
+				if left <= 0 then
+					fromData.Pets[name] = nil
+					left = 0
+				end
+				-- unequip copies you no longer have
+				local equipped = fromData.EquippedPets or {}
+				local onCount = 0
+				for i = #equipped, 1, -1 do
+					if equipped[i] == name then
+						onCount += 1
+						if onCount > left then
+							table.remove(equipped, i)
+						end
+					end
+				end
+				toData.Pets = toData.Pets or {}
+				toData.Pets[name] = (toData.Pets[name] or 0) + count
+			end
+		end
+	end
+
+	local function execute(trade)
+		local a, b = trade.A, trade.B
+		if not sessions[a] or not sessions[b] then
+			close(trade, "Someone left")
+			return
+		end
+		-- everyone must still own what they offered
+		for _, player in ipairs({ a, b }) do
+			for key, count in pairs(trade.Offers[player]) do
+				local kind, name = string.match(key, "^(%a+)|(.+)$")
+				if owned(player, kind, name) < count then
+					close(trade, player.DisplayName .. " doesn't have those items any more")
+					return
+				end
+			end
+		end
+		local gaveA, gaveB = offerList(trade.Offers[a]), offerList(trade.Offers[b])
+		moveItems(a, b, trade.Offers[a])
+		moveItems(b, a, trade.Offers[b])
+		trades[a] = nil
+		trades[b] = nil
+		for _, player in ipairs({ a, b }) do
+			api.applyAuraToCharacter(player)
+			api.refreshStats(player)
+			api.DataUpdatedRemote:FireClient(player, api.snapshot(sessions[player]))
+			task.spawn(api.saveData, player)
+		end
+		send(a, { Type = "Done", Received = gaveB, Gave = gaveA, Partner = b.DisplayName })
+		send(b, { Type = "Done", Received = gaveA, Gave = gaveB, Partner = a.DisplayName })
+	end
+
+	local function unready(trade)
+		trade.Ready = {}
+		trade.Counting = false
+		trade.Version += 1
+	end
+
+	TradeRemote.OnServerEvent:Connect(function(player, request)
+		if type(request) ~= "table" or type(request.Action) ~= "string" then
+			return
+		end
+		local now = os.clock()
+		if now - (lastAction[player] or 0) < 0.12 then
+			return
+		end
+		lastAction[player] = now
+		local action = request.Action
+
+		if action == "Request" then
+			local target = request.Target
+			if typeof(target) ~= "Instance" or not target:IsA("Player") or target == player or not target.Parent then
+				return
+			end
+			if SETTINGS.RequireVIP and not hasVIP(player) and not hasVIP(target) then
+				send(player, { Type = "Error", Message = "👑 One of you needs the VIP pass to trade" })
+				return
+			end
+			if busy(player) or busy(target) then
+				send(player, { Type = "Error", Message = target.DisplayName .. " is busy right now" })
+				return
+			end
+			-- they already asked us? then just start
+			local theirs = requests[player]
+			if theirs and theirs.From == target and now - theirs.At < 20 then
+				requests[player] = nil
+				startTrade(target, player)
+				return
+			end
+			requests[target] = { From = player, At = now }
+			send(target, { Type = "Request", From = player, FromName = player.DisplayName })
+			send(player, { Type = "Info", Message = "🤝 Trade request sent to " .. target.DisplayName })
+
+		elseif action == "Respond" then
+			local entry = requests[player]
+			if not entry or entry.From ~= request.From or now - entry.At > 20 then
+				return
+			end
+			requests[player] = nil
+			local from = entry.From
+			if request.Accept ~= true then
+				send(from, { Type = "Info", Message = player.DisplayName .. " declined the trade" })
+				return
+			end
+			if not from.Parent or busy(from) or busy(player) then
+				send(player, { Type = "Error", Message = "That trade isn't possible any more" })
+				return
+			end
+			startTrade(from, player)
+
+		elseif action == "SetItem" then
+			local trade = trades[player]
+			local kind, name, count = request.Kind, request.Name, request.Count
+			if not trade then
+				return
+			end
+			if (kind ~= "Aura" and kind ~= "Pet") or type(name) ~= "string" or type(count) ~= "number" then
+				return
+			end
+			if kind == "Aura" and not AuraData.Get(name) then
+				return
+			end
+			if kind == "Pet" and not PetData.Get(name) then
+				return
+			end
+			count = math.clamp(math.floor(count), 0, owned(player, kind, name))
+			local offer = trade.Offers[player]
+			local key = kind .. "|" .. name
+			if count > 0 and not offer[key] then
+				local slots = 0
+				for _ in pairs(offer) do
+					slots += 1
+				end
+				if slots >= SETTINGS.MaxSlots then
+					send(player, { Type = "Error", Message = ("You can offer up to %d different items"):format(SETTINGS.MaxSlots) })
+					return
+				end
+			end
+			offer[key] = (count > 0) and count or nil
+			unready(trade)
+			push(trade)
+
+		elseif action == "Ready" then
+			local trade = trades[player]
+			if not trade then
+				return
+			end
+			trade.Ready[player] = request.Value == true
+			if trade.Ready[trade.A] and trade.Ready[trade.B] then
+				-- nothing to swap? don't bother
+				if next(trade.Offers[trade.A]) == nil and next(trade.Offers[trade.B]) == nil then
+					trade.Ready = {}
+					send(player, { Type = "Error", Message = "Add something to the trade first" })
+					push(trade)
+					return
+				end
+				trade.Counting = true
+				trade.Version += 1
+				local version = trade.Version
+				push(trade)
+				task.delay(SETTINGS.ConfirmSeconds, function()
+					if trades[trade.A] == trade and trade.Version == version and trade.Ready[trade.A] and trade.Ready[trade.B] then
+						execute(trade)
+					end
+				end)
+			else
+				trade.Counting = false
+				trade.Version += 1
+				push(trade)
+			end
+
+		elseif action == "Cancel" then
+			local trade = trades[player]
+			if trade then
+				close(trade, player.DisplayName .. " cancelled the trade")
+			end
+		end
+	end)
+
+	Players.PlayerRemoving:Connect(function(player)
+		local trade = trades[player]
+		if trade then
+			close(trade, player.DisplayName .. " left the game")
+		end
+		requests[player] = nil
+		lastAction[player] = nil
+		for target, entry in pairs(requests) do
+			if entry.From == player then
+				requests[target] = nil
+			end
+		end
+	end)
+end
+]]></string>
+      </Properties>
+    </Item>
+    <Item class="Script" referent="24">
       <Properties>
         <string name="Name">WorldDetails</string>
         <token name="RunContext">0</token>
@@ -11204,7 +11947,7 @@ root.Parent = workspace
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="24">
+    <Item class="Script" referent="25">
       <Properties>
         <string name="Name">WorldSetup</string>
         <token name="RunContext">0</token>
@@ -12505,16 +13248,16 @@ island.Parent = workspace
       </Properties>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="25">
+  <Item class="StarterPlayer" referent="26">
     <Properties>
       <string name="Name">StarterPlayer</string>
       <bool name="EnableMouseLockOption">false</bool>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="26">
+    <Item class="StarterPlayerScripts" referent="27">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="LocalScript" referent="27">
+      <Item class="LocalScript" referent="28">
         <Properties>
           <string name="Name">AuraRenderer</string>
           <string name="Source"><![CDATA[-- AuraRenderer (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -13026,7 +13769,7 @@ end
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="28">
+      <Item class="LocalScript" referent="29">
         <Properties>
           <string name="Name">DropClient</string>
           <string name="Source"><![CDATA[-- DropClient (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -13227,7 +13970,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="29">
+      <Item class="LocalScript" referent="30">
         <Properties>
           <string name="Name">DuelClient</string>
           <string name="Source"><![CDATA[-- DuelClient (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -14296,7 +15039,7 @@ end
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="30">
+      <Item class="LocalScript" referent="31">
         <Properties>
           <string name="Name">DuelFX</string>
           <string name="Source"><![CDATA[-- DuelFX (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -15494,7 +16237,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="31">
+      <Item class="LocalScript" referent="32">
         <Properties>
           <string name="Name">IslandFX</string>
           <string name="Source"><![CDATA[-- IslandFX (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -15728,7 +16471,7 @@ end
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="32">
+      <Item class="LocalScript" referent="33">
         <Properties>
           <string name="Name">LimitedOffer</string>
           <string name="Source"><![CDATA[-- LimitedOffer (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -15980,7 +16723,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="33">
+      <Item class="LocalScript" referent="34">
         <Properties>
           <string name="Name">NameplateStyler</string>
           <string name="Source"><![CDATA[-- NameplateStyler (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -16124,7 +16867,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="34">
+      <Item class="LocalScript" referent="35">
         <Properties>
           <string name="Name">ParkourClient</string>
           <string name="Source"><![CDATA[-- ParkourClient (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -16357,7 +17100,7 @@ end
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="35">
+      <Item class="LocalScript" referent="36">
         <Properties>
           <string name="Name">PetClient</string>
           <string name="Source"><![CDATA[-- PetClient (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -17374,7 +18117,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="36">
+      <Item class="LocalScript" referent="37">
         <Properties>
           <string name="Name">QuestClient</string>
           <string name="Source"><![CDATA[-- QuestClient (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -17726,7 +18469,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="37">
+      <Item class="LocalScript" referent="38">
         <Properties>
           <string name="Name">RebirthClient</string>
           <string name="Source"><![CDATA[-- RebirthClient (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -18519,7 +19262,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="38">
+      <Item class="LocalScript" referent="39">
         <Properties>
           <string name="Name">RollUI</string>
           <string name="Source"><![CDATA[-- RollUI (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -19765,6 +20508,10 @@ AnnounceRemote.OnClientEvent:Connect(function(info)
 		end
 		return
 	end
+	if info.Type == "Wheel" then
+		showBanner(("🎡 <b>%s</b> won <font color='#ffd76a'><b>%s</b></font> on the Lucky Wheel!"):format(info.PlayerName, tostring(info.Prize)), THEME.Gold)
+		return
+	end
 	if info.Type == "Limited" then
 		showBanner(("🔥 <b>%s</b> grabbed the <font color='#ff8c5a'><b>LIMITED OFFER</b></font>!"):format(info.PlayerName), Color3.fromRGB(255, 140, 90))
 		return
@@ -19885,7 +20632,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="39">
+      <Item class="LocalScript" referent="40">
         <Properties>
           <string name="Name">SkyFX</string>
           <string name="Source"><![CDATA[-- SkyFX (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -20262,7 +21009,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="40">
+      <Item class="LocalScript" referent="41">
         <Properties>
           <string name="Name">Sprint</string>
           <string name="Source"><![CDATA[-- Sprint (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -20504,7 +21251,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="41">
+      <Item class="LocalScript" referent="42">
         <Properties>
           <string name="Name">StoreUI</string>
           <string name="Source"><![CDATA[-- StoreUI (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -21043,7 +21790,782 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="42">
+      <Item class="LocalScript" referent="43">
+        <Properties>
+          <string name="Name">TradeClient</string>
+          <string name="Source"><![CDATA[-- TradeClient (LocalScript in StarterPlayer > StarterPlayerScripts)
+-- 🤝 TRADING on your screen:
+--   * TRADE button -> list of players to send a trade request to
+--     (at least one of you needs the 👑 VIP pass)
+--   * a popup when someone wants to trade with you (Accept / Decline)
+--   * the trade window: pick auras and pets from your inventory, see what
+--     they offer, press READY - when both are ready it counts down and swaps
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local MarketplaceService = game:GetService("MarketplaceService")
+
+local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
+local AuraData = require(ReplicatedStorage:WaitForChild("AuraData"))
+local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
+local SoundFX = require(ReplicatedStorage:WaitForChild("SoundFX"))
+local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
+
+local player = Players.LocalPlayer
+local THEME = UIKit.Theme
+local TITLE_FONT = UIKit.TitleFont
+local new, corner, stroke, textStroke, tween, label =
+	UIKit.new, UIKit.corner, UIKit.stroke, UIKit.textStroke, UIKit.tween, UIKit.label
+
+local remotes = ReplicatedStorage:WaitForChild("CosmicRemotes")
+local TradeRemote = remotes:WaitForChild("Trade")
+local GetDataRemote = remotes:WaitForChild("GetData")
+local DataUpdatedRemote = remotes:WaitForChild("DataUpdated")
+
+local TEAL = Color3.fromRGB(90, 230, 205)
+local GOLD = Color3.fromRGB(255, 200, 70)
+local myData = { Inventory = {}, Pets = {} }
+local state -- the current trade (from the server)
+
+local function isVIP(who)
+	return who:GetAttribute("Pass_VIP") == true
+end
+
+local function itemColor(kind, name)
+	if kind == "Aura" then
+		local aura = AuraData.Get(name)
+		return aura and UIKit.readable(AuraData.Tiers[aura.Tier].Color) or THEME.Text
+	end
+	local pet = PetData.Get(name)
+	if pet and pet.Variant == "Golden" then
+		return Color3.fromRGB(255, 215, 90)
+	end
+	return pet and UIKit.readable(PetData.Rarities[pet.Rarity].Color) or THEME.Text
+end
+
+local function itemText(kind, name)
+	if kind == "Aura" then
+		local aura = AuraData.Get(name)
+		return "✨ " .. name .. (aura and ("  <font color='#bfb4e1' size='12'>" .. AuraData.FormatChance(aura.Chance) .. "</font>") or "")
+	end
+	local pet = PetData.Get(name)
+	local icon = (pet and pet.Variant and PetData.Variants[pet.Variant].Icon) or "🐾"
+	return icon .. " " .. PetData.Display(name) .. (pet and ("  <font color='#78ffaa' size='12'>+" .. math.floor(pet.Luck * 100 + 0.5) .. "%</font>") or "")
+end
+
+---------------------------------------------------------------------
+-- Menu button
+---------------------------------------------------------------------
+local menuGui = player:WaitForChild("PlayerGui"):WaitForChild("CosmicMenu", 30)
+local sideMenu = menuGui and menuGui:WaitForChild("SideMenu", 10)
+local menuButton
+if sideMenu then
+	menuButton = new("TextButton", {
+		Name = "TRADE", LayoutOrder = 5, Size = UDim2.fromOffset(84, 84), BackgroundColor3 = THEME.Panel,
+		BackgroundTransparency = 0.1, AutoButtonColor = false, Text = "", Parent = sideMenu,
+	}, { corner(UDim.new(0, 18)), stroke(TEAL, 2.5, 0) })
+	label({ Size = UDim2.new(1, 0, 0, 50), Position = UDim2.fromOffset(0, 6), Text = "🤝", TextSize = 38, Parent = menuButton })
+	local text = label({
+		AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, -6), Size = UDim2.new(1, 0, 0, 20),
+		Text = "TRADE", Font = TITLE_FONT, TextSize = 16, Parent = menuButton,
+	})
+	textStroke(1.2).Parent = text
+	UIKit.addButtonFeel(menuButton)
+end
+
+local gui = UIKit.screen("CosmicTrade", 3)
+
+local function panelFrame(size, color)
+	local holder = new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.48), Size = size,
+		BackgroundTransparency = 1, Visible = false, Parent = gui,
+	})
+	UIKit.addAutoScale(holder, 820)
+	local panel = new("Frame", {
+		Size = UDim2.fromScale(1, 1), BackgroundColor3 = THEME.Panel, BackgroundTransparency = 0.04, Parent = holder,
+	}, { corner(UDim.new(0, 18)), stroke(color, 2.5, 0) })
+	return holder, panel
+end
+
+local function closeButton(parent)
+	local b = new("TextButton", {
+		AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 14), Size = UDim2.fromOffset(40, 40),
+		BackgroundColor3 = THEME.Bad, Text = "X", Font = TITLE_FONT, TextSize = 22, TextColor3 = THEME.Text, AutoButtonColor = false, Parent = parent,
+	}, { corner(UDim.new(0, 10)), textStroke(1.5) })
+	UIKit.addButtonFeel(b)
+	return b
+end
+
+local function button(parent, text, color, props)
+	local b = new("TextButton", {
+		BackgroundColor3 = color, Text = text, Font = TITLE_FONT, TextSize = 16, TextColor3 = THEME.Text, AutoButtonColor = false, Parent = parent,
+	}, { corner(UDim.new(0, 10)), textStroke(1.2) })
+	for key, value in pairs(props or {}) do
+		b[key] = value
+	end
+	UIKit.addButtonFeel(b)
+	return b
+end
+
+local function list(parent, props)
+	local frame = new("ScrollingFrame", {
+		BackgroundColor3 = THEME.PanelLight, BackgroundTransparency = 0.3, BorderSizePixel = 0, ScrollBarThickness = 5,
+		ScrollBarImageColor3 = TEAL, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, Parent = parent,
+	}, {
+		corner(UDim.new(0, 12)),
+		new("UIListLayout", { Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder }),
+		new("UIPadding", { PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 6), PaddingLeft = UDim.new(0, 6), PaddingRight = UDim.new(0, 10) }),
+	})
+	for key, value in pairs(props) do
+		frame[key] = value
+	end
+	return frame
+end
+
+local function clear(frame)
+	for _, child in ipairs(frame:GetChildren()) do
+		if child:IsA("GuiObject") then
+			child:Destroy()
+		end
+	end
+end
+
+---------------------------------------------------------------------
+-- PLAYER PICKER
+---------------------------------------------------------------------
+local pickHolder, pickPanel = panelFrame(UDim2.fromOffset(460, 480), TEAL)
+local pickTitle = label({ Position = UDim2.fromOffset(20, 12), Size = UDim2.new(1, -80, 0, 38), Text = "🤝 TRADE", Font = TITLE_FONT, TextSize = 30, TextColor3 = TEAL, TextXAlignment = Enum.TextXAlignment.Left, Parent = pickPanel })
+textStroke(1.5).Parent = pickTitle
+local pickNote = label({ Position = UDim2.fromOffset(20, 50), Size = UDim2.new(1, -40, 0, 40), Text = "", TextSize = 14, TextWrapped = true, RichText = true, TextColor3 = THEME.SubText, TextXAlignment = Enum.TextXAlignment.Left, Parent = pickPanel })
+local pickList = list(pickPanel, { Position = UDim2.fromOffset(16, 96), Size = UDim2.new(1, -32, 1, -112) })
+local pickClose = closeButton(pickPanel)
+
+local pickOpen = false
+local function refreshPick()
+	clear(pickList)
+	local meVip = isVIP(player)
+	pickNote.Text = meVip and "You have <font color='#ffd76a'>👑 VIP</font>: you can trade with <b>anyone</b>!"
+		or "Trading needs <font color='#ffd76a'>👑 VIP</font> for at least one of you. You can trade with players who have 👑."
+	local count = 0
+	for _, other in ipairs(Players:GetPlayers()) do
+		if other ~= player then
+			count += 1
+			local allowed = not Config.Trading.RequireVIP or meVip or isVIP(other)
+			local row = new("Frame", { LayoutOrder = count, Size = UDim2.new(1, 0, 0, 52), BackgroundColor3 = THEME.Panel, Parent = pickList }, { corner(UDim.new(0, 10)) })
+			label({ Position = UDim2.fromOffset(12, 0), Size = UDim2.new(1, -150, 1, 0), Text = (isVIP(other) and "👑 " or "") .. other.DisplayName, Font = TITLE_FONT, TextSize = 18, TextXAlignment = Enum.TextXAlignment.Left, Parent = row })
+			local b = button(row, allowed and "🤝 TRADE" or "needs VIP", allowed and THEME.Good or Color3.fromRGB(70, 66, 90), {
+				AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(120, 36),
+			})
+			b.Activated:Connect(function()
+				if allowed then
+					TradeRemote:FireServer({ Action = "Request", Target = other })
+				else
+					UIKit.toast("👑 One of you needs the VIP pass to trade", GOLD)
+					local passId = Config.GamePasses.VIP
+					if passId and passId ~= 0 then
+						MarketplaceService:PromptGamePassPurchase(player, passId)
+					end
+				end
+			end)
+		end
+	end
+	if count == 0 then
+		label({ LayoutOrder = 1, Size = UDim2.new(1, 0, 0, 60), Text = "Nobody else is here yet!", TextSize = 18, TextColor3 = THEME.SubText, Parent = pickList })
+	end
+end
+
+local function setPickOpen(value)
+	pickOpen = value
+	if value then
+		UIKit.announcePanel("TradePick")
+		refreshPick()
+		pickHolder.Visible = true
+		UIKit.popIn(pickPanel)
+	else
+		pickHolder.Visible = false
+	end
+end
+if menuButton then
+	menuButton.Activated:Connect(function()
+		if state then
+			return -- the trade window is already open
+		end
+		setPickOpen(not pickOpen)
+	end)
+end
+pickClose.Activated:Connect(function()
+	setPickOpen(false)
+end)
+Players.PlayerAdded:Connect(function()
+	if pickOpen then
+		refreshPick()
+	end
+end)
+Players.PlayerRemoving:Connect(function()
+	if pickOpen then
+		task.defer(refreshPick)
+	end
+end)
+
+---------------------------------------------------------------------
+-- INCOMING REQUEST POPUP
+---------------------------------------------------------------------
+local popup = new("Frame", {
+	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, -200), Size = UDim2.fromOffset(420, 120),
+	BackgroundColor3 = THEME.Panel, BackgroundTransparency = 0.05, Parent = gui,
+}, { corner(UDim.new(0, 16)), stroke(TEAL, 2.5, 0) })
+UIKit.addAutoScale(popup)
+local popupText = label({ Position = UDim2.fromOffset(12, 10), Size = UDim2.new(1, -24, 0, 50), Text = "", Font = TITLE_FONT, TextSize = 22, TextWrapped = true, Parent = popup })
+local acceptButton = button(popup, "ACCEPT", THEME.Good, { Position = UDim2.new(0.5, -170, 0, 66), Size = UDim2.fromOffset(160, 40) })
+local declineButton = button(popup, "DECLINE", THEME.Bad, { Position = UDim2.new(0.5, 10, 0, 66), Size = UDim2.fromOffset(160, 40) })
+local pendingFrom
+local popupToken = 0
+local function hidePopup()
+	pendingFrom = nil
+	tween(popup, 0.3, { Position = UDim2.new(0.5, 0, 0, -200) })
+end
+acceptButton.Activated:Connect(function()
+	if pendingFrom then
+		TradeRemote:FireServer({ Action = "Respond", From = pendingFrom, Accept = true })
+	end
+	hidePopup()
+end)
+declineButton.Activated:Connect(function()
+	if pendingFrom then
+		TradeRemote:FireServer({ Action = "Respond", From = pendingFrom, Accept = false })
+	end
+	hidePopup()
+end)
+
+---------------------------------------------------------------------
+-- TRADE WINDOW
+---------------------------------------------------------------------
+local tradeHolder, tradePanel = panelFrame(UDim2.fromOffset(880, 540), TEAL)
+local tradeTitle = label({ Position = UDim2.fromOffset(20, 12), Size = UDim2.new(1, -40, 0, 36), Text = "", Font = TITLE_FONT, TextSize = 28, TextColor3 = TEAL, TextXAlignment = Enum.TextXAlignment.Left, Parent = tradePanel })
+textStroke(1.5).Parent = tradeTitle
+
+local function columnTitle(text, x, width, color)
+	local t = label({ Position = UDim2.fromOffset(x, 54), Size = UDim2.fromOffset(width, 24), Text = text, Font = TITLE_FONT, TextSize = 18, TextColor3 = color, Parent = tradePanel })
+	textStroke(1.2).Parent = t
+	return t
+end
+-- left: your offer, middle: your inventory, right: their offer
+columnTitle("📤 YOU GIVE", 16, 270, Color3.fromRGB(255, 170, 120))
+local myReadyLabel = label({ Position = UDim2.fromOffset(16, 78), Size = UDim2.fromOffset(270, 18), Text = "", TextSize = 13, Parent = tradePanel })
+local mineList = list(tradePanel, { Position = UDim2.fromOffset(16, 98), Size = UDim2.fromOffset(270, 340) })
+
+columnTitle("🎒 YOUR STUFF (tap to add)", 300, 280, THEME.SubText)
+local tabAuras = button(tradePanel, "✨ AURAS", TEAL, { Position = UDim2.fromOffset(300, 80), Size = UDim2.fromOffset(136, 28) })
+local tabPets = button(tradePanel, "🐾 PETS", Color3.fromRGB(70, 66, 90), { Position = UDim2.fromOffset(444, 80), Size = UDim2.fromOffset(136, 28) })
+local invList = list(tradePanel, { Position = UDim2.fromOffset(300, 114), Size = UDim2.fromOffset(280, 324) })
+
+local theirTitle = columnTitle("📥 YOU GET", 594, 270, Color3.fromRGB(120, 255, 170))
+local theirReadyLabel = label({ Position = UDim2.fromOffset(594, 78), Size = UDim2.fromOffset(270, 18), Text = "", TextSize = 13, Parent = tradePanel })
+local theirList = list(tradePanel, { Position = UDim2.fromOffset(594, 98), Size = UDim2.fromOffset(270, 340) })
+
+local statusLabel = label({ Position = UDim2.fromOffset(16, 446), Size = UDim2.new(1, -32, 0, 26), Text = "", Font = TITLE_FONT, TextSize = 18, RichText = true, Parent = tradePanel })
+local readyButton = button(tradePanel, "✅ READY", THEME.Good, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, -110, 0, 478), Size = UDim2.fromOffset(200, 46), TextSize = 22 })
+local cancelButton = button(tradePanel, "CANCEL", THEME.Bad, { AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 110, 0, 478), Size = UDim2.fromOffset(200, 46), TextSize = 22 })
+
+local tab = "Aura"
+local function offeredCount(kind, name)
+	for _, item in ipairs(state and state.Mine or {}) do
+		if item.Kind == kind and item.Name == name then
+			return item.Count
+		end
+	end
+	return 0
+end
+
+local function setItem(kind, name, count)
+	TradeRemote:FireServer({ Action = "SetItem", Kind = kind, Name = name, Count = count })
+	SoundFX.Play("Click")
+end
+
+local function itemRow(parent, order, item, editable)
+	local row = new("Frame", { LayoutOrder = order, Size = UDim2.new(1, 0, 0, 40), BackgroundColor3 = THEME.Panel, Parent = parent }, { corner(UDim.new(0, 8)) })
+	label({ Position = UDim2.fromOffset(8, 0), Size = UDim2.new(1, editable and -110 or -60, 1, 0), Text = itemText(item.Kind, item.Name), RichText = true,
+		TextSize = 14, TextTruncate = Enum.TextTruncate.AtEnd, TextColor3 = itemColor(item.Kind, item.Name), TextXAlignment = Enum.TextXAlignment.Left, Parent = row })
+	label({ AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, editable and -62 or -8, 0.5, 0), Size = UDim2.fromOffset(46, 24), Text = "x" .. item.Count, Font = TITLE_FONT, TextSize = 16, Parent = row })
+	if editable then
+		local minus = button(row, "−", THEME.Bad, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -32, 0.5, 0), Size = UDim2.fromOffset(26, 26), TextSize = 18 })
+		local plus = button(row, "+", THEME.Good, { AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -4, 0.5, 0), Size = UDim2.fromOffset(26, 26), TextSize = 18 })
+		minus.Activated:Connect(function()
+			setItem(item.Kind, item.Name, item.Count - 1)
+		end)
+		plus.Activated:Connect(function()
+			setItem(item.Kind, item.Name, item.Count + 1)
+		end)
+	end
+end
+
+local function renderInventory()
+	clear(invList)
+	local items = {}
+	if tab == "Aura" then
+		for name, count in pairs(myData.Inventory or {}) do
+			local aura = AuraData.Get(name)
+			if aura and count > 0 then
+				table.insert(items, { Kind = "Aura", Name = name, Count = count, Sort = aura.Chance })
+			end
+		end
+	else
+		for name, count in pairs(myData.Pets or {}) do
+			local pet = PetData.Get(name)
+			if pet and count > 0 then
+				table.insert(items, { Kind = "Pet", Name = name, Count = count, Sort = pet.Luck })
+			end
+		end
+	end
+	table.sort(items, function(a, b)
+		return a.Sort > b.Sort
+	end)
+	for order, item in ipairs(items) do
+		local left = item.Count - offeredCount(item.Kind, item.Name)
+		local row = new("TextButton", { LayoutOrder = order, Size = UDim2.new(1, 0, 0, 36), BackgroundColor3 = left > 0 and THEME.Panel or Color3.fromRGB(30, 26, 44),
+			Text = "", AutoButtonColor = false, Parent = invList }, { corner(UDim.new(0, 8)) })
+		label({ Position = UDim2.fromOffset(8, 0), Size = UDim2.new(1, -60, 1, 0), Text = itemText(item.Kind, item.Name), RichText = true, TextSize = 14,
+			TextTruncate = Enum.TextTruncate.AtEnd, TextColor3 = itemColor(item.Kind, item.Name), TextXAlignment = Enum.TextXAlignment.Left, Parent = row })
+		label({ AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -8, 0.5, 0), Size = UDim2.fromOffset(48, 24), Text = "x" .. left, Font = TITLE_FONT, TextSize = 15,
+			TextColor3 = left > 0 and THEME.Text or THEME.SubText, Parent = row })
+		UIKit.addButtonFeel(row, true)
+		row.Activated:Connect(function()
+			if left > 0 then
+				setItem(item.Kind, item.Name, offeredCount(item.Kind, item.Name) + 1)
+			end
+		end)
+	end
+	if #items == 0 then
+		label({ LayoutOrder = 1, Size = UDim2.new(1, 0, 0, 50), Text = tab == "Aura" and "No auras yet" or "No pets yet", TextSize = 16, TextColor3 = THEME.SubText, Parent = invList })
+	end
+end
+
+local function renderTrade()
+	if not state then
+		return
+	end
+	tradeTitle.Text = "🤝 TRADING WITH " .. string.upper(state.Partner or "?")
+	theirTitle.Text = "📥 YOU GET FROM " .. string.upper(state.Partner or "?")
+	clear(mineList)
+	clear(theirList)
+	for order, item in ipairs(state.Mine or {}) do
+		itemRow(mineList, order, item, true)
+	end
+	for order, item in ipairs(state.Theirs or {}) do
+		itemRow(theirList, order, item, false)
+	end
+	if #(state.Mine or {}) == 0 then
+		label({ LayoutOrder = 1, Size = UDim2.new(1, 0, 0, 50), Text = "Tap your stuff in the middle to add it", TextSize = 14, TextWrapped = true, TextColor3 = THEME.SubText, Parent = mineList })
+	end
+	if #(state.Theirs or {}) == 0 then
+		label({ LayoutOrder = 1, Size = UDim2.new(1, 0, 0, 50), Text = "Nothing offered yet", TextSize = 14, TextColor3 = THEME.SubText, Parent = theirList })
+	end
+	myReadyLabel.Text = state.MyReady and "✅ you are ready" or "not ready"
+	myReadyLabel.TextColor3 = state.MyReady and THEME.Good or THEME.SubText
+	theirReadyLabel.Text = state.TheirReady and "✅ they are ready" or "not ready"
+	theirReadyLabel.TextColor3 = state.TheirReady and THEME.Good or THEME.SubText
+	readyButton.Text = state.MyReady and "↩ UNREADY" or "✅ READY"
+	readyButton.BackgroundColor3 = state.MyReady and Color3.fromRGB(90, 80, 130) or THEME.Good
+	if state.Counting then
+		statusLabel.Text = ("<font color='#78ffaa'>Both ready! Trading in %d...</font>"):format(Config.Trading.ConfirmSeconds)
+	elseif state.MyReady then
+		statusLabel.Text = "Waiting for " .. (state.Partner or "them") .. " to press READY..."
+	else
+		statusLabel.Text = "Check both sides carefully, then press READY. Any change un-readies you both."
+	end
+	renderInventory()
+end
+
+local function setTab(kind)
+	tab = kind
+	tabAuras.BackgroundColor3 = kind == "Aura" and TEAL or Color3.fromRGB(70, 66, 90)
+	tabPets.BackgroundColor3 = kind == "Pet" and TEAL or Color3.fromRGB(70, 66, 90)
+	renderInventory()
+end
+tabAuras.Activated:Connect(function()
+	setTab("Aura")
+end)
+tabPets.Activated:Connect(function()
+	setTab("Pet")
+end)
+readyButton.Activated:Connect(function()
+	if state then
+		TradeRemote:FireServer({ Action = "Ready", Value = not state.MyReady })
+	end
+end)
+cancelButton.Activated:Connect(function()
+	TradeRemote:FireServer({ Action = "Cancel" })
+end)
+
+local function openTrade()
+	setPickOpen(false)
+	UIKit.announcePanel("Trade")
+	tradeHolder.Visible = true
+	UIKit.popIn(tradePanel)
+	setTab("Aura")
+end
+local function closeTrade()
+	state = nil
+	tradeHolder.Visible = false
+end
+UIKit.PanelOpened:Connect(function(name)
+	if name ~= "TradePick" and pickOpen then
+		setPickOpen(false)
+	end
+end)
+
+---------------------------------------------------------------------
+-- Messages from the server
+---------------------------------------------------------------------
+TradeRemote.OnClientEvent:Connect(function(message)
+	if type(message) ~= "table" then
+		return
+	end
+	local kind = message.Type
+	if kind == "Request" then
+		pendingFrom = message.From
+		popupText.Text = ("🤝 %s wants to trade with you!"):format(tostring(message.FromName))
+		popup.Position = UDim2.new(0.5, 0, 0, -200)
+		tween(popup, 0.45, { Position = UDim2.new(0.5, 0, 0, 90) }, Enum.EasingStyle.Back)
+		SoundFX.Chime(1.1, 3)
+		popupToken += 1
+		local token = popupToken
+		task.delay(15, function()
+			if token == popupToken and pendingFrom then
+				hidePopup()
+			end
+		end)
+	elseif kind == "Open" then
+		state = { Partner = message.Partner, Mine = {}, Theirs = {} }
+		openTrade()
+		renderTrade()
+		SoundFX.Play("Whoosh")
+	elseif kind == "Update" then
+		local wasCounting = state and state.Counting
+		state = message
+		if not tradeHolder.Visible then
+			openTrade()
+		end
+		renderTrade()
+		if message.Counting and not wasCounting then
+			SoundFX.Play("Beep")
+		end
+	elseif kind == "Done" then
+		closeTrade()
+		SoundFX.Jingle("Victory")
+		UIKit.confetti({ TEAL, GOLD, Color3.new(1, 1, 1) }, 90)
+		local got = {}
+		for _, item in ipairs(message.Received or {}) do
+			table.insert(got, ("%dx %s"):format(item.Count, item.Kind == "Pet" and PetData.Display(item.Name) or item.Name))
+		end
+		UIKit.toast("🤝 Trade done! You got: " .. (#got > 0 and table.concat(got, ", ") or "nothing"), TEAL)
+	elseif kind == "Closed" then
+		if state then
+			closeTrade()
+			UIKit.toast("🤝 " .. tostring(message.Reason or "Trade closed"), THEME.SubText)
+		end
+	elseif kind == "Error" or kind == "Info" then
+		UIKit.toast(tostring(message.Message), kind == "Error" and THEME.Bad or TEAL)
+		if kind == "Error" then
+			SoundFX.Play("Thud")
+		end
+	end
+end)
+
+---------------------------------------------------------------------
+-- Your inventory (for the middle column)
+---------------------------------------------------------------------
+DataUpdatedRemote.OnClientEvent:Connect(function(snapshot)
+	if type(snapshot) == "table" then
+		myData.Inventory = snapshot.Inventory or myData.Inventory
+		myData.Pets = snapshot.Pets or myData.Pets
+		if state then
+			renderInventory()
+		end
+	end
+end)
+task.spawn(function()
+	for _ = 1, 20 do
+		local ok, snapshot = pcall(function()
+			return GetDataRemote:InvokeServer()
+		end)
+		if ok and type(snapshot) == "table" then
+			myData.Inventory = snapshot.Inventory or {}
+			myData.Pets = snapshot.Pets or {}
+			return
+		end
+		task.wait(1)
+	end
+end)
+-- rolling changes your auras: refresh while trading
+player:GetAttributeChangedSignal("Rolls"):Connect(function()
+	if state then
+		task.delay(0.3, function()
+			local ok, snapshot = pcall(function()
+				return GetDataRemote:InvokeServer()
+			end)
+			if ok and type(snapshot) == "table" then
+				myData.Inventory = snapshot.Inventory or myData.Inventory
+				myData.Pets = snapshot.Pets or myData.Pets
+				renderInventory()
+			end
+		end)
+	end
+end)
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="LocalScript" referent="44">
+        <Properties>
+          <string name="Name">VipIslandClient</string>
+          <string name="Source"><![CDATA[-- VipIslandClient (LocalScript in StarterPlayer > StarterPlayerScripts)
+-- Lucky Isle extras on your screen:
+--   * 🎡 LUCKY WHEEL: press E to spin, the wheel spins and lands on your
+--     prize, with your own countdown shown above it
+--   * 🎁 VIP CHEST in the VIP Sanctum (once a day, VIP pass)
+--   * 👑 VIP SANCTUM: a popup with the extra luck when you walk in, and a
+--     "VIP only" message (with the VIP pass offer) if you don't have VIP
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local MarketplaceService = game:GetService("MarketplaceService")
+
+local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
+local Luck = require(ReplicatedStorage:WaitForChild("Luck"))
+local QuestData = require(ReplicatedStorage:WaitForChild("QuestData"))
+local SoundFX = require(ReplicatedStorage:WaitForChild("SoundFX"))
+local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
+
+local player = Players.LocalPlayer
+local THEME = UIKit.Theme
+local GOLD = Color3.fromRGB(255, 200, 70)
+
+local remotes = ReplicatedStorage:WaitForChild("CosmicRemotes")
+local WheelRemote = remotes:WaitForChild("SpinWheel")
+local VipChestRemote = remotes:WaitForChild("VipChest")
+local PortalFXRemote = remotes:WaitForChild("PortalFX", 30)
+
+local function promptVip()
+	local passId = Config.GamePasses.VIP
+	if passId and passId ~= 0 then
+		MarketplaceService:PromptGamePassPurchase(player, passId)
+	end
+end
+
+local island = workspace:WaitForChild("LuckyIsland", 60)
+if not island then
+	return
+end
+local wheel = island:WaitForChild("LuckyWheel", 30)
+local spinModel = wheel and wheel:WaitForChild("WheelSpin", 10)
+local stand = wheel and wheel:WaitForChild("WheelStand", 10)
+local sanctum = island:WaitForChild("VipSanctum", 30)
+local chest = sanctum and sanctum:WaitForChild("VipChest", 10)
+
+---------------------------------------------------------------------
+-- 🎡 LUCKY WHEEL
+---------------------------------------------------------------------
+local prizes = Config.LuckyWheel.Prizes
+local basePivot = spinModel and spinModel:GetPivot()
+local bulbs = {}
+if spinModel then
+	for _, p in ipairs(spinModel:GetChildren()) do
+		if p:GetAttribute("Bulb") then
+			table.insert(bulbs, p)
+		end
+	end
+end
+local currentAngle = 0
+local spinning = false
+
+-- your own countdown above the wheel
+local timerGui
+if stand then
+	timerGui = Instance.new("BillboardGui")
+	timerGui.Name = "WheelTimer"
+	timerGui.Adornee = stand
+	timerGui.Size = UDim2.new(8, 0, 1.4, 0)
+	timerGui.StudsOffset = Vector3.new(0, 18, 0)
+	timerGui.MaxDistance = 90
+	timerGui.LightInfluence = 0
+	timerGui.AlwaysOnTop = true
+	timerGui.Parent = player:WaitForChild("PlayerGui")
+	local label = Instance.new("TextLabel")
+	label.Name = "Text"
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.fromScale(1, 1)
+	label.Font = Enum.Font.FredokaOne
+	label.TextScaled = true
+	label.TextTransparency = 0.1
+	label.Parent = timerGui
+	local stroke = Instance.new("UIStroke")
+	stroke.Thickness = 2
+	stroke.Transparency = 0.4
+	stroke.Parent = label
+end
+
+RunService.Heartbeat:Connect(function()
+	if not timerGui then
+		return
+	end
+	local label = timerGui:FindFirstChild("Text")
+	local left = (player:GetAttribute("WheelNext") or 0) - os.time()
+	if spinning then
+		label.Text = "🎡 SPINNING..."
+		label.TextColor3 = GOLD
+	elseif left <= 0 then
+		label.Text = "🎡 FREE SPIN READY!"
+		label.TextColor3 = Color3.fromRGB(120, 255, 170)
+	else
+		label.Text = ("🎡 next spin in %d:%02d"):format(left // 60, left % 60)
+		label.TextColor3 = Color3.fromRGB(220, 210, 255)
+	end
+end)
+
+local function setWheel(angle)
+	if spinModel and basePivot then
+		spinModel:PivotTo(basePivot * CFrame.Angles(0, 0, angle))
+	end
+end
+
+local function spinTo(index)
+	spinning = true
+	local count = #prizes
+	local sliceAngle = (index - 1) / count * math.pi * 2
+	-- a few full turns, then stop with the prize under the pointer
+	local wiggleRoom = (math.random() - 0.5) * (math.pi * 2 / count) * 0.6
+	local target = -sliceAngle - math.pi * 2 * 6 + wiggleRoom
+	-- start from where it is now (keep it between 0 and one turn)
+	local start = currentAngle % (math.pi * 2)
+	local duration = 4.4
+	local began = os.clock()
+	local lastSlice = math.floor(start / (math.pi * 2 / count))
+	SoundFX.Play("Whoosh", { Speed = 0.8 })
+	while true do
+		local f = math.min(1, (os.clock() - began) / duration)
+		local eased = 1 - (1 - f) ^ 3
+		currentAngle = start + (target - start) * eased
+		setWheel(currentAngle)
+		-- tick as each slice passes the pointer
+		local slice = math.floor(currentAngle / (math.pi * 2 / count))
+		if slice ~= lastSlice then
+			lastSlice = slice
+			SoundFX.Play("Tick", { Speed = 0.9 + (1 - f) * 0.6, Volume = 0.8 })
+		end
+		for i, bulb in ipairs(bulbs) do
+			bulb.Color = ((math.floor(os.clock() * 12) + i) % 2 == 0) and GOLD or Color3.new(1, 1, 1)
+		end
+		if f >= 1 then
+			break
+		end
+		RunService.RenderStepped:Wait()
+	end
+	-- winner!
+	local prize = prizes[index]
+	for _ = 1, 6 do
+		for _, bulb in ipairs(bulbs) do
+			bulb.Color = prize.Color
+		end
+		task.wait(0.1)
+		for _, bulb in ipairs(bulbs) do
+			bulb.Color = Color3.new(1, 1, 1)
+		end
+		task.wait(0.1)
+	end
+	local jackpot = index >= #prizes - 1
+	if jackpot then
+		SoundFX.Jingle("Victory")
+		UIKit.confetti({ prize.Color, GOLD, Color3.new(1, 1, 1) }, 120)
+	else
+		SoundFX.Chime(1, 5)
+	end
+	UIKit.burst({ prize.Color, GOLD, Color3.new(1, 1, 1) }, 40, 1.2, Vector2.new(0.5, 0.4))
+	UIKit.toast("🎡 You won: " .. prize.Label .. "!", GOLD)
+	spinning = false
+end
+
+if stand then
+	local prompt = stand:WaitForChild("WheelPrompt", 10)
+	if prompt then
+		prompt.Triggered:Connect(function()
+			if spinning then
+				return
+			end
+			local ok, result = pcall(function()
+				return WheelRemote:InvokeServer()
+			end)
+			if ok and type(result) == "table" and result.Index then
+				spinTo(result.Index)
+			elseif ok and type(result) == "table" and result.Error == "Cooldown" then
+				local left = result.Left or 0
+				UIKit.toast(("🎡 Next free spin in %d:%02d%s"):format(left // 60, left % 60,
+					player:GetAttribute("Pass_VIP") and "" or " (VIP: every 15 min!)"), THEME.SubText)
+				SoundFX.Play("Thud")
+			else
+				UIKit.toast("🎡 Walk up to the wheel to spin it", THEME.SubText)
+			end
+		end)
+	end
+end
+
+---------------------------------------------------------------------
+-- 🎁 VIP CHEST
+---------------------------------------------------------------------
+if chest then
+	local prompt = chest:WaitForChild("ChestPrompt", 10)
+	if prompt then
+		prompt.Triggered:Connect(function()
+			local ok, result = pcall(function()
+				return VipChestRemote:InvokeServer()
+			end)
+			if ok and type(result) == "table" and result.Granted then
+				SoundFX.Jingle("Victory")
+				UIKit.confetti({ GOLD, Color3.fromRGB(255, 130, 190), Color3.new(1, 1, 1) }, 100)
+				UIKit.toast("🎁 VIP Chest: " .. QuestData.RewardText(result.Granted), GOLD)
+			elseif ok and type(result) == "table" and result.Error == "NotVIP" then
+				UIKit.toast("👑 The VIP Chest is for VIP pass owners", GOLD)
+				promptVip()
+			elseif ok and type(result) == "table" and result.Error == "Claimed" then
+				local left = result.ResetIn or 0
+				UIKit.toast(("🎁 Already opened today - come back in %dh %dm"):format(left // 3600, (left % 3600) // 60), THEME.SubText)
+			end
+		end)
+	end
+end
+
+---------------------------------------------------------------------
+-- 👑 VIP SANCTUM
+---------------------------------------------------------------------
+local wasIn = false
+player:GetAttributeChangedSignal("InVIPSanctum"):Connect(function()
+	local inside = player:GetAttribute("InVIPSanctum") == true
+	if inside == wasIn then
+		return
+	end
+	wasIn = inside
+	if inside then
+		local multiplier = Config.LuckyIsland.Sanctum.LuckMultiplier
+		local after = Luck.Get(player)
+		UIKit.luckBoost("👑", "VIP Sanctum", multiplier, after / multiplier, after, GOLD)
+	end
+end)
+
+if PortalFXRemote then
+	local lastDenied = 0
+	PortalFXRemote.OnClientEvent:Connect(function(kind)
+		if kind == "DeniedSanctum" and os.clock() - lastDenied > 4 then
+			lastDenied = os.clock()
+			UIKit.toast("👑 The VIP Sanctum is for VIP pass owners only!", GOLD)
+			SoundFX.Play("Thud")
+			promptVip()
+		end
+	end)
+end
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="LocalScript" referent="45">
         <Properties>
           <string name="Name">WorldFX</string>
           <string name="Source"><![CDATA[-- WorldFX (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -21355,7 +22877,7 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="43">
+  <Item class="Workspace" referent="46">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>

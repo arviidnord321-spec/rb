@@ -90,7 +90,7 @@ Open **📜 QUESTS** in the side menu. A red number shows how many rewards are w
 - The 7 days start automatically the first time a live server starts. You can also set `Config.LimitedOffer.StartTime` yourself.
 
 ### Store
-Side menu (2 columns) with **LIMITED**, **DUEL**, **STORE**, **REBIRTH**, **PETS**, **QUESTS** and **SOUND** buttons.
+Side menu (2 columns) with **LIMITED**, **DUEL**, **STORE**, **REBIRTH**, **PETS**, **QUESTS**, **TRADE** and **SOUND** buttons.
 
 | Game pass | What it does |
 |---|---|
@@ -99,7 +99,7 @@ Side menu (2 columns) with **LIMITED**, **DUEL**, **STORE**, **REBIRTH**, **PETS
 | 2x Luck | Permanent x2 luck |
 | Triple Roll | 3 auras every roll |
 | Lucky Charm | Lucky roll every 5 rolls instead of every 10 |
-| VIP | x1.25 luck and a gold VIP tag |
+| VIP | x1.25 luck, a gold VIP tag, the VIP Sanctum (extra x1.5 luck + daily chest), Lucky Wheel every 15 min, and trading with anyone |
 
 | Boost (buy many times) | What it does |
 |---|---|
@@ -145,6 +145,14 @@ Side menu (2 columns) with **LIMITED**, **DUEL**, **STORE**, **REBIRTH**, **PETS
   - Many creatures leave glowing ribbons behind them.
   - Lucky Isle has twin golden moons, Frostfall a frozen ringed planet, Ember Isle a burning red sun and Neon Nexus a neon-ringed planet.
 - **Island luck multiplies ALL your luck.** If you have x30 luck and walk onto Lucky Isle (x2), you roll with x60. A popup counts it up when you arrive (x30 → x60), and your luck line shows it as "x60 (x30 × 2 island)". Rebirth islands work the same way.
+- **Lucky Isle extras:**
+  - **🎡 Lucky Wheel** on the south side. Press E for a free spin every 30 minutes (every **15 with VIP**). The wheel spins and lands on your prize: luck potions, Cosmic Rolls, Comet / Nebula / Solar Flare auras, or the rare **JACKPOT: Black Hole aura**. A personal timer floats above it, and big wins are announced. Prizes and chances are in `Config.LuckyWheel`.
+  - **👑 VIP Sanctum**: a floating golden terrace across a bridge off the south edge. **VIP pass only**: non-VIPs are turned back at the force-field gate and offered the pass. Inside:
+    - An **extra x1.5 luck** on top of Lucky Isle's x2.
+    - A golden fountain spraying sparkles.
+    - A VIP throne you can sit on.
+    - A **daily VIP Chest** (2 Cosmic Rolls + 15 min x2 luck + 2 Pulsar auras).
+    - A trading desk and crowned obelisks.
 - **Lucky Isle portal**: walk into the portal (or press **E**) to travel to **Lucky Isle**. It's white marble, gold, rose and teal, and gives **x2 luck** while you stand on it. The sky turns pink and gold while you're there, and a return portal takes you back.
   - Open to everyone. Set `Config.LuckyIsland.RequireVIP = true` to make it VIP-only.
 - **Parkour** (step on the start pad to begin; the timer shows at the top):
@@ -189,6 +197,14 @@ Open **⭐ REBIRTH** on the left (a green **!** shows when you're ready).
   - **Magma Run** (Ember): over a lava sea (touching it sends you back), with rocks that bob up and down, fire bars, half-lava platforms and a geyser jump pad. Gives **x4 luck for 7 min**.
   - **Pulse Grid** (Neon Nexus): a square spiral of platforms that blink in a wave, fast lasers, sliding platforms and thin beams. Gives **x5 luck for 8 min**.
 - Every number is in `Config.Rebirth` and `Config.RebirthIslands`.
+
+### Trading
+- Press **🤝 TRADE** in the side menu, pick a player and send a request. They get an Accept / Decline popup.
+- **At least ONE of the two players needs the 👑 VIP pass.** Players with VIP show a 👑 in the list.
+- The trade window has 3 columns: **what you give**, **your stuff** (auras and pets, tap to add, −/+ to change amounts) and **what you get**.
+- Both press **READY**, there's a 3-second countdown, and then everything swaps at once. Any change un-readies both players, so nobody can sneak in a switch.
+- The server checks that both players still own everything before swapping, then saves both players right away. A traded-away aura or pet is taken off if you were wearing it.
+- Settings: `Config.Trading` (turn the VIP rule off with `RequireVIP = false`).
 
 ### Sound settings
 - The **🔊 SOUND** button opens a small panel with two sliders: **🎵 Music** (background music and the duel drum beat) and **💥 Sound effects** (everything else), from 0% to 100% in 5% steps, plus a **MUTE ALL** button.
@@ -288,7 +304,8 @@ All sounds are made from Roblox's built-in sound files, so they always work:
 |---|---|---|
 | ReplicatedStorage | ModuleScript | `CosmicConfig`, `AuraData`, `AuraImages`, `AuraEffects`, `CombatAnim`, `Luck`, `Rebirth`, `PetData`, `QuestData`, `SoundFX`, `UIKit` |
 | ServerScriptService | Script | `RollService`, `WorldSetup`, `LuckyIsland`, `RebirthIslands`, `SkyDecor`, `WorldDetails`, `PetWorld`, `DropService`, `Parkour`, `DuelService`, `Movement`, `Leaderboard` |
-| StarterPlayer > StarterPlayerScripts | LocalScript | `AuraRenderer`, `RollUI`, `StoreUI`, `WorldFX`, `ParkourClient`, `DuelClient`, `DuelFX`, `Sprint`, `RebirthClient`, `IslandFX`, `SkyFX`, `PetClient`, `DropClient`, `LimitedOffer`, `NameplateStyler`, `QuestClient` |
+| StarterPlayer > StarterPlayerScripts | LocalScript | `AuraRenderer`, `RollUI`, `StoreUI`, `WorldFX`, `ParkourClient`, `DuelClient`, `DuelFX`, `Sprint`, `RebirthClient`, `IslandFX`, `SkyFX`, `PetClient`, `DropClient`, `LimitedOffer`, `NameplateStyler`, `QuestClient`, `VipIslandClient`, `TradeClient` |
+| ServerScriptService | ModuleScript | `TradeService` (started by RollService) |
 
 ## Adding the aura pictures
 Starter pictures for the 7 newest auras are in `AuraPictures_New.zip` (and in `AuraImages/`). They're not in the game yet: edit them, upload them, then paste the IDs into `AuraImages` like the others. To redraw them, run `python3 tools/make_aura_images.py --new`.

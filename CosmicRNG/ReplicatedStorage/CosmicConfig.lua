@@ -27,7 +27,7 @@ Config.PassInfo = {
 	{ Key = "DoubleLuck", Icon = "🍀", Name = "2x Luck", Description = "Permanently doubles your luck on every roll." },
 	{ Key = "MultiRoll", Icon = "🎲", Name = "Triple Roll", Description = "Every roll gives you 3 auras at once." },
 	{ Key = "LuckyCharm", Icon = "✨", Name = "Lucky Charm", Description = "Lucky roll every 5 rolls instead of every 10." },
-	{ Key = "VIP", Icon = "👑", Name = "VIP", Description = "x1.25 luck on every roll and a gold VIP tag." },
+	{ Key = "VIP", Icon = "👑", Name = "VIP", Description = "x1.25 luck, VIP Sanctum (+x1.5 luck, daily chest), faster Lucky Wheel and trading with anyone." },
 }
 
 ---------------------------------------------------------------------
@@ -148,6 +148,41 @@ Config.LuckyIsland = {
 	Radius = 75,
 	LuckMultiplier = 2, -- extra luck while you stand on it
 	RequireVIP = false, -- true = only VIP pass owners may use the portal
+	-- the VIP SANCTUM: a floating terrace off the south edge, VIP pass only
+	Sanctum = {
+		Offset = Vector3.new(0, 0, 112), -- from the island center
+		Radius = 26,
+		LuckMultiplier = 1.5, -- on top of Lucky Isle's x2
+	},
+}
+
+-- LUCKY WHEEL on Lucky Isle: a free spin every 30 minutes (15 with VIP)
+-- Reward fields work like quest rewards: Potion (minutes), BoostRolls, Aura + Count
+Config.LuckyWheel = {
+	CooldownMinutes = 30,
+	VipCooldownMinutes = 15,
+	Prizes = {
+		{ Label = "5 min x2 luck", Weight = 30, Color = Color3.fromRGB(120, 200, 255), Reward = { Potion = 5 } },
+		{ Label = "2x Comet", Weight = 18, Color = Color3.fromRGB(120, 230, 140), Reward = { Aura = "Comet", Count = 2 } },
+		{ Label = "10 min x2 luck", Weight = 18, Color = Color3.fromRGB(150, 130, 255), Reward = { Potion = 10 } },
+		{ Label = "1 Cosmic Roll", Weight = 12, Color = Color3.fromRGB(255, 200, 80), Reward = { BoostRolls = 1 } },
+		{ Label = "1x Nebula", Weight = 10, Color = Color3.fromRGB(255, 120, 200), Reward = { Aura = "Nebula", Count = 1 } },
+		{ Label = "25 min x2 luck", Weight = 6, Color = Color3.fromRGB(90, 230, 210), Reward = { Potion = 25 } },
+		{ Label = "3 Cosmic Rolls", Weight = 4, Color = Color3.fromRGB(255, 150, 60), Reward = { BoostRolls = 3 } },
+		{ Label = "Solar Flare", Weight = 1.6, Color = Color3.fromRGB(255, 90, 40), Reward = { Aura = "Solar Flare", Count = 1 } },
+		{ Label = "JACKPOT: Black Hole", Weight = 0.4, Color = Color3.fromRGB(20, 10, 30), Reward = { Aura = "Black Hole", Count = 1 } },
+	},
+}
+
+-- VIP CHEST in the Sanctum: VIP pass owners can open it once a day
+Config.VipChest = { BoostRolls = 2, Potion = 15, Aura = "Pulsar", Count = 2 }
+
+-- TRADING: swap auras and pets with other players.
+-- At least ONE of the two players needs the VIP pass.
+Config.Trading = {
+	RequireVIP = true,
+	MaxSlots = 8, -- different items each side can offer
+	ConfirmSeconds = 3, -- countdown after both press READY
 }
 
 ---------------------------------------------------------------------

@@ -50,6 +50,8 @@ local PetRemote = getRemote("RemoteFunction", "PetAction") -- equip / unequip pe
 local QuestRemote = getRemote("RemoteFunction", "Quest") -- daily reward + quests
 local QuestUpdatedRemote = getRemote("RemoteEvent", "QuestUpdated") -- server -> player: quest progress
 local SaveSettingsRemote = getRemote("RemoteEvent", "SaveSettings") -- player's sound settings
+local WheelRemote = getRemote("RemoteFunction", "SpinWheel") -- Lucky Wheel on Lucky Isle
+local VipChestRemote = getRemote("RemoteFunction", "VipChest") -- daily chest in the VIP Sanctum
 
 ---------------------------------------------------------------------
 -- Data saving
@@ -92,6 +94,8 @@ local function newData()
 		Daily = { Streak = 0, LastClaimDay = -1 }, -- daily login reward
 		Quests = { Day = -1, List = {}, Bonus = false }, -- today's quests
 		Settings = { Music = 1, Sfx = 1, Muted = false }, -- sound sliders
+		WheelNext = 0, -- when the next free Lucky Wheel spin is ready (os.time)
+		VipChestDay = -1, -- last day the VIP chest was opened
 		Receipts = {}, -- recent purchase IDs, so nothing is granted twice
 	}
 end
@@ -227,6 +231,8 @@ local function refreshStats(player)
 	player:SetAttribute("BoostRolls", data.BoostRolls or 0)
 	player:SetAttribute("PermanentLuck", data.PermanentLuck or 1)
 	player:SetAttribute("LimitedBought", data.LimitedBought or "")
+	player:SetAttribute("WheelNext", data.WheelNext or 0)
+	player:SetAttribute("VipChestDay", data.VipChestDay or -1)
 	-- perks that unlock passes
 	for key in pairs(Config.GamePasses) do
 		if rebirthGrants(player, key) and not player:GetAttribute("Pass_" .. key) then
@@ -610,6 +616,87 @@ task.spawn(function()
 end)
 
 ---------------------------------------------------------------------
+-- LUCKY WHEEL + VIP CHEST (Lucky Isle)
+---------------------------------------------------------------------
+local function nearPart(player, path, range)
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local node = workspace
+	for _, name in ipairs(path) do
+		node = node and node:FindFirstChild(name)
+	end
+	return root ~= nil and node ~= nil and node:IsA("BasePart") and (node.Position - root.Position).Magnitude < range
+end
+
+local function wheelCooldown(player)
+	local wheel = Config.LuckyWheel
+	return (player:GetAttribute("Pass_VIP") and wheel.VipCooldownMinutes or wheel.CooldownMinutes) * 60
+end
+
+WheelRemote.OnServerInvoke = function(player)
+	local data = sessions[player]
+	if not data then
+		return { Error = "Loading" }
+	end
+	if not nearPart(player, { "LuckyIsland", "LuckyWheel", "WheelStand" }, 20) then
+		return { Error = "TooFar" }
+	end
+	local now = os.time()
+	if now < (data.WheelNext or 0) then
+		return { Error = "Cooldown", Left = data.WheelNext - now }
+	end
+	data.WheelNext = now + wheelCooldown(player)
+	player:SetAttribute("WheelNext", data.WheelNext)
+	-- weighted pick
+	local prizes = Config.LuckyWheel.Prizes
+	local total = 0
+	for _, prize in ipairs(prizes) do
+		total += prize.Weight
+	end
+	local pickValue = rng:NextNumber() * total
+	local index = #prizes
+	for i, prize in ipairs(prizes) do
+		pickValue -= prize.Weight
+		if pickValue <= 0 then
+			index = i
+			break
+		end
+	end
+	local prize = prizes[index]
+	-- the reward lands after the wheel stops spinning on the player's screen
+	task.delay(4.6, function()
+		if sessions[player] == data then
+			grantReward(player, data, prize.Reward)
+			if index >= #prizes - 1 then
+				AnnounceRemote:FireAllClients({ Type = "Wheel", PlayerName = player.DisplayName, UserId = player.UserId, Prize = prize.Label })
+			end
+		end
+	end)
+	return { Index = index, Next = data.WheelNext }
+end
+
+VipChestRemote.OnServerInvoke = function(player)
+	local data = sessions[player]
+	if not data then
+		return { Error = "Loading" }
+	end
+	if not player:GetAttribute("Pass_VIP") then
+		return { Error = "NotVIP" }
+	end
+	if not nearPart(player, { "LuckyIsland", "VipSanctum", "VipChest" }, 14) then
+		return { Error = "TooFar" }
+	end
+	local today = QuestData.Today()
+	if data.VipChestDay == today then
+		return { Error = "Claimed", ResetIn = QuestData.SecondsToReset() }
+	end
+	data.VipChestDay = today
+	player:SetAttribute("VipChestDay", today)
+	grantReward(player, data, Config.VipChest)
+	return { Granted = Config.VipChest }
+end
+
+---------------------------------------------------------------------
 -- PETS: hatch eggs by paying with auras, equip up to 3 for luck
 ---------------------------------------------------------------------
 local hatchBusy = {}
@@ -956,6 +1043,22 @@ task.spawn(function()
 		end
 	end)
 end)
+
+---------------------------------------------------------------------
+-- TRADING (see the TradeService module)
+---------------------------------------------------------------------
+require(script.Parent:WaitForChild("TradeService"))({
+	Config = Config,
+	AuraData = AuraData,
+	PetData = PetData,
+	sessions = sessions,
+	getRemote = getRemote,
+	snapshot = snapshot,
+	refreshStats = refreshStats,
+	applyAuraToCharacter = applyAuraToCharacter,
+	saveData = saveData,
+	DataUpdatedRemote = DataUpdatedRemote,
+})
 
 ---------------------------------------------------------------------
 -- Join / leave

@@ -39,6 +39,10 @@ function Luck.GetBonuses(player)
 	if player:GetAttribute("OnLuckyIsland") then
 		table.insert(bonuses, { Name = "Lucky Isle", Multiplier = Config.LuckyIsland.LuckMultiplier, Show = true, Island = true })
 	end
+	-- the VIP Sanctum on Lucky Isle stacks on top
+	if player:GetAttribute("InVIPSanctum") then
+		table.insert(bonuses, { Name = "VIP Sanctum", Icon = "👑", Multiplier = Config.LuckyIsland.Sanctum.LuckMultiplier, Show = true })
+	end
 
 	-- Rebirths: permanent luck
 	local rebirths = player:GetAttribute("Rebirths") or 0

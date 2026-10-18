@@ -1241,6 +1241,10 @@ AnnounceRemote.OnClientEvent:Connect(function(info)
 		end
 		return
 	end
+	if info.Type == "Wheel" then
+		showBanner(("🎡 <b>%s</b> won <font color='#ffd76a'><b>%s</b></font> on the Lucky Wheel!"):format(info.PlayerName, tostring(info.Prize)), THEME.Gold)
+		return
+	end
 	if info.Type == "Limited" then
 		showBanner(("🔥 <b>%s</b> grabbed the <font color='#ff8c5a'><b>LIMITED OFFER</b></font>!"):format(info.PlayerName), Color3.fromRGB(255, 140, 90))
 		return
