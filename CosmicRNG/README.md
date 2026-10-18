@@ -95,7 +95,19 @@ Open **📜 QUESTS** in the side menu. A red number shows how many rewards are w
   - 3 normal pets → 1 **✨ Golden** pet (shiny gold, x1.25 luck: a +24% pet becomes +30%).
   - 3 Golden pets → 1 **🌈 Rainbow** pet (cycles through every color, x1.6 luck: +24% becomes +38%).
   - A merge animation shows the 3 pets flying together. Equipped copies are swapped for the merged pet automatically.
-- Pets float behind you, and everyone can see them. Each kind moves its own way: wings flap, fish wiggle, stars spin, wisps have orbiting lights, and blobs and bunnies bounce.
+- **How pets look:** chunky, soft "cosmic plushies" with big glossy eyes that blink, blushing cheeks, little mouths and stubby feet. Each kind has its own look:
+  - **Blobs:** a glowing star antenna.
+  - **Cats, foxes and pups:** pointy ears, tabby stripes, a curly tail and a gem on the forehead.
+  - **Bunnies:** long ears, buck teeth and a pom-pom tail.
+  - **Birds:** a belly, a beak, feather tufts and flapping wings.
+  - **Fish:** fins, a stripe and a swishing tail.
+  - **Jellies:** see-through, with a glowing core and wavy tentacles.
+  - **Dragons:** a snout, horns, wings, back spikes and a spade tail.
+  - **Stars:** a chubby star with a face.
+  - **Spirits:** a flame crown, a wavy bottom and orbiting sparks.
+- Legendary pets have a floating gold gem, Mythic pets have a halo of lights, and the exclusive Cosmic Overlord wears a crown.
+- Blobs, cats and bunnies walk on the ground next to you and their feet step when you run. The others fly behind you.
+- Each pet body is one rounded part (made once by the `PetShapes` script), so pets stay cheap. If that fails, a 6-part body is used instead.
 - Rare hatches (Legendary and up) are announced to the server. Everything is in the `PetData` module.
 
 ### Limited Offer
@@ -325,8 +337,8 @@ All sounds are made from Roblox's built-in sound files, so they always work:
 
 | Where in Studio | Type | Name |
 |---|---|---|
-| ReplicatedStorage | ModuleScript | `CosmicConfig`, `AuraData`, `AuraImages`, `AuraEffects`, `CombatAnim`, `Luck`, `Rebirth`, `PetData`, `QuestData`, `SoundFX`, `UIKit` |
-| ServerScriptService | Script | `RollService`, `WorldSetup`, `LuckyIsland`, `RebirthIslands`, `SkyDecor`, `WorldDetails`, `PetWorld`, `DropService`, `EventService`, `Parkour`, `DuelService`, `Movement`, `Leaderboard` |
+| ReplicatedStorage | ModuleScript | `CosmicConfig`, `AuraData`, `AuraImages`, `AuraEffects`, `CombatAnim`, `Luck`, `Rebirth`, `PetData`, `PetModels`, `QuestData`, `SoundFX`, `UIKit` |
+| ServerScriptService | Script | `RollService`, `WorldSetup`, `LuckyIsland`, `RebirthIslands`, `SkyDecor`, `WorldDetails`, `PetWorld`, `PetShapes`, `DropService`, `EventService`, `Parkour`, `DuelService`, `Movement`, `Leaderboard` |
 | StarterPlayer > StarterPlayerScripts | LocalScript | `AuraRenderer`, `RollUI`, `StoreUI`, `WorldFX`, `ParkourClient`, `DuelClient`, `DuelFX`, `Sprint`, `RebirthClient`, `IslandFX`, `SkyFX`, `PetClient`, `DropClient`, `LimitedOffer`, `NameplateStyler`, `QuestClient`, `VipIslandClient`, `TradeClient`, `EventClient`, `PerformanceTuner` |
 | ServerScriptService | ModuleScript | `TradeService` (started by RollService) |
 
@@ -344,8 +356,29 @@ Any aura still set to `0` just shows without a picture.
 1. Publish the game: **File > Publish to Roblox**.
 2. Go to the Creator Dashboard, open your experience, then **Monetization**:
    - **Passes**: create the 6 passes.
-   - **Developer Products**: create "Luck Potion" and "Server Luck", plus the 3 Limited Offer packs ("Legend Aura Pack", "Infinite Luck Pack", "Overlord Pet Pack") at **399 Robux** or more each.
+   - **Developer Products**: create "Luck Potion" and "Server Luck", plus the 3 Limited Offer packs ("Legend Aura Pack", "Infinite Luck Pack", "Overlord Pet Pack").
 3. Paste each ID into `CosmicConfig` (`Config.GamePasses` and `Config.Products`).
+
+**Prices are set on the dashboard, not in the scripts.** The store and the
+Limited Offer read the real price from Roblox. Suggested prices:
+
+| Item | Type | Suggested price |
+|---|---|---|
+| 🔁 Auto Roll | Pass | 99 Robux |
+| ✨ Lucky Charm | Pass | 129 Robux |
+| ⚡ Quick Roll | Pass | 149 Robux |
+| 👑 VIP | Pass | 249 Robux |
+| 🎲 Triple Roll | Pass | 299 Robux |
+| 🍀 2x Luck | Pass | 349 Robux |
+| 🧪 Luck Potion | Product | 39 Robux |
+| 🌌 Server Luck | Product | 129 Robux |
+| Legend Aura Pack | Product (Limited) | 399 Robux |
+| Infinite Luck Pack | Product (Limited) | 499 Robux |
+| Overlord Pet Pack | Product (Limited) | 599 Robux |
+
+Cheap passes (Auto Roll, Lucky Charm) get the first purchase; 2x Luck and
+Triple Roll are the big ones. The Limited packs are worth the most, so they
+cost the most.
 
 While an ID is `0`, that item is free in Studio so you can test it. In the
 live game nobody can buy an item whose ID is still `0`.

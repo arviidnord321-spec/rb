@@ -141,10 +141,22 @@ for index, pack in ipairs(OFFER.Packs) do
 	})
 	local buyButton = new("TextButton", {
 		AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -14), Size = UDim2.new(1, -28, 0, 52),
-		BackgroundColor3 = pack.Color, Text = ("R$ %s"):format(OFFER.PriceText), Font = TITLE_FONT, TextSize = 26,
+		BackgroundColor3 = pack.Color, Text = ("R$ %s"):format(pack.PriceText or OFFER.PriceText), Font = TITLE_FONT, TextSize = 26,
 		TextColor3 = THEME.Text, AutoButtonColor = false, Parent = card,
 	}, { corner(UDim.new(0, 12)), textStroke(2) })
 	UIKit.addButtonFeel(buyButton)
+	-- once the product exists, show its real price from Roblox
+	local productId = Config.Products[pack.Key] or 0
+	if productId ~= 0 then
+		task.spawn(function()
+			local ok, info = pcall(function()
+				return MarketplaceService:GetProductInfo(productId, Enum.InfoType.Product)
+			end)
+			if ok and info and info.PriceInRobux then
+				buyButton.Text = ("R$ %d"):format(info.PriceInRobux)
+			end
+		end)
+	end
 	buyButton.Activated:Connect(function()
 		buy(pack)
 	end)

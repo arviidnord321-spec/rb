@@ -6,17 +6,18 @@ local Config = {}
 ---------------------------------------------------------------------
 -- GAME PASSES
 -- Create each pass on the Creator Dashboard (Monetization > Passes),
--- then paste its ID here.
+-- then paste its ID here. PRICES are set on the dashboard (not here);
+-- the store shows whatever price you set there. Suggestions are below.
 -- While an ID is 0, the pass is FREE in Roblox Studio so you can test,
 -- and nobody owns it in the live game.
 ---------------------------------------------------------------------
 Config.GamePasses = {
-	AutoRoll = 0, -- unlocks the Auto Roll button
-	QuickRoll = 0, -- faster rolling (see QuickRollCooldown)
-	DoubleLuck = 0, -- permanent x2 luck
-	VIP = 0, -- x1.25 luck and a gold VIP tag
-	MultiRoll = 0, -- every roll rolls 3 auras at once
-	LuckyCharm = 0, -- lucky roll every 5 rolls instead of every 10
+	AutoRoll = 0, -- unlocks the Auto Roll button          (suggested price: 99 Robux)
+	QuickRoll = 0, -- faster rolling (see QuickRollCooldown) (suggested: 149 Robux)
+	DoubleLuck = 0, -- permanent x2 luck                     (suggested: 349 Robux)
+	VIP = 0, -- x1.25 luck, VIP Sanctum, trading...         (suggested: 249 Robux)
+	MultiRoll = 0, -- every roll rolls 3 auras at once      (suggested: 299 Robux)
+	LuckyCharm = 0, -- lucky roll every 5 rolls, not 10     (suggested: 129 Robux)
 }
 Config.FreePassesInStudio = true
 
@@ -35,12 +36,12 @@ Config.PassInfo = {
 -- Create them on the Creator Dashboard (Monetization > Developer Products).
 ---------------------------------------------------------------------
 Config.Products = {
-	PersonalLuck = 0, -- x2 luck for you
-	ServerLuck = 0, -- x2 luck for everyone in the server
+	PersonalLuck = 0, -- x2 luck for you         (suggested: 39 Robux)
+	ServerLuck = 0, -- x2 luck for everyone in the server (suggested: 129 Robux)
 	-- LIMITED OFFER packs (set the price to 399 Robux or more on the dashboard)
-	LimitedAura = 0,
-	LimitedLuck = 0,
-	LimitedPet = 0,
+	LimitedAura = 0, -- suggested: 399 Robux
+	LimitedLuck = 0, -- suggested: 499 Robux
+	LimitedPet = 0, -- suggested: 599 Robux
 }
 Config.ProductInfo = {
 	{ Key = "PersonalLuck", Icon = "🧪", Name = "Luck Potion", Description = "x2 luck for 10 minutes. Stacks time if you buy more." },
@@ -57,18 +58,18 @@ Config.ProductInfo = {
 Config.LimitedOffer = {
 	Days = 7,
 	StartTime = 0,
-	PriceText = "399", -- shown on the button (the real price is set on the dashboard)
+	PriceText = "399", -- shown on a button until its product ID is set (then the real price shows)
 	Packs = {
 		{
-			Key = "LimitedAura", Icon = "🌌", Name = "Legend Aura Pack", Color = Color3.fromRGB(255, 80, 140),
+			Key = "LimitedAura", Icon = "🌌", Name = "Legend Aura Pack", PriceText = "399", Color = Color3.fromRGB(255, 80, 140),
 			Gives = { "Cosmic Rift aura (1 in 500,000)", "Black Hole aura (1 in 100,000)", "x2 luck potion for 2 hours" },
 		},
 		{
-			Key = "LimitedLuck", Icon = "🍀", Name = "Infinite Luck Pack", Color = Color3.fromRGB(120, 255, 170),
+			Key = "LimitedLuck", Icon = "🍀", Name = "Infinite Luck Pack", PriceText = "499", Color = Color3.fromRGB(120, 255, 170),
 			Gives = { "x2 luck FOREVER", "5 Cosmic Rolls (x50 luck each)", "x2 luck potion for 1 hour" },
 		},
 		{
-			Key = "LimitedPet", Icon = "🐉", Name = "Overlord Pet Pack", Color = Color3.fromRGB(255, 200, 70),
+			Key = "LimitedPet", Icon = "🐉", Name = "Overlord Pet Pack", PriceText = "599", Color = Color3.fromRGB(255, 200, 70),
 			Gives = { "Cosmic Overlord pet (+300% luck, only here)", "Void Wisp pet (+100% luck)", "3 Cosmic Rolls (x50 luck each)" },
 		},
 	},

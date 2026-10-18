@@ -13,6 +13,7 @@ local RunService = game:GetService("RunService")
 local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
 local AuraData = require(ReplicatedStorage:WaitForChild("AuraData"))
 local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
+local PetModels = require(ReplicatedStorage:WaitForChild("PetModels"))
 local SoundFX = require(ReplicatedStorage:WaitForChild("SoundFX"))
 local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
 
@@ -31,259 +32,23 @@ local DataUpdatedRemote = remotes:WaitForChild("DataUpdated")
 local myData = { Inventory = {}, Pets = {}, EquippedPets = {} }
 
 ---------------------------------------------------------------------
--- BUILDING A PET (used for followers AND the 3D previews)
+-- BUILDING A PET (the looks and moves live in the PetModels module)
 ---------------------------------------------------------------------
-local function piece(model, props)
-	local p = Instance.new(props.ClassName or "Part")
-	p.Anchored = true
-	p.CanCollide = false
-	p.CanQuery = false
-	p.CanTouch = false
-	p.CastShadow = false
-	p.Massless = true
-	p.TopSurface = Enum.SurfaceType.Smooth
-	p.BottomSurface = Enum.SurfaceType.Smooth
-	for key, value in pairs(props) do
-		if key ~= "ClassName" and key ~= "Offset" and key ~= "Role" then
-			p[key] = value
-		end
-	end
-	p:SetAttribute("Role", props.Role or "Body")
-	p.CFrame = props.Offset or CFrame.new()
-	p.Parent = model
-	return p
-end
-
-local function eyes(model, z, y, spread, size)
-	for _, side in ipairs({ -1, 1 }) do
-		piece(model, { Name = "Eye", Shape = Enum.PartType.Ball, Size = Vector3.one * size, Color = Color3.new(1, 1, 1), Material = Enum.Material.SmoothPlastic,
-			Offset = CFrame.new(side * spread, y, z) })
-		piece(model, { Name = "Pupil", Shape = Enum.PartType.Ball, Size = Vector3.one * size * 0.55, Color = Color3.fromRGB(20, 20, 30), Material = Enum.Material.SmoothPlastic,
-			Offset = CFrame.new(side * spread, y, z - size * 0.3) })
-	end
-end
-
-local BUILDERS = {}
-
-BUILDERS.Blob = function(model, c1, c2)
-	piece(model, { Name = "Body", Shape = Enum.PartType.Ball, Size = Vector3.new(2.2, 1.8, 2.2), Color = c1, Material = Enum.Material.SmoothPlastic })
-	piece(model, { Name = "Shine", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.5, Color = c2, Material = Enum.Material.Neon, Offset = CFrame.new(0.5, 0.55, -0.6) })
-	eyes(model, -0.95, 0.15, 0.4, 0.45)
-end
-
-BUILDERS.Cat = function(model, c1, c2)
-	piece(model, { Name = "Body", Shape = Enum.PartType.Ball, Size = Vector3.one * 1.9, Color = c1, Material = Enum.Material.SmoothPlastic })
-	for _, side in ipairs({ -1, 1 }) do
-		piece(model, { ClassName = "WedgePart", Name = "Ear", Size = Vector3.new(0.25, 0.8, 0.6), Color = c2, Material = Enum.Material.SmoothPlastic,
-			Offset = CFrame.new(side * 0.55, 1, -0.1) * CFrame.Angles(0, math.pi / 2, 0) })
-	end
-	piece(model, { Name = "Tail", Size = Vector3.new(0.25, 0.25, 1.4), Color = c2, Material = Enum.Material.Neon, Role = "Tail",
-		Offset = CFrame.new(0, 0.2, 1.3) * CFrame.Angles(0.6, 0, 0) })
-	eyes(model, -0.82, 0.2, 0.38, 0.42)
-end
-
-BUILDERS.Bunny = function(model, c1, c2)
-	piece(model, { Name = "Body", Shape = Enum.PartType.Ball, Size = Vector3.one * 1.8, Color = c1, Material = Enum.Material.SmoothPlastic })
-	for _, side in ipairs({ -1, 1 }) do
-		piece(model, { Name = "Ear", Size = Vector3.new(0.35, 1.5, 0.2), Color = c1, Material = Enum.Material.SmoothPlastic, Role = "Ear",
-			Offset = CFrame.new(side * 0.4, 1.4, 0) * CFrame.Angles(0, 0, -side * 0.2) })
-		piece(model, { Name = "EarInside", Size = Vector3.new(0.18, 1.1, 0.05), Color = c2, Material = Enum.Material.Neon, Role = "Ear",
-			Offset = CFrame.new(side * 0.4, 1.4, -0.11) * CFrame.Angles(0, 0, -side * 0.2) })
-	end
-	piece(model, { Name = "Tail", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.6, Color = Color3.new(1, 1, 1), Material = Enum.Material.SmoothPlastic, Offset = CFrame.new(0, -0.3, 0.9) })
-	eyes(model, -0.78, 0.15, 0.35, 0.4)
-end
-
-BUILDERS.Bird = function(model, c1, c2)
-	piece(model, { Name = "Body", Shape = Enum.PartType.Ball, Size = Vector3.new(1.6, 1.7, 1.8), Color = c1, Material = Enum.Material.SmoothPlastic })
-	piece(model, { Name = "Belly", Shape = Enum.PartType.Ball, Size = Vector3.new(1.2, 1.3, 1.2), Color = c2, Material = Enum.Material.SmoothPlastic, Offset = CFrame.new(0, -0.15, -0.35) })
-	piece(model, { ClassName = "WedgePart", Name = "Beak", Size = Vector3.new(0.35, 0.3, 0.6), Color = Color3.fromRGB(255, 190, 60), Material = Enum.Material.SmoothPlastic,
-		Offset = CFrame.new(0, 0.05, -1.05) * CFrame.Angles(0, math.pi, 0) })
-	for _, side in ipairs({ -1, 1 }) do
-		piece(model, { Name = "Wing", Size = Vector3.new(1.4, 0.15, 0.9), Color = c2, Material = Enum.Material.Neon, Role = side < 0 and "WingL" or "WingR",
-			Offset = CFrame.new(side * 1.2, 0.2, 0.1) })
-	end
-	eyes(model, -0.75, 0.35, 0.33, 0.35)
-end
-
-BUILDERS.Fish = function(model, c1, c2)
-	piece(model, { Name = "Body", Shape = Enum.PartType.Ball, Size = Vector3.new(1.2, 1.5, 2.3), Color = c1, Material = Enum.Material.SmoothPlastic })
-	piece(model, { ClassName = "WedgePart", Name = "Tail", Size = Vector3.new(0.15, 1.3, 1), Color = c2, Material = Enum.Material.Neon, Role = "Tail",
-		Offset = CFrame.new(0, 0, 1.5) })
-	piece(model, { ClassName = "WedgePart", Name = "Fin", Size = Vector3.new(0.12, 0.7, 0.9), Color = c2, Material = Enum.Material.Neon, Offset = CFrame.new(0, 0.85, 0.2) })
-	eyes(model, -0.85, 0.2, 0.42, 0.36)
-end
-
-BUILDERS.Jelly = function(model, c1, c2)
-	piece(model, { Name = "Body", Shape = Enum.PartType.Ball, Size = Vector3.new(2, 1.5, 2), Color = c1, Material = Enum.Material.Neon, Transparency = 0.25 })
-	for k = 1, 5 do
-		local a = k / 5 * math.pi * 2
-		piece(model, { Name = "Tentacle", Size = Vector3.new(0.15, 1.6, 0.15), Color = c2, Material = Enum.Material.Neon, Role = "Tentacle",
-			Offset = CFrame.new(math.cos(a) * 0.55, -1.2, math.sin(a) * 0.55) })
-	end
-	eyes(model, -0.8, 0.1, 0.35, 0.35)
-end
-
-BUILDERS.Dragon = function(model, c1, c2)
-	piece(model, { Name = "Body", Shape = Enum.PartType.Ball, Size = Vector3.new(1.7, 1.6, 2.2), Color = c1, Material = Enum.Material.SmoothPlastic })
-	piece(model, { Name = "Head", Shape = Enum.PartType.Ball, Size = Vector3.one * 1.3, Color = c1, Material = Enum.Material.SmoothPlastic, Offset = CFrame.new(0, 0.7, -1.2) })
-	for _, side in ipairs({ -1, 1 }) do
-		piece(model, { ClassName = "WedgePart", Name = "Horn", Size = Vector3.new(0.2, 0.6, 0.4), Color = c2, Material = Enum.Material.Neon,
-			Offset = CFrame.new(side * 0.35, 1.45, -1.05) })
-		piece(model, { ClassName = "WedgePart", Name = "Wing", Size = Vector3.new(0.12, 1.2, 1.6), Color = c2, Material = Enum.Material.Neon, Role = side < 0 and "WingL" or "WingR",
-			Offset = CFrame.new(side * 1.2, 0.6, 0.2) * CFrame.Angles(0, 0, side * 1.2) })
-	end
-	piece(model, { Name = "Tail", Size = Vector3.new(0.35, 0.35, 1.6), Color = c1, Material = Enum.Material.SmoothPlastic, Role = "Tail", Offset = CFrame.new(0, -0.1, 1.6) })
-	piece(model, { Name = "TailTip", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.5, Color = c2, Material = Enum.Material.Neon, Role = "Tail", Offset = CFrame.new(0, -0.1, 2.4) })
-	eyes(model, -1.75, 0.85, 0.3, 0.3)
-end
-
-BUILDERS.Star = function(model, c1, c2)
-	piece(model, { Name = "Body", Shape = Enum.PartType.Ball, Size = Vector3.one * 1.1, Color = c2, Material = Enum.Material.Neon })
-	for k = 0, 4 do
-		piece(model, { ClassName = "WedgePart", Name = "Point", Size = Vector3.new(0.4, 1.3, 0.9), Color = c1, Material = Enum.Material.Neon,
-			Offset = CFrame.Angles(0, 0, k * math.pi * 2 / 5) * CFrame.new(0, 1, 0) })
-	end
-	eyes(model, -0.5, 0.1, 0.22, 0.28)
-end
-
-BUILDERS.Wisp = function(model, c1, c2)
-	piece(model, { Name = "Body", Shape = Enum.PartType.Ball, Size = Vector3.one * 1.5, Color = c1, Material = Enum.Material.Neon })
-	piece(model, { Name = "Halo", Shape = Enum.PartType.Ball, Size = Vector3.one * 2.3, Color = c2, Material = Enum.Material.Neon, Transparency = 0.7 })
-	for k = 1, 3 do
-		piece(model, { Name = "Orbiter", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.4, Color = c2, Material = Enum.Material.Neon, Role = "Orbit" .. k,
-			Offset = CFrame.new(1.4, 0, 0) })
-	end
-	eyes(model, -0.65, 0.15, 0.27, 0.3)
-end
-
 local function buildPet(petName)
-	local pet = PetData.Get(petName)
-	if not pet then
-		return nil
-	end
-	local model = Instance.new("Model")
-	model.Name = "Pet_" .. petName
-	local builder = BUILDERS[pet.Shape] or BUILDERS.Blob
-	builder(model, pet.Colors[1], pet.Colors[2])
-	-- remember where each piece sits relative to the body
-	for _, p in ipairs(model:GetChildren()) do
-		p:SetAttribute("Offset", p.CFrame)
-	end
-	model.PrimaryPart = model:FindFirstChild("Body")
-	-- merged pets: golden ones shine, rainbow ones shift through every color
-	if pet.Variant == "Golden" then
-		for _, p in ipairs(model:GetChildren()) do
-			if p:IsA("BasePart") and p.Name ~= "Eye" and p.Name ~= "Pupil" then
-				p.Reflectance = 0.25
-			end
-		end
-	elseif pet.Variant == "Rainbow" then
-		model:SetAttribute("Rainbow", true)
-	end
-	if pet.Variant and model.PrimaryPart then
-		local shine = Instance.new("ParticleEmitter")
-		shine.Texture = Config.Textures.Sparkle
-		shine.Rate = 10
-		shine.Lifetime = NumberRange.new(0.5, 1)
-		shine.Speed = NumberRange.new(0.5, 1.5)
-		shine.SpreadAngle = Vector2.new(180, 180)
-		shine.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.35), NumberSequenceKeypoint.new(1, 0) })
-		shine.LightEmission = 1
-		shine.Color = pet.Variant == "Golden" and ColorSequence.new(Color3.fromRGB(255, 220, 90))
-			or ColorSequence.new({
-				ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 80, 80)),
-				ColorSequenceKeypoint.new(0.33, Color3.fromRGB(255, 240, 80)),
-				ColorSequenceKeypoint.new(0.66, Color3.fromRGB(80, 220, 255)),
-				ColorSequenceKeypoint.new(1, Color3.fromRGB(220, 90, 255)),
-			})
-		shine.Parent = model.PrimaryPart
-	end
-	-- rare pets sparkle
-	local order = PetData.Rarities[pet.Rarity].Order
-	if order >= 4 and model.PrimaryPart then
-		local e = Instance.new("ParticleEmitter")
-		e.Texture = Config.Textures.Sparkle
-		e.Rate = order * 2
-		e.Lifetime = NumberRange.new(0.6, 1.2)
-		e.Speed = NumberRange.new(0.3, 1)
-		e.SpreadAngle = Vector2.new(180, 180)
-		e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 0) })
-		e.LightEmission = 1
-		e.Color = ColorSequence.new(pet.Colors[2])
-		e.Parent = model.PrimaryPart
-	end
-	if order >= 5 and model.PrimaryPart then
-		local light = Instance.new("PointLight")
-		light.Color = pet.Colors[2]
-		light.Range = 8
-		light.Brightness = 1
-		light.Parent = model.PrimaryPart
-	end
-	return model
+	return PetModels.Build(petName)
 end
 
--- rainbow pets slowly cycle through every color
-local function rainbowTick(model, t)
-	if not model:GetAttribute("Rainbow") then
-		return
-	end
-	for index, p in ipairs(model:GetChildren()) do
-		if p:IsA("BasePart") and p.Name ~= "Eye" and p.Name ~= "Pupil" then
-			p.Color = Color3.fromHSV((t * 0.25 + index * 0.07) % 1, 0.7, 1)
-		end
-	end
-end
-
--- moves every piece of a pet: base = where the body goes, t = time
-local function posePet(model, base, t, shape, phase)
-	local pose = base
-	if shape == "Blob" then
-		pose = base * CFrame.new(0, math.abs(math.sin(t * 4 + phase)) * 0.5, 0)
-	elseif shape == "Star" then
-		pose = base * CFrame.Angles(0, 0, t * 2.5)
-	elseif shape == "Fish" then
-		pose = base * CFrame.Angles(0, math.sin(t * 5 + phase) * 0.25, 0)
-	elseif shape == "Jelly" then
-		pose = base * CFrame.new(0, math.sin(t * 1.5 + phase) * 0.4, 0)
-	elseif shape == "Bunny" then
-		pose = base * CFrame.new(0, math.abs(math.sin(t * 3 + phase)) * 0.8, 0)
-	end
-	for _, p in ipairs(model:GetChildren()) do
-		if p:IsA("BasePart") then
-			local offset = p:GetAttribute("Offset") or CFrame.new()
-			local role = p:GetAttribute("Role")
-			local extra = CFrame.new()
-			if role == "WingL" then
-				extra = CFrame.Angles(0, 0, math.sin(t * 10 + phase) * 0.6)
-			elseif role == "WingR" then
-				extra = CFrame.Angles(0, 0, -math.sin(t * 10 + phase) * 0.6)
-			elseif role == "Tail" then
-				extra = CFrame.Angles(0, math.sin(t * 4 + phase) * 0.35, 0)
-			elseif role == "Tentacle" then
-				extra = CFrame.Angles(math.sin(t * 3 + phase + offset.X) * 0.3, 0, math.cos(t * 3 + phase) * 0.2)
-			elseif role == "Ear" then
-				extra = CFrame.Angles(math.sin(t * 2 + phase) * 0.1, 0, 0)
-			elseif role and role:sub(1, 5) == "Orbit" then
-				local k = tonumber(role:sub(6)) or 1
-				local a = t * 3 + k * (math.pi * 2 / 3)
-				p.CFrame = pose * CFrame.new(math.cos(a) * 1.5, math.sin(a * 2) * 0.4, math.sin(a) * 1.5)
-				continue
-			end
-			if role == "WingL" or role == "WingR" or role == "Tail" or role == "Tentacle" or role == "Ear" then
-				-- swing around the joint (the end nearest the body)
-				p.CFrame = pose * offset * extra
-			else
-				p.CFrame = pose * offset
-			end
-		end
-	end
+local function posePet(model, base, t, phase, move)
+	PetModels.Pose(model, base, t, phase, move)
 end
 
 ---------------------------------------------------------------------
 -- FOLLOWERS: everyone's pets float behind them
 ---------------------------------------------------------------------
-local SLOTS = { CFrame.new(-3.6, 1.2, 3), CFrame.new(3.6, 1.2, 3), CFrame.new(0, 2.6, 4.8) }
+local SLOTS = { CFrame.new(-3.6, 0, 3), CFrame.new(3.6, 0, 3), CFrame.new(0, 0, 5) }
+local FLOAT_HEIGHT = { 1.2, 1.2, 2.6 }
+-- these pets walk on the ground; the rest fly
+local WALKERS = { Blob = true, Cat = true, Bunny = true }
 local followers = {} -- [player] = { Names = "A,B", Pets = { { Model, Shape, Phase, Current } } }
 local petFolder = Instance.new("Folder")
 petFolder.Name = "CosmicPets"
@@ -337,20 +102,30 @@ RunService.RenderStepped:Connect(function(dt)
 		local root = character and character:FindFirstChild("HumanoidRootPart")
 		local hidden = not root or character:GetAttribute("InDuel")
 			or (camera.CFrame.Position - root.Position).Magnitude > 250
-		for index, pet in ipairs(entry.Pets) do
-			for _, p in ipairs(pet.Model:GetChildren()) do
-				if p:IsA("BasePart") then
-					p.LocalTransparencyModifier = hidden and 1 or 0
-				end
+		local move, groundDrop = 0, 3
+		if not hidden then
+			local velocity = root.AssemblyLinearVelocity * Vector3.new(1, 0, 1)
+			move = math.clamp(velocity.Magnitude / 16, 0, 1)
+			local humanoid = character:FindFirstChildOfClass("Humanoid")
+			if humanoid then
+				groundDrop = humanoid.HipHeight + root.Size.Y / 2
 			end
+		end
+		for index, pet in ipairs(entry.Pets) do
+			PetModels.SetHidden(pet.Model, hidden)
 			if not hidden then
 				local slot = SLOTS[index] or SLOTS[1]
 				local flatLook = root.CFrame.LookVector * Vector3.new(1, 0, 1)
 				local facing = flatLook.Magnitude > 0.01 and CFrame.lookAt(root.Position, root.Position + flatLook) or root.CFrame
-				local target = facing * slot * CFrame.new(0, math.sin(t * 2 + pet.Phase) * 0.35, 0)
+				local height
+				if WALKERS[pet.Shape] then
+					height = -groundDrop + 1.35 -- standing on the ground
+				else
+					height = (FLOAT_HEIGHT[index] or 1.2) + math.sin(t * 2 + pet.Phase) * 0.35
+				end
+				local target = facing * slot * CFrame.new(0, height, 0)
 				pet.Current = pet.Current and pet.Current:Lerp(target, math.min(1, dt * 7)) or target
-				posePet(pet.Model, pet.Current, t, pet.Shape, pet.Phase)
-				rainbowTick(pet.Model, t + pet.Phase)
+				posePet(pet.Model, pet.Current, t, pet.Phase, move)
 			end
 		end
 	end
@@ -373,11 +148,11 @@ local function preview(parent, petName, zoom)
 		model.Parent = viewport
 		local cam = Instance.new("Camera")
 		cam.FieldOfView = 40
-		cam.CFrame = CFrame.lookAt(Vector3.new(2.2, 1.4, -5.5) * (zoom or 1), Vector3.zero)
+		local focus = Vector3.new(0, 0.35, 0)
+		cam.CFrame = CFrame.lookAt(focus + Vector3.new(2.3, 1.5, -6.2) * (zoom or 1), focus)
 		cam.Parent = viewport
 		viewport.CurrentCamera = cam
-		posePet(model, CFrame.Angles(0, math.rad(25), 0), 0, PetData.Get(petName).Shape, 0)
-		rainbowTick(model, 0)
+		posePet(model, CFrame.Angles(0, math.rad(25), 0), 0, 0, 0)
 	end
 	return viewport, model
 end
@@ -546,8 +321,7 @@ local function mergeAnimation(fromKey, toKey)
 		local t = os.clock() - start
 		glow.Rotation = t * 50
 		if model then
-			posePet(model, CFrame.Angles(0, t * 1.6, 0), t, to.Shape, 0)
-			rainbowTick(model, t)
+			posePet(model, CFrame.Angles(0, t * 1.6, 0), t, 0, 0)
 		end
 	end)
 	task.wait(2.4)
@@ -879,7 +653,7 @@ local function hatchAnimation(egg, petName)
 		local t = os.clock() - spinStart
 		glow.Rotation = t * 40
 		if petModel then
-			posePet(petModel, CFrame.Angles(0, t * 1.5, 0), t, pet.Shape, 0)
+			posePet(petModel, CFrame.Angles(0, t * 1.5, 0), t, 0, 0)
 		end
 	end)
 	task.wait(2.6)
