@@ -177,6 +177,10 @@ Open **⭐ REBIRTH** on the left (a green **!** shows when you're ready).
   - **Pulse Grid** (Neon Nexus): a square spiral of platforms that blink in a wave, fast lasers, sliding platforms and thin beams. Gives **x5 luck for 8 min**.
 - Every number is in `Config.Rebirth` and `Config.RebirthIslands`.
 
+### Sound settings
+- The **🔊 SOUND** button opens a small panel with two sliders: **🎵 Music** (background music and the duel drum beat) and **💥 Sound effects** (everything else), from 0% to 100% in 5% steps, plus a **MUTE ALL** button.
+- Your settings are saved, so they're the same next time you play.
+
 ### Signs and name tags
 - Every floating sign in the world is a bit smaller, see-through, and drawn on top of objects, so a wall or platform never cuts the text off. Signs fade out more the further away you are (`NameplateStyler`).
 - Player name tags are smaller and slightly see-through too.
@@ -274,6 +278,8 @@ All sounds are made from Roblox's built-in sound files, so they always work:
 | StarterPlayer > StarterPlayerScripts | LocalScript | `AuraRenderer`, `RollUI`, `StoreUI`, `WorldFX`, `ParkourClient`, `DuelClient`, `DuelFX`, `Sprint`, `RebirthClient`, `IslandFX`, `SkyFX`, `PetClient`, `DropClient`, `LimitedOffer`, `NameplateStyler`, `QuestClient` |
 
 ## Adding the aura pictures
+Starter pictures for the 7 newest auras are in `AuraPictures_New.zip` (and in `AuraImages/`). They're not in the game yet: edit them, upload them, then paste the IDs into `AuraImages` like the others. To redraw them, run `python3 tools/make_aura_images.py --new`.
+
 Roblox can only show pictures that are uploaded to Roblox, so this is a one-time step:
 1. In Studio, open **View > Asset Manager**, click **Bulk Import**, and select all 20 files from `AuraImages/Final` at once.
 2. In Asset Manager > **Images**, right-click each picture, then **Copy Asset ID**.

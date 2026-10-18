@@ -405,10 +405,31 @@ function SoundFX.Jingle(name)
 	end
 end
 
+-- Volume levels from the sound settings (0 = silent, 1 = normal)
+local sfxLevel, musicLevel = 1, 1
+local function applyVolumes()
+	group.Volume = muted and 0 or Config.MasterVolume * sfxLevel
+	musicGroup.Volume = muted and 0 or musicLevel
+end
+
 function SoundFX.SetMuted(value)
 	muted = value
-	group.Volume = muted and 0 or Config.MasterVolume
-	musicGroup.Volume = muted and 0 or 1
+	applyVolumes()
+end
+
+-- sfx = sound effects, music = background music (both 0 to 1)
+function SoundFX.SetVolumes(sfx, music)
+	if type(sfx) == "number" then
+		sfxLevel = math.clamp(sfx, 0, 1)
+	end
+	if type(music) == "number" then
+		musicLevel = math.clamp(music, 0, 1)
+	end
+	applyVolumes()
+end
+
+function SoundFX.GetVolumes()
+	return sfxLevel, musicLevel
 end
 
 function SoundFX.IsMuted()

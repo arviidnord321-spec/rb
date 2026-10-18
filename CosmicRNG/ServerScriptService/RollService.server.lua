@@ -49,6 +49,7 @@ local HatchRemote = getRemote("RemoteFunction", "HatchEgg") -- player hatches an
 local PetRemote = getRemote("RemoteFunction", "PetAction") -- equip / unequip pets
 local QuestRemote = getRemote("RemoteFunction", "Quest") -- daily reward + quests
 local QuestUpdatedRemote = getRemote("RemoteEvent", "QuestUpdated") -- server -> player: quest progress
+local SaveSettingsRemote = getRemote("RemoteEvent", "SaveSettings") -- player's sound settings
 
 ---------------------------------------------------------------------
 -- Data saving
@@ -90,6 +91,7 @@ local function newData()
 		LimitedBought = "", -- which Limited Offer pack this player bought
 		Daily = { Streak = 0, LastClaimDay = -1 }, -- daily login reward
 		Quests = { Day = -1, List = {}, Bonus = false }, -- today's quests
+		Settings = { Music = 1, Sfx = 1, Muted = false }, -- sound sliders
 		Receipts = {}, -- recent purchase IDs, so nothing is granted twice
 	}
 end
@@ -192,6 +194,7 @@ local function snapshot(data)
 		BestChance = data.BestChance,
 		Pets = data.Pets,
 		EquippedPets = data.EquippedPets,
+		Settings = data.Settings,
 	}
 end
 
@@ -403,6 +406,23 @@ RebirthRemote.OnServerInvoke = function(player)
 end
 
 
+
+-- sound settings are saved so they're the same next time you play
+SaveSettingsRemote.OnServerEvent:Connect(function(player, settings)
+	local data = sessions[player]
+	if not data or type(settings) ~= "table" then
+		return
+	end
+	local function level(value, fallback)
+		return (type(value) == "number" and value == value) and math.clamp(value, 0, 1) or fallback
+	end
+	local old = data.Settings or {}
+	data.Settings = {
+		Music = level(settings.Music, old.Music or 1),
+		Sfx = level(settings.Sfx, old.Sfx or 1),
+		Muted = settings.Muted == true,
+	}
+end)
 
 ---------------------------------------------------------------------
 -- QUESTS + DAILY REWARD

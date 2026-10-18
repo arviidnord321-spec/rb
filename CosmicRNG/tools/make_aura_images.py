@@ -1,7 +1,9 @@
 """Draws a quick placeholder picture for every aura (512x512 PNG).
 
-Run:  python3 tools/make_aura_images.py
+Run:  python3 tools/make_aura_images.py          (all auras)
+      python3 tools/make_aura_images.py --new    (only the 7 newest auras)
 Output: AuraImages/<Aura Name>.png and AuraImages/_overview.png
+        (with --new: AuraImages/_overview_new.png)
 Colors match AuraData.lua so the pictures fit the in-game effects.
 """
 import math
@@ -21,6 +23,8 @@ TIERS = {
     "Legendary": (255, 200, 70),
     "Mythic": (255, 80, 140),
     "Secret": (255, 255, 255),
+    "Divine": (255, 236, 150),
+    "Transcendent": (140, 255, 235),
 }
 
 AURAS = [
@@ -44,7 +48,15 @@ AURAS = [
     ("Cosmic Rift", 500000, "Mythic", (255, 40, 120), (40, 255, 220)),
     ("Big Bang", 1000000, "Secret", (255, 255, 255), (255, 200, 80)),
     ("Void Sovereign", 5000000, "Secret", (0, 0, 0), (255, 0, 80)),
+    ("Stellar Phoenix", 10000000, "Divine", (255, 150, 40), (255, 240, 160)),
+    ("Chronos", 25000000, "Divine", (255, 225, 120), (120, 200, 255)),
+    ("Nebula Leviathan", 50000000, "Divine", (60, 220, 200), (140, 60, 255)),
+    ("Astral Dragon", 100000000, "Transcendent", (255, 80, 160), (120, 230, 255)),
+    ("Singularity", 250000000, "Transcendent", (10, 0, 20), (200, 120, 255)),
+    ("Omniverse", 500000000, "Transcendent", (255, 255, 255), (150, 100, 255)),
+    ("Genesis", 1000000000, "Transcendent", (255, 250, 220), (255, 200, 80)),
 ]
+NEW_AURAS = {"Stellar Phoenix", "Chronos", "Nebula Leviathan", "Astral Dragon", "Singularity", "Omniverse", "Genesis"}
 
 YY, XX = np.mgrid[0:SIZE, 0:SIZE].astype(np.float32)
 C = SIZE / 2
@@ -336,13 +348,147 @@ def draw(name, c1, c2, cv):
         for ex in (C - 24, C + 24):
             eye = np.exp(-(((XX - ex) / 10) ** 2 + ((YY - 248) / 4) ** 2))
             solids.append((np.clip(eye * 2, 0, 1), col((255, 60, 100))))
+    elif name == "Stellar Phoenix":
+        fire = col((255, 120, 30))
+        cv.clouds(fire, scale=4, k=0.6, center_falloff=240)
+        cv.glow(C, C + 10, 200, a, 0.5)
+        # two big wings: fans of fiery feathers
+        for side in (-1, 1):
+            bx, by = C + side * 28, C - 5
+            for f in range(9):
+                ang = 1.25 - f * 0.17
+                length = 230 - f * 12
+                ex, ey = bx + side * math.cos(ang) * length, by - math.sin(ang) * length * 0.95
+                cv.segment(bx, by, ex, ey, 13, fire, 0.7, taper=True)
+                cv.segment(bx, by, ex, ey, 5, b, 1.1, taper=True)
+        # tail feathers curling down
+        for t in (-0.45, -0.15, 0.15, 0.45):
+            pts = [(C + math.sin(k / 6 * math.pi) * 40 * t * 3 + t * k * 14, C + 40 + k * 30) for k in range(7)]
+            for (x0, y0), (x1, y1) in zip(pts, pts[1:]):
+                cv.segment(x0, y0, x1, y1, 7, fire, 0.6)
+                cv.segment(x0, y0, x1, y1, 2.5, b, 1.0)
+        # body and head with a crest
+        cv.glow(C, C, 40, b, 2.0)
+        cv.glow(C, C - 70, 22, np.ones(3, np.float32), 2.2)
+        for k in range(3):
+            cv.segment(C, C - 80, C - 10 + k * 10, C - 135 - k * 6, 4, b, 1.2, taper=True)
+        cv.stars(50, color=(1, 0.8, 0.4), size=(0.8, 2.0), area=(60, 60, 450, 450))
+    elif name == "Chronos":
+        gold = col((255, 215, 110))
+        cv.glow(C, C, 230, b, 0.35)
+        # tilted icy time rings around the clock
+        cv.ring(C, C, 215, 6, b, 1.0, squash=0.35, angle=0.5)
+        cv.ring(C, C, 200, 5, b, 0.8, squash=0.35, angle=-0.6)
+        # the clock face
+        cv.ring(C, C, 150, 7, gold, 1.8)
+        cv.ring(C, C, 128, 3, gold, 0.9)
+        for i in range(12):
+            ang = i / 12 * 2 * math.pi
+            inner = 112 if i % 3 == 0 else 122
+            cv.segment(C + math.cos(ang) * inner, C + math.sin(ang) * inner, C + math.cos(ang) * 140, C + math.sin(ang) * 140, 4 if i % 3 == 0 else 2.5, gold, 1.6)
+        # hands
+        cv.segment(C, C, C + 62, C - 70, 6, gold, 1.8)
+        cv.segment(C, C, C - 20, C - 112, 4, gold, 1.8)
+        cv.glow(C, C, 14, np.ones(3, np.float32), 2.5)
+        # little floating gears
+        for gx, gy, gr in ((95, 110, 30), (420, 400, 38), (410, 105, 22)):
+            cv.ring(gx, gy, gr, 4, gold, 1.1)
+            for t in range(10):
+                ang = t / 10 * 2 * math.pi
+                cv.segment(gx + math.cos(ang) * gr, gy + math.sin(ang) * gr, gx + math.cos(ang) * (gr + 9), gy + math.sin(ang) * (gr + 9), 3, gold, 1.0)
+    elif name == "Nebula Leviathan":
+        cv.clouds(b, scale=4, k=1.1, center_falloff=250)
+        cv.clouds(a, scale=5, k=0.7, center_falloff=250, seed_offset=3)
+        # a long sea serpent swimming in an S curve
+        points = []
+        for k in range(60):
+            t = k / 59
+            x = 70 + t * 370
+            y = C + math.sin(t * 2.6 * math.pi) * 110
+            points.append((x, y, t))
+        for x, y, t in points:
+            r = 34 * (1 - t * 0.8) + 4
+            color = a * (1 - t) + b * t
+            cv.glow(x, y, r, color, 0.55)
+        for (x0, y0, t), (x1, y1, _) in zip(points[::5], points[5::5]):
+            # glowing spikes along its back
+            ang = math.atan2(y1 - y0, x1 - x0) - math.pi / 2
+            length = 32 * (1 - t * 0.7)
+            cv.segment(x0, y0, x0 + math.cos(ang) * length, y0 + math.sin(ang) * length, 4, np.ones(3, np.float32) * 0.8, 0.9, taper=True)
+        hx, hy, _ = points[0]
+        cv.glow(hx, hy, 50, a, 1.2)
+        cv.glow(hx - 6, hy - 12, 6, np.ones(3, np.float32), 3.0)  # eye
+        cv.stars(50, size=(0.8, 2.0), k=(0.6, 1.4))
+    elif name == "Astral Dragon":
+        cv.glow(C, C, 220, b, 0.3)
+        # a constellation dragon: stars joined by thin lines
+        body = [(400, 120), (340, 150), (300, 210), (330, 270), (280, 330), (200, 340), (150, 300), (170, 240), (230, 230), (250, 280)]
+        for (x0, y0), (x1, y1) in zip(body, body[1:]):
+            cv.segment(x0, y0, x1, y1, 16, a, 0.35)
+            cv.segment(x0, y0, x1, y1, 2.5, b, 1.4)
+        for i, (x, y) in enumerate(body):
+            cv.glow(x, y, 11 if i else 18, np.ones(3, np.float32), 2.0)
+            cv.glow(x, y, 28, a if i % 2 else b, 0.8)
+        # head: horns and star-fire breath
+        hx, hy = body[0]
+        cv.segment(hx, hy, hx + 40, hy - 55, 4, b, 1.6, taper=True)
+        cv.segment(hx, hy, hx + 10, hy - 65, 4, b, 1.6, taper=True)
+        cv.segment(hx, hy, 60, 60, 30, a, 0.6, taper=True)
+        cv.segment(hx, hy, 60, 60, 10, np.ones(3, np.float32), 1.0, taper=True)
+        cv.stars(70, size=(0.6, 1.8), k=(0.5, 1.2))
+    elif name == "Singularity":
+        cv.base[:] = 0.01
+        cv.stars(70, size=(0.5, 1.4), k=(0.3, 0.9))
+        # everything streaks inward
+        for i in range(40):
+            ang = i / 40 * 2 * math.pi + cv.rng.uniform(-0.05, 0.05)
+            r0 = cv.rng.uniform(170, 260)
+            cv.segment(C + math.cos(ang) * 95, C + math.sin(ang) * 95, C + math.cos(ang + 0.25) * r0, C + math.sin(ang + 0.25) * r0, 2.5, b, 0.6, taper=False)
+        cv.ring(C, C, 150, 16, b, 1.8, squash=0.25, angle=0.1)
+        cv.ring(C, C, 150, 14, b, 1.2, squash=0.25, angle=0.1 + math.pi / 2)
+        cv.ring(C, C, 92, 6, np.ones(3, np.float32), 2.0)
+        cv.glow(C, C, 160, b, 0.7)
+        solids.append((cv.disk_mask(C, C, 86), col((0, 0, 0))))
+    elif name == "Omniverse":
+        cv.glow(C, C, 60, np.ones(3, np.float32), 2.5)
+        cv.glow(C, C, 170, b, 0.6)
+        planets = [(255, 120, 120), (120, 220, 255), (255, 210, 90), (140, 255, 160), (220, 130, 255), (255, 160, 220), (160, 180, 255)]
+        for i, pc in enumerate(planets):
+            rx, ry = 70 + i * 26, 30 + i * 9
+            angle = 0.35 + i * 0.12
+            cv.ring(C, C, rx, 1.5, np.ones(3, np.float32), 0.35, squash=ry / rx, angle=angle)
+            t = i * 1.7 + 0.6
+            px = C + math.cos(t) * rx * math.cos(angle) - math.sin(t) * ry * math.sin(angle)
+            py = C + math.cos(t) * rx * math.sin(angle) + math.sin(t) * ry * math.cos(angle)
+            size = 10 + (i % 3) * 5
+            cv.glow(px, py, size * 2.2, col(pc), 0.9)
+            solids.append((cv.disk_mask(px, py, size), col(pc) * 0.85))
+        cv.stars(80, size=(0.6, 1.6), k=(0.4, 1.0))
+    elif name == "Genesis":
+        cv.base += col((40, 30, 15)) * 0.4
+        for i in range(48):
+            ang = i / 48 * 2 * math.pi
+            length = 300 if i % 2 == 0 else 200
+            cv.segment(C, C, C + math.cos(ang) * length, C + math.sin(ang) * length, 7 if i % 2 == 0 else 4, b, 0.6, taper=True)
+        for r, k in ((110, 1.0), (170, 0.7), (230, 0.45)):
+            cv.ring(C, C, r, 5, a, k)
+        cv.glow(C, C, 120, b, 1.4)
+        cv.glow(C, C, 60, np.ones(3, np.float32), 5.0)
+        # golden horizon
+        cv.light += b * 0.5 * np.exp(-((YY - 400) / 10) ** 2)[..., None] * np.exp(-((XX - C) / 220) ** 2)[..., None]
+        cv.stars(60, color=(1, 0.95, 0.8), size=(0.8, 2.0), k=(0.5, 1.3))
     return solids
 
 
+
 def main():
+    import sys
+    only_new = "--new" in sys.argv
     os.makedirs(OUT, exist_ok=True)
     images = []
     for i, (name, chance, tier, c1, c2) in enumerate(AURAS):
+        if only_new and name not in NEW_AURAS:
+            continue
         cv = Canvas(seed=1000 + i)
         background(cv, c1, c2, tier)
         solids = draw(name, c1, c2, cv)
@@ -352,7 +498,7 @@ def main():
         print("made", name)
 
     # overview sheet with names
-    cols, thumb, pad, label_h = 5, 220, 14, 46
+    cols, thumb, pad, label_h = (4 if only_new else 5), 220, 14, 46
     rows = math.ceil(len(images) / cols)
     sheet = Image.new("RGB", (cols * (thumb + pad) + pad, rows * (thumb + label_h + pad) + pad), (14, 11, 28))
     draw_ctx = ImageDraw.Draw(sheet)
@@ -365,7 +511,7 @@ def main():
         sheet.paste(img.resize((thumb, thumb), Image.LANCZOS), (x, y))
         draw_ctx.text((x + thumb / 2, y + thumb + 6), name, fill=TIERS[tier], font=font, anchor="mt")
         draw_ctx.text((x + thumb / 2, y + thumb + 27), f"{tier} • 1 in {chance:,}", fill=(190, 180, 225), font=small, anchor="mt")
-    sheet.save(os.path.join(OUT, "_overview.png"))
+    sheet.save(os.path.join(OUT, "_overview_new.png" if only_new else "_overview.png"))
     print("made overview")
 
 
