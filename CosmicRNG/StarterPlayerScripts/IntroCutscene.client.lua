@@ -1,16 +1,23 @@
 -- IntroCutscene (LocalScript in StarterPlayer > StarterPlayerScripts)
--- The join cutscene (about 10 seconds), only seen by the player joining:
---   1. a thin beam of light comes down from the sky and gets wider
---   2. YOUR avatar falls down the beam, spinning, with a comet trail
---   3. you smash into the ground and land on one knee with a fist down:
---      flash, shockwave, cracks, flying rocks, dust and a camera shake
---   4. you stand up, the camera swings behind you and the game starts
--- A copy of your avatar does the falling (so nobody else sees anything
--- odd); your real character waits, hidden, on the landing spot.
--- The player can press SKIP. Settings: Config.IntroCutscene.
--- When it's over, the player gets the attribute IntroDone = true (the
+-- The join cutscene (about 13 seconds), only seen by the player joining:
+--   1. GROUND SHOT: a thin beam comes down from a swirling portal in the
+--      sky and gets wider; rune rings and spiralling lights climb it
+--   2. SKY SHOT: high up next to the portal, looking down the beam at the
+--      island far below. YOUR avatar bursts out of the portal, glowing
+--   3. THE FALL: you dive down the beam, spinning, glowing, with a comet
+--      trail and sonic-boom rings; the camera rides along, then watches
+--      from the ground
+--   4. THE LANDING (slow motion): superhero landing, one knee down, fist
+--      in the ground. Flash, shockwaves, glowing cracks, rocks, sparks
+--      and a ground shake. Close-up of the fist, then a hero shot
+--   5. you stand up, the camera swings behind you, the game starts
+-- A copy of your avatar does the acting (nobody else sees anything odd);
+-- your real character waits, hidden, on the landing spot.
+-- Players can press SKIP. Settings: Config.IntroCutscene.
+-- When it's over the player gets the attribute IntroDone = true (the
 -- title card and popups wait for that, see UIKit.waitForIntro).
 
+local Lighting = game:GetService("Lighting")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
@@ -25,16 +32,24 @@ local player = Players.LocalPlayer
 local camera = workspace.CurrentCamera
 local SETTINGS = Config.IntroCutscene or {}
 local BEAM_COLOR = SETTINGS.BeamColor or Color3.fromRGB(170, 130, 255)
+local BEAM_COLOR_2 = Color3.fromRGB(110, 220, 255)
+local WHITE = Color3.new(1, 1, 1)
 local FALL_HEIGHT = SETTINGS.FallHeight or 260
 local rand = Random.new()
 local new, corner, label, textStroke, tween = UIKit.new, UIKit.corner, UIKit.label, UIKit.textStroke, UIKit.tween
 
--- timeline (seconds)
+-- timeline (scene seconds)
 local T_BEAM = 0.3 -- beam starts
-local T_FALL = 2.8 -- you start falling
-local T_IMPACT = 5.9 -- you hit the ground
-local T_STAND = 8.3 -- you stand up
-local T_END = 9.3 -- back to the game
+local T_SKY = 2.7 -- cut to the sky shot
+local T_APPEAR = 3.3 -- you burst out of the portal
+local T_FALL = 4.2 -- you dive
+local T_IMPACT = 7.2 -- you hit the ground
+local SLOWMO = 0.35 -- this much scene time after the impact plays at...
+local SLOWMO_RATE = 0.3 -- ...30% speed
+local T_CLOSEUP = T_IMPACT + 1.3 -- close-up of the fist
+local T_HERO = T_IMPACT + 2.7 -- hero shot
+local T_STAND = T_IMPACT + 4.5 -- you stand up
+local T_END = T_STAND + 1.1 -- back to the game
 
 local function finish()
 	player:SetAttribute("IntroDone", true)
@@ -53,8 +68,8 @@ local gui = UIKit.screen("IntroCutscene", 100)
 local cover = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), ZIndex = 20, Parent = gui })
 
 ---------------------------------------------------------------------
--- Poses (R15). Same idea as CombatAnim: degrees forward/twist/sideways
--- plus an optional move, added on top of each joint's normal position.
+-- Poses (R15): degrees forward/twist/sideways + optional move, added on
+-- top of each joint's normal position (same idea as CombatAnim)
 ---------------------------------------------------------------------
 local JOINTS = {
 	Root = "LowerTorso", Waist = "UpperTorso", Neck = "Head",
@@ -68,7 +83,14 @@ local function P(rx, ry, rz, px, py, pz)
 	return { rx or 0, ry or 0, rz or 0, px or 0, py or 0, pz or 0 }
 end
 
--- falling: arms up, legs loose, everything flutters in the wind
+-- curled up inside the portal, about to burst out
+local CURL_POSE = {
+	Root = P(-25), Waist = P(-25), Neck = P(-30),
+	RightShoulder = P(60, 0, 30), LeftShoulder = P(60, 0, -30), RightElbow = P(110), LeftElbow = P(110),
+	RightHip = P(80), LeftHip = P(80), RightKnee = P(-110), LeftKnee = P(-110),
+}
+
+-- diving: arms up, legs loose, everything flutters in the wind
 local function fallPose(t)
 	local flap = math.sin(t * 13)
 	return {
@@ -80,13 +102,21 @@ local function fallPose(t)
 end
 
 -- the superhero landing: right knee down, left foot planted in front,
--- right fist on the ground, left arm out behind, head up
+-- right fist in the ground, left arm swept out behind, head up
 local LAND_POSE = {
 	Root = P(-18, 0, 0, 0, -1.15, 0), Waist = P(-12), Neck = P(24),
 	LeftHip = P(100), LeftKnee = P(-110),
 	RightHip = P(-8, 0, 8), RightKnee = P(-82),
 	RightShoulder = P(28, 0, -6), RightElbow = P(0),
-	LeftShoulder = P(-60, 0, -50), LeftElbow = P(15), -- free arm swept out behind
+	LeftShoulder = P(-60, 0, -50), LeftElbow = P(15),
+}
+-- the impact itself: a deeper crouch for a split second
+local IMPACT_POSE = {
+	Root = P(-26, 0, 0, 0, -1.35, 0), Waist = P(-20), Neck = P(10),
+	LeftHip = P(108), LeftKnee = P(-122),
+	RightHip = P(-4, 0, 8), RightKnee = P(-88),
+	RightShoulder = P(22, 0, -6), RightElbow = P(8),
+	LeftShoulder = P(-70, 0, -60), LeftElbow = P(10),
 }
 
 local function blendPose(a, b, alpha)
@@ -145,6 +175,23 @@ local function seq(a, b)
 	return NumberSequence.new({ NumberSequenceKeypoint.new(0, a), NumberSequenceKeypoint.new(1, b) })
 end
 
+-- a flat ring that expands and fades (shockwaves, sonic booms)
+local function ring(cframe, fromSize, toSize, duration, color)
+	local holder = part({ Name = "Ring", Size = Vector3.new(fromSize, 0.1, fromSize), CFrame = cframe, Transparency = 1 })
+	for _, face in ipairs({ Enum.NormalId.Top, Enum.NormalId.Bottom }) do
+		local decal = Instance.new("Decal")
+		decal.Texture = Config.Textures.Shockwave
+		decal.Face = face
+		decal.Color3 = color
+		decal.Parent = holder
+		TweenService:Create(decal, TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.In), { Transparency = 1 }):Play()
+	end
+	TweenService:Create(holder, TweenInfo.new(duration, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = Vector3.new(toSize, 0.1, toSize) }):Play()
+	task.delay(duration + 0.1, function()
+		holder:Destroy()
+	end)
+end
+
 ---------------------------------------------------------------------
 -- The cutscene
 ---------------------------------------------------------------------
@@ -179,9 +226,10 @@ local function run()
 	local ground = Vector3.new(landCF.Position.X, groundY, landCF.Position.Z)
 	local look = (landCF.LookVector * Vector3.new(1, 0, 1)).Unit
 	local right = look:Cross(Vector3.yAxis)
+	local portalY = groundY + FALL_HEIGHT + 18
 
 	---------------------------------------------------------------
-	-- the copy of you that does the falling
+	-- the copy of you that does the acting
 	---------------------------------------------------------------
 	local wasArchivable = character.Archivable
 	character.Archivable = true
@@ -208,6 +256,10 @@ local function run()
 		actorHumanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 		actorHumanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
 		actorHumanoid.BreakJointsOnDeath = false
+		local animator = actorHumanoid:FindFirstChildOfClass("Animator")
+		if animator then
+			animator:Destroy() -- nothing may play over our poses
+		end
 	end
 	local actorRoot = actor:FindFirstChild("HumanoidRootPart")
 	if not actorRoot then
@@ -238,33 +290,69 @@ local function run()
 			end
 		end
 	end
+	local fist = actor:FindFirstChild("RightHand") or actor:FindFirstChild("Right Arm") or actorRoot
+	local torso = actor:FindFirstChild("UpperTorso") or actor:FindFirstChild("Torso") or actorRoot
+
+	-- the glow around you
+	local outline = Instance.new("Highlight")
+	outline.FillColor = BEAM_COLOR
+	outline.OutlineColor = WHITE
+	outline.FillTransparency = 0.5
+	outline.OutlineTransparency = 0
+	outline.DepthMode = Enum.HighlightDepthMode.Occluded
+	outline.Parent = actor
+	local aura = emitter(torso, {
+		Texture = Config.Textures.Glow, Rate = 22, Lifetime = NumberRange.new(0.35, 0.6), Speed = NumberRange.new(0, 1),
+		Size = seq(8, 4), LightEmission = 1, Color = ColorSequence.new(BEAM_COLOR), Transparency = seq(0.55, 1),
+	})
+	local motes = emitter(torso, {
+		Texture = Config.Textures.Sparkle, Rate = 30, Lifetime = NumberRange.new(0.5, 1), Speed = NumberRange.new(2, 5),
+		SpreadAngle = Vector2.new(180, 180), Size = seq(0.45, 0), LightEmission = 1, Rotation = NumberRange.new(0, 360),
+		Color = ColorSequence.new(WHITE, BEAM_COLOR_2),
+	})
+	local auraLight = Instance.new("PointLight")
+	auraLight.Color = BEAM_COLOR
+	auraLight.Range = 16
+	auraLight.Brightness = 2
+	auraLight.Shadows = false
+	auraLight.Parent = torso
 
 	-- comet trail + wind streaks while falling
 	local trailA = Instance.new("Attachment")
-	trailA.Position = Vector3.new(-1.2, 0, 0)
+	trailA.Position = Vector3.new(-1.3, 0, 0)
 	trailA.Parent = actorRoot
 	local trailB = Instance.new("Attachment")
-	trailB.Position = Vector3.new(1.2, 0, 0)
+	trailB.Position = Vector3.new(1.3, 0, 0)
 	trailB.Parent = actorRoot
 	local trail = Instance.new("Trail")
 	trail.Attachment0 = trailA
 	trail.Attachment1 = trailB
-	trail.Lifetime = 0.45
+	trail.Lifetime = 0.5
 	trail.LightEmission = 1
 	trail.FaceCamera = true
-	trail.Color = ColorSequence.new(Color3.new(1, 1, 1), BEAM_COLOR)
-	trail.Transparency = seq(0.2, 1)
-	trail.WidthScale = seq(1, 0.2)
+	trail.Color = ColorSequence.new(WHITE, BEAM_COLOR)
+	trail.Transparency = seq(0.15, 1)
+	trail.WidthScale = seq(1, 0.15)
+	trail.Enabled = false
 	trail.Parent = actorRoot
 	local streaks = emitter(actorRoot, {
-		Texture = Config.Textures.Spark, Rate = 60, Lifetime = NumberRange.new(0.25, 0.4), Speed = NumberRange.new(60, 90),
+		Texture = Config.Textures.Spark, Rate = 0, Lifetime = NumberRange.new(0.25, 0.4), Speed = NumberRange.new(60, 90),
 		EmissionDirection = Enum.NormalId.Top, SpreadAngle = Vector2.new(25, 25), Size = seq(0.5, 0), LightEmission = 1,
-		Color = ColorSequence.new(Color3.new(1, 1, 1), BEAM_COLOR), Transparency = seq(0.1, 1),
+		Color = ColorSequence.new(WHITE, BEAM_COLOR), Transparency = seq(0.1, 1),
 	})
-	local glow = emitter(actorRoot, {
-		Texture = Config.Textures.Glow, Rate = 25, Lifetime = NumberRange.new(0.3, 0.5), Speed = NumberRange.new(0, 1),
-		Size = seq(7, 3), LightEmission = 1, Color = ColorSequence.new(BEAM_COLOR), Transparency = seq(0.5, 1),
+
+	-- after landing: crackling energy around the fist
+	local fistSparks = emitter(fist, {
+		Texture = Config.Textures.Spark, Rate = 0, Lifetime = NumberRange.new(0.2, 0.45), Speed = NumberRange.new(4, 10),
+		SpreadAngle = Vector2.new(180, 180), Acceleration = Vector3.new(0, -20, 0), Size = seq(0.3, 0), LightEmission = 1,
+		Color = ColorSequence.new(WHITE, BEAM_COLOR_2),
 	})
+	local fistLight = Instance.new("PointLight")
+	fistLight.Color = BEAM_COLOR_2
+	fistLight.Range = 10
+	fistLight.Brightness = 0
+	fistLight.Shadows = false
+	fistLight.Parent = fist
 
 	---------------------------------------------------------------
 	-- hide the real you (and everything else on screen) for now
@@ -311,6 +399,14 @@ local function run()
 		controls:Disable()
 	end)
 
+	-- moodier colors while it plays
+	local grade = Instance.new("ColorCorrectionEffect")
+	grade.Name = "IntroGrade"
+	grade.Parent = Lighting
+	TweenService:Create(grade, TweenInfo.new(1.5), {
+		Brightness = -0.04, Contrast = 0.12, Saturation = 0.2, TintColor = Color3.fromRGB(235, 225, 255),
+	}):Play()
+
 	local rumble
 	local fov = camera.FieldOfView
 	local restored = false
@@ -347,15 +443,16 @@ local function run()
 			controls:Enable()
 		end
 		actor:Destroy()
+		TweenService:Create(grade, TweenInfo.new(1), { Brightness = 0, Contrast = 0, Saturation = 0, TintColor = WHITE }):Play()
 		finish()
 		task.delay(5, function()
+			grade:Destroy()
 			fxFolder:Destroy()
 			gui:Destroy()
 		end)
 	end
 
 	fxFolder.Parent = workspace
-	actor.Parent = fxFolder
 
 	---------------------------------------------------------------
 	-- screen: movie bars, skip button, name text
@@ -367,9 +464,9 @@ local function run()
 	local skip = new("TextButton", {
 		AnchorPoint = Vector2.new(1, 1), Position = UDim2.new(1, -20, 1, -16), Size = UDim2.fromOffset(110, 40),
 		BackgroundColor3 = Color3.fromRGB(30, 26, 50), BackgroundTransparency = 0.3, Text = "SKIP ▸", Font = UIKit.TitleFont,
-		TextSize = 20, TextColor3 = Color3.new(1, 1, 1), AutoButtonColor = true, ZIndex = 30, Parent = gui,
+		TextSize = 20, TextColor3 = WHITE, AutoButtonColor = true, ZIndex = 30, Parent = gui,
 	}, { corner(UDim.new(0, 10)) })
-	local flash = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 1, ZIndex = 10, Parent = gui })
+	local flash = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = WHITE, BackgroundTransparency = 1, ZIndex = 10, Parent = gui })
 	local arrival = label({
 		AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 0.86, 0), Size = UDim2.fromOffset(900, 60),
 		Text = ("✦ %s HAS ARRIVED ✦"):format(string.upper(player.DisplayName)), Font = UIKit.TitleFont, TextSize = 42,
@@ -378,24 +475,60 @@ local function run()
 	local arrivalStroke = textStroke(3)
 	arrivalStroke.Transparency = 1
 	arrivalStroke.Parent = arrival
+	local arrivalGradient = UIKit.gradient(Color3.fromRGB(220, 190, 255), BEAM_COLOR_2, 0)
+	arrivalGradient.Parent = arrival
 	UIKit.addAutoScale(arrival)
 
 	---------------------------------------------------------------
-	-- the beam
+	-- the beam, the portal and the magic circle
 	---------------------------------------------------------------
-	local BEAM_LENGTH = FALL_HEIGHT + 500
+	local BEAM_LENGTH = portalY - groundY + 300
 	local beamCF = CFrame.new(ground + Vector3.new(0, BEAM_LENGTH / 2, 0)) * CFrame.Angles(0, 0, math.pi / 2)
 	local beamOuter = part({ Name = "BeamOuter", Shape = Enum.PartType.Cylinder, Size = Vector3.new(BEAM_LENGTH, 0.2, 0.2), CFrame = beamCF,
-		Color = BEAM_COLOR, Material = Enum.Material.Neon, Transparency = 0.55 })
+		Color = BEAM_COLOR, Material = Enum.Material.Neon, Transparency = 0.6 })
+	local beamMid = part({ Name = "BeamMid", Shape = Enum.PartType.Cylinder, Size = Vector3.new(BEAM_LENGTH, 0.12, 0.12), CFrame = beamCF,
+		Color = BEAM_COLOR_2, Material = Enum.Material.Neon, Transparency = 0.5 })
 	local beamCore = part({ Name = "BeamCore", Shape = Enum.PartType.Cylinder, Size = Vector3.new(BEAM_LENGTH, 0.08, 0.08), CFrame = beamCF,
-		Color = Color3.new(1, 1, 1), Material = Enum.Material.Neon, Transparency = 0.1 })
+		Color = WHITE, Material = Enum.Material.Neon, Transparency = 0.1 })
+	-- glittering dust all along the beam
+	local beamDust = emitter(beamOuter, {
+		Texture = Config.Textures.Sparkle, Rate = 0, Lifetime = NumberRange.new(1.5, 2.5), Speed = NumberRange.new(1, 4),
+		SpreadAngle = Vector2.new(180, 180), Size = seq(1.2, 0), LightEmission = 1, Rotation = NumberRange.new(0, 360),
+		Color = ColorSequence.new(WHITE, BEAM_COLOR), Transparency = seq(0.1, 1),
+	})
+
+	-- the swirling portal in the sky
+	local portal = part({ Name = "Portal", Size = Vector3.new(4, 0.2, 4), CFrame = CFrame.new(ground.X, portalY, ground.Z), Transparency = 1 })
+	local portalDecals = {}
+	for _, face in ipairs({ Enum.NormalId.Top, Enum.NormalId.Bottom }) do
+		for k = 1, 2 do
+			local decal = Instance.new("Decal")
+			decal.Texture = Config.Textures.Vortex
+			decal.Face = face
+			decal.Color3 = k == 1 and BEAM_COLOR or BEAM_COLOR_2
+			decal.Transparency = 1
+			decal.Parent = portal
+			table.insert(portalDecals, decal)
+		end
+	end
+	local portalGlow = emitter(portal, {
+		Texture = Config.Textures.Glow, Rate = 0, Lifetime = NumberRange.new(0.6, 1), Speed = NumberRange.new(0, 0),
+		Size = seq(40, 60), LightEmission = 1, Color = ColorSequence.new(BEAM_COLOR), Transparency = seq(0.6, 1),
+	})
+	local portalSwirl = emitter(portal, {
+		Texture = Config.Textures.Sparkle, Rate = 0, Lifetime = NumberRange.new(1, 1.6), Speed = NumberRange.new(10, 20),
+		SpreadAngle = Vector2.new(180, 10), Size = seq(1.6, 0), LightEmission = 1, Color = ColorSequence.new(WHITE, BEAM_COLOR_2),
+		RotSpeed = NumberRange.new(-200, 200),
+	})
+
+	-- magic circle on the ground
 	local groundGlow = part({ Name = "GroundGlow", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.12, 1, 1),
 		CFrame = CFrame.new(ground + Vector3.new(0, 0.06, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = BEAM_COLOR,
-		Material = Enum.Material.Neon, Transparency = 0.4 })
+		Material = Enum.Material.Neon, Transparency = 0.45 })
 	local rising = emitter(groundGlow, {
-		Texture = Config.Textures.Sparkle, Rate = 0, Lifetime = NumberRange.new(1, 2), Speed = NumberRange.new(8, 20),
-		EmissionDirection = Enum.NormalId.Right, SpreadAngle = Vector2.new(12, 12), Size = seq(0.6, 0), LightEmission = 1,
-		Color = ColorSequence.new(Color3.new(1, 1, 1), BEAM_COLOR),
+		Texture = Config.Textures.Sparkle, Rate = 0, Lifetime = NumberRange.new(1, 2), Speed = NumberRange.new(8, 22),
+		EmissionDirection = Enum.NormalId.Right, SpreadAngle = Vector2.new(14, 14), Size = seq(0.7, 0), LightEmission = 1,
+		Color = ColorSequence.new(WHITE, BEAM_COLOR),
 	})
 	local light = Instance.new("PointLight")
 	light.Color = BEAM_COLOR
@@ -404,73 +537,125 @@ local function run()
 	light.Shadows = false
 	light.Parent = groundGlow
 
+	-- rune rings around the beam (they spin and climb) + the ground circle
+	local RUNES_PER_RING = 12
+	local runeRings = {}
+	local runeParts, runeCFrames = {}, {}
+	for k = 1, 4 do
+		local runes = {}
+		for i = 1, RUNES_PER_RING do
+			local rune = part({ Name = "Rune", Size = Vector3.new(0.5, 0.5, 0.12), Color = (i % 2 == 0) and BEAM_COLOR_2 or WHITE,
+				Material = Enum.Material.Neon, Transparency = 1 })
+			table.insert(runes, rune)
+			table.insert(runeParts, rune)
+		end
+		runeRings[k] = runes
+	end
+	-- lights that spiral up the beam, leaving trails
+	local spirals = {}
+	for k = 1, 4 do
+		local orb = part({ Name = "Spiral", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.9, Color = (k % 2 == 0) and BEAM_COLOR_2 or WHITE,
+			Material = Enum.Material.Neon, Transparency = 1 })
+		local a0 = Instance.new("Attachment")
+		a0.Position = Vector3.new(0, 0.4, 0)
+		a0.Parent = orb
+		local a1 = Instance.new("Attachment")
+		a1.Position = Vector3.new(0, -0.4, 0)
+		a1.Parent = orb
+		local orbTrail = Instance.new("Trail")
+		orbTrail.Attachment0 = a0
+		orbTrail.Attachment1 = a1
+		orbTrail.Lifetime = 0.6
+		orbTrail.LightEmission = 1
+		orbTrail.FaceCamera = true
+		orbTrail.WidthScale = seq(1, 0)
+		orbTrail.Transparency = seq(0.1, 1)
+		orbTrail.Color = ColorSequence.new(orb.Color, BEAM_COLOR)
+		orbTrail.Parent = orb
+		table.insert(spirals, { Part = orb, Offset = k / 4, Speed = 0.12 + k * 0.015 })
+	end
+
 	---------------------------------------------------------------
-	-- impact effects
+	-- the moments
 	---------------------------------------------------------------
 	local rocks = {}
+	local function appear()
+		actor.Parent = fxFolder
+		SoundFX.Play("TeleportZap", { Volume = 0.8 })
+		SoundFX.Play("RevealLegendary", { Volume = 0.6 })
+		ring(CFrame.new(ground.X, portalY - 1, ground.Z), 4, 70, 0.9, WHITE)
+		ring(CFrame.new(ground.X, portalY - 1.2, ground.Z), 4, 45, 0.7, BEAM_COLOR_2)
+		portalSwirl:Emit(80)
+		local burst = emitter(torso, {
+			Texture = Config.Textures.Spark, Rate = 0, Lifetime = NumberRange.new(0.4, 0.8), Speed = NumberRange.new(20, 40),
+			SpreadAngle = Vector2.new(180, 180), Size = seq(0.8, 0), LightEmission = 1, Color = ColorSequence.new(WHITE, BEAM_COLOR),
+		})
+		burst:Emit(70)
+	end
+
 	local function impact()
 		SoundFX.Play("HeavyHit", { Volume = 1 })
 		SoundFX.Play("Explosion", { Volume = 0.8 })
-		flash.BackgroundTransparency = 0.15
-		tween(flash, 0.5, { BackgroundTransparency = 1 })
-		streaks.Enabled = false
-		glow.Enabled = false
+		task.delay(0.15, function()
+			SoundFX.Play("Thud", { Volume = 1 })
+		end)
+		-- short flash, so you can still see the landing
+		flash.BackgroundTransparency = 0.45
+		tween(flash, 0.25, { BackgroundTransparency = 1 })
+		streaks.Rate = 0
 		trail.Enabled = false
 
-		-- shockwave rings
-		for k = 1, 2 do
-			local ring = part({ Name = "Shockwave", Size = Vector3.new(2, 0.1, 2), CFrame = CFrame.new(ground + Vector3.new(0, 0.12 + k * 0.02, 0)), Transparency = 1 })
-			local decal = Instance.new("Decal")
-			decal.Texture = Config.Textures.Shockwave
-			decal.Face = Enum.NormalId.Top
-			decal.Color3 = k == 1 and Color3.new(1, 1, 1) or BEAM_COLOR
-			decal.Parent = ring
-			local size = k == 1 and 46 or 30
-			TweenService:Create(ring, TweenInfo.new(0.9 + k * 0.3, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), { Size = Vector3.new(size, 0.1, size) }):Play()
-			TweenService:Create(decal, TweenInfo.new(0.9 + k * 0.3), { Transparency = 1 }):Play()
-		end
+		ring(CFrame.new(ground + Vector3.new(0, 0.14, 0)), 2, 52, 1.2, WHITE)
+		ring(CFrame.new(ground + Vector3.new(0, 0.16, 0)), 2, 34, 1.5, BEAM_COLOR)
+		task.delay(0.25, function()
+			ring(CFrame.new(ground + Vector3.new(0, 0.18, 0)), 2, 24, 1.1, BEAM_COLOR_2)
+		end)
 
-		-- cracks in the ground
-		for k = 1, 9 do
-			local angle = k / 9 * math.pi * 2 + rand:NextNumber(-0.2, 0.2)
-			local length = rand:NextNumber(4, 8)
+		-- glowing cracks spreading out from the fist
+		local fistGround = Vector3.new(fist.Position.X, groundY, fist.Position.Z)
+		for k = 1, 11 do
+			local angle = k / 11 * math.pi * 2 + rand:NextNumber(-0.2, 0.2)
+			local length = rand:NextNumber(4, 9)
 			local dir = Vector3.new(math.cos(angle), 0, math.sin(angle))
-			local crack = part({ Name = "Crack", Size = Vector3.new(0.35, 0.06, 0.1),
-				CFrame = CFrame.lookAt(ground + Vector3.new(0, 0.08, 0) + dir * 0.6, ground + Vector3.new(0, 0.08, 0) + dir * 2),
-				Color = Color3.fromRGB(25, 15, 40), Material = Enum.Material.SmoothPlastic })
-			local finalCF = CFrame.lookAt(ground + Vector3.new(0, 0.08, 0) + dir * (0.6 + length / 2), ground + Vector3.new(0, 0.08, 0) + dir * 20)
-			TweenService:Create(crack, TweenInfo.new(0.18, Enum.EasingStyle.Quad), { Size = Vector3.new(0.35, 0.06, length), CFrame = finalCF }):Play()
-			local glowLine = part({ Name = "CrackGlow", Size = Vector3.new(0.12, 0.07, length * 0.8), CFrame = finalCF * CFrame.new(0, 0.01, 0),
-				Color = BEAM_COLOR, Material = Enum.Material.Neon, Transparency = 1 })
-			TweenService:Create(glowLine, TweenInfo.new(0.3), { Transparency = 0.1 }):Play()
-			task.delay(3.5, function()
-				TweenService:Create(glowLine, TweenInfo.new(1.2), { Transparency = 1 }):Play()
-				TweenService:Create(crack, TweenInfo.new(1.2), { Transparency = 1 }):Play()
+			local from = fistGround + Vector3.new(0, 0.08, 0)
+			local crack = part({ Name = "Crack", Size = Vector3.new(0.4, 0.06, 0.1),
+				CFrame = CFrame.lookAt(from + dir * 0.3, from + dir * 2), Color = Color3.fromRGB(25, 15, 40) })
+			local finalCF = CFrame.lookAt(from + dir * (0.3 + length / 2), from + dir * 30)
+			TweenService:Create(crack, TweenInfo.new(0.22, Enum.EasingStyle.Quad), { Size = Vector3.new(0.4, 0.06, length), CFrame = finalCF }):Play()
+			local glowLine = part({ Name = "CrackGlow", Size = Vector3.new(0.14, 0.07, length * 0.85), CFrame = finalCF * CFrame.new(0, 0.01, 0),
+				Color = (k % 2 == 0) and BEAM_COLOR_2 or BEAM_COLOR, Material = Enum.Material.Neon, Transparency = 1 })
+			TweenService:Create(glowLine, TweenInfo.new(0.35), { Transparency = 0.05 }):Play()
+			task.delay(4.5, function()
+				TweenService:Create(glowLine, TweenInfo.new(1.5), { Transparency = 1 }):Play()
+				TweenService:Create(crack, TweenInfo.new(1.5), { Transparency = 1 }):Play()
 			end)
 		end
+		-- a little crater under the fist
+		part({ Name = "Crater", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.08, 2.6, 2.6),
+			CFrame = CFrame.new(fistGround + Vector3.new(0, 0.07, 0)) * CFrame.Angles(0, 0, math.pi / 2), Color = Color3.fromRGB(35, 25, 55) })
 
-		-- dust
-		local dustSpot = part({ Name = "Dust", Size = Vector3.new(1, 1, 1), CFrame = CFrame.new(ground + Vector3.new(0, 0.5, 0)), Transparency = 1 })
+		-- dust that rolls OUTWARD (low and quick, so it doesn't hide you)
+		local dustSpot = part({ Name = "Dust", Size = Vector3.new(3, 0.2, 3), CFrame = CFrame.new(ground + Vector3.new(0, 0.3, 0)), Transparency = 1 })
 		local dust = emitter(dustSpot, {
-			Texture = Config.Textures.Smoke, Rate = 0, Lifetime = NumberRange.new(0.8, 1.6), Speed = NumberRange.new(14, 26),
-			EmissionDirection = Enum.NormalId.Top, SpreadAngle = Vector2.new(88, 88), Drag = 4, Acceleration = Vector3.new(0, -4, 0),
-			Size = seq(2, 5), Transparency = seq(0.35, 1), Color = ColorSequence.new(Color3.fromRGB(210, 200, 230)),
+			Texture = Config.Textures.Smoke, Rate = 0, Lifetime = NumberRange.new(0.7, 1.2), Speed = NumberRange.new(28, 40),
+			EmissionDirection = Enum.NormalId.Top, SpreadAngle = Vector2.new(84, 84), Drag = 5, Acceleration = Vector3.new(0, -6, 0),
+			Size = seq(1.2, 3.2), Transparency = seq(0.55, 1), Color = ColorSequence.new(Color3.fromRGB(215, 205, 235)),
 			RotSpeed = NumberRange.new(-90, 90), Rotation = NumberRange.new(0, 360),
 		})
-		dust:Emit(45)
+		dust:Emit(28)
 		local sparks = emitter(dustSpot, {
 			Texture = Config.Textures.Spark, Rate = 0, Lifetime = NumberRange.new(0.4, 0.9), Speed = NumberRange.new(25, 45),
 			EmissionDirection = Enum.NormalId.Top, SpreadAngle = Vector2.new(70, 70), Acceleration = Vector3.new(0, -50, 0),
-			Size = seq(0.5, 0), LightEmission = 1, Color = ColorSequence.new(Color3.new(1, 1, 1), BEAM_COLOR),
+			Size = seq(0.5, 0), LightEmission = 1, Color = ColorSequence.new(WHITE, BEAM_COLOR),
 		})
-		sparks:Emit(60)
+		sparks:Emit(70)
 
 		-- rocks flying up and bouncing down
-		for _ = 1, 12 do
+		for _ = 1, 14 do
 			local angle = rand:NextNumber(0, math.pi * 2)
 			local size = rand:NextNumber(0.35, 0.9)
 			local rock = part({ Name = "Rock", Size = Vector3.new(size, size * 0.8, size), Color = Color3.fromRGB(110, 95, 140),
-				Material = Enum.Material.Slate, CFrame = CFrame.new(ground + Vector3.new(math.cos(angle) * 1.5, 0.3, math.sin(angle) * 1.5)) })
+				Material = Enum.Material.Slate, CFrame = CFrame.new(ground + Vector3.new(math.cos(angle) * 1.8, 0.3, math.sin(angle) * 1.8)) })
 			table.insert(rocks, {
 				Part = rock,
 				Velocity = Vector3.new(math.cos(angle) * rand:NextNumber(6, 16), rand:NextNumber(14, 26), math.sin(angle) * rand:NextNumber(6, 16)),
@@ -478,19 +663,27 @@ local function run()
 			})
 		end
 
-		-- the beam bursts wide, then fades away
-		TweenService:Create(beamOuter, TweenInfo.new(0.25), { Size = Vector3.new(BEAM_LENGTH, 16, 16), Transparency = 0.75 }):Play()
-		task.delay(0.3, function()
-			TweenService:Create(beamOuter, TweenInfo.new(1.6, Enum.EasingStyle.Quad), { Size = Vector3.new(BEAM_LENGTH, 0.1, 0.1), Transparency = 1 }):Play()
-			TweenService:Create(beamCore, TweenInfo.new(1.4, Enum.EasingStyle.Quad), { Size = Vector3.new(BEAM_LENGTH, 0.05, 0.05), Transparency = 1 }):Play()
-			TweenService:Create(groundGlow, TweenInfo.new(2), { Transparency = 1 }):Play()
-			TweenService:Create(light, TweenInfo.new(2), { Brightness = 0 }):Play()
-		end)
-		rising.Enabled = false
+		-- energy keeps crackling around the fist
+		fistSparks.Rate = 40
+		fistLight.Brightness = 3
+		aura.Rate = 12
+		motes.Rate = 18
 
-		-- the name
-		tween(arrival, 0.5, { TextTransparency = 0 })
-		tween(arrivalStroke, 0.5, { Transparency = 0 })
+		-- the beam bursts wide, then fades away
+		TweenService:Create(beamOuter, TweenInfo.new(0.25), { Size = Vector3.new(BEAM_LENGTH, 16, 16), Transparency = 0.8 }):Play()
+		task.delay(0.3, function()
+			for _, beamPart in ipairs({ beamOuter, beamMid, beamCore }) do
+				TweenService:Create(beamPart, TweenInfo.new(1.8, Enum.EasingStyle.Quad), { Size = Vector3.new(BEAM_LENGTH, 0.05, 0.05), Transparency = 1 }):Play()
+			end
+			for _, decal in ipairs(portalDecals) do
+				TweenService:Create(decal, TweenInfo.new(1.5), { Transparency = 1 }):Play()
+			end
+			TweenService:Create(groundGlow, TweenInfo.new(3), { Transparency = 1 }):Play()
+			TweenService:Create(light, TweenInfo.new(3), { Brightness = 0 }):Play()
+		end)
+		beamDust.Rate = 0
+		rising.Rate = 0
+		portalGlow.Rate = 0
 	end
 
 	---------------------------------------------------------------
@@ -506,74 +699,159 @@ local function run()
 
 	local start = os.clock()
 	local last = start
+	local t = 0 -- scene time (runs slower right after the impact)
 	local stage = 0
-	local shakeUntil = 0
+	local shakeUntil, shakeLength = 0, 1
+	local nextBoom = 0
+	local headY = ground.Y + 2.2 * rigScale
 	local finalCam = CFrame.lookAt(ground - look * 12 + Vector3.new(0, 5.5, 0), ground + Vector3.new(0, 2.5, 0))
 
 	local done = false
 	local connection
 	connection = RunService.RenderStepped:Connect(function()
 		local now = os.clock()
-		local dt = now - last
+		local dt = math.min(now - last, 0.1)
 		last = now
-		local t = now - start
+		local rate = (t >= T_IMPACT and t < T_IMPACT + SLOWMO) and SLOWMO_RATE or 1
+		t += dt * rate
 		if skipped then
 			t = T_END
-			stage = 3
+			stage = 99
 		end
 
-		-- sounds & one-shot moments
+		-- one-shot moments
 		if stage == 0 and t >= T_BEAM then
 			stage = 1
 			SoundFX.Play("IntroSwell")
-			rising.Rate = 30
-		elseif stage == 1 and t >= T_FALL then
+			rising.Rate = 35
+			beamDust.Rate = 120
+			portalGlow.Rate = 6
+			portalSwirl.Rate = 25
+		elseif stage == 1 and t >= T_APPEAR then
 			stage = 2
+			appear()
+		elseif stage == 2 and t >= T_FALL then
+			stage = 3
 			SoundFX.Riser(T_IMPACT - T_FALL, { Volume = 0.8 })
 			SoundFX.Play("Whoosh", { Volume = 0.8 })
-		elseif stage == 2 and t >= T_IMPACT then
-			stage = 3
-			shakeUntil = now + 1.3
-			if not skipped then
-				impact()
-			end
+			trail.Enabled = true
+			streaks.Rate = 70
+		elseif stage == 3 and t >= T_IMPACT then
+			stage = 4
+			shakeUntil, shakeLength = now + 1.5, 1.5
+			impact()
+		elseif stage == 4 and t >= T_CLOSEUP then
+			stage = 5
+			-- a second, smaller rumble as the cracks glow
+			shakeUntil, shakeLength = now + 0.5, 0.5
+			SoundFX.Play("Thud", { Volume = 0.6 })
+		elseif stage == 5 and t >= T_HERO then
+			stage = 6
+			tween(arrival, 0.6, { TextTransparency = 0 })
+			tween(arrivalStroke, 0.6, { Transparency = 0 })
+			tween(arrivalGradient, 3, { Rotation = 180 }, Enum.EasingStyle.Linear)
+			SoundFX.Chime(1, 4)
+		elseif stage == 6 and t >= T_STAND then
+			stage = 7
+			SoundFX.Play("Whoosh", { Volume = 0.5 })
+			TweenService:Create(outline, TweenInfo.new(1), { FillTransparency = 1, OutlineTransparency = 1 }):Play()
+			aura.Rate = 0
+			motes.Rate = 0
+			fistSparks.Rate = 0
+			TweenService:Create(fistLight, TweenInfo.new(0.8), { Brightness = 0 }):Play()
+			TweenService:Create(auraLight, TweenInfo.new(0.8), { Brightness = 0 }):Play()
 		end
 
-		-- the beam grows
+		-- the beam grows and pulses
 		local beamAlpha = smooth((t - T_BEAM) / 2.4)
 		if t < T_IMPACT then
 			local pulse = 1 + math.sin(t * 9) * 0.06
 			local width = (0.2 + beamAlpha * 7.5) * pulse
 			beamOuter.Size = Vector3.new(BEAM_LENGTH, width, width)
-			beamCore.Size = Vector3.new(BEAM_LENGTH, width * 0.35, width * 0.35)
-			beamOuter.Transparency = 0.7 - beamAlpha * 0.35
-			groundGlow.Size = Vector3.new(0.12, 2 + beamAlpha * 12, 2 + beamAlpha * 12)
+			beamMid.Size = Vector3.new(BEAM_LENGTH, width * 0.6, width * 0.6)
+			beamCore.Size = Vector3.new(BEAM_LENGTH, width * 0.3, width * 0.3)
+			beamOuter.Transparency = 0.75 - beamAlpha * 0.4
+			beamMid.Transparency = 0.7 - beamAlpha * 0.3
+			groundGlow.Size = Vector3.new(0.12, 2 + beamAlpha * 14, 2 + beamAlpha * 14)
 			light.Brightness = beamAlpha * 3
+			local portalSize = 4 + beamAlpha * 56
+			portal.Size = Vector3.new(portalSize, 0.2, portalSize)
+			for index, decal in ipairs(portalDecals) do
+				decal.Transparency = 1 - beamAlpha * (index % 2 == 1 and 0.85 or 0.6)
+			end
+		end
+		portal.CFrame = CFrame.new(ground.X, portalY, ground.Z) * CFrame.Angles(0, t * 1.4, 0)
+
+		-- rune rings: one on the ground, three climbing the beam
+		local runeAlpha = smooth((t - T_BEAM - 0.4) / 1.5) * (1 - smooth((t - T_IMPACT - 0.3) / 1.2))
+		local index = 0
+		for k, runes in ipairs(runeRings) do
+			local radius, height, spin
+			if k == 1 then
+				radius, height, spin = 7.5, 0.3, t * 0.6
+			else
+				radius = 5 + k
+				height = ((t * 18 + k * 60) % (FALL_HEIGHT * 0.9)) + 6
+				spin = -t * (1 + k * 0.3)
+			end
+			for i, rune in ipairs(runes) do
+				index += 1
+				local angle = spin + i / RUNES_PER_RING * math.pi * 2
+				local position = ground + Vector3.new(math.cos(angle) * radius, height, math.sin(angle) * radius)
+				local facing = k == 1 and CFrame.lookAt(position, position + Vector3.yAxis) or CFrame.lookAt(position, Vector3.new(ground.X, position.Y, ground.Z))
+				runeCFrames[index] = facing * CFrame.Angles(0, 0, math.pi / 4)
+				rune.Transparency = 1 - runeAlpha * 0.9
+			end
+		end
+		workspace:BulkMoveTo(runeParts, runeCFrames, Enum.BulkMoveMode.FireCFrameChanged)
+
+		-- spiralling lights
+		for _, spiral in ipairs(spirals) do
+			local u = (t * spiral.Speed + spiral.Offset) % 1
+			local angle = u * math.pi * 14 + spiral.Offset * math.pi * 2
+			local radius = 3 + beamAlpha * 3
+			spiral.Part.CFrame = CFrame.new(ground + Vector3.new(math.cos(angle) * radius, u * FALL_HEIGHT, math.sin(angle) * radius))
+			spiral.Part.Transparency = 1 - runeAlpha
 		end
 
-		-- where the falling you is, and the pose
+		-- where you are, and your pose
 		local actorCF
 		if t < T_FALL then
-			actorCF = CFrame.new(ground + Vector3.new(0, FALL_HEIGHT + 40, 0)) * landCF.Rotation
-			applyPose(fallPose(t))
+			-- curled up in the portal, then hanging there for a moment
+			local since = math.max(0, t - T_APPEAR)
+			local drop = math.min(since, 0.5) * 18
+			actorCF = CFrame.new(ground.X, portalY - 4 - drop, ground.Z) * landCF.Rotation * CFrame.Angles(0, since * 2, 0)
+			applyPose(blendPose(CURL_POSE, fallPose(t), smooth(since / 0.6)))
 		elseif t < T_IMPACT then
 			local a = (t - T_FALL) / (T_IMPACT - T_FALL)
-			local height = FALL_HEIGHT * (1 - a * a)
+			local top = portalY - 13 - groundY
+			local height = top * (1 - a * a)
 			local spin = (1 - a) ^ 2 * math.pi * 4
 			actorCF = CFrame.new(landCF.Position + Vector3.new(0, height, 0)) * landCF.Rotation * CFrame.Angles(0, spin, 0)
 				* CFrame.Angles(math.sin(t * 3) * 0.15 * (1 - a), 0, 0)
 			-- tuck into the landing just before hitting the ground
-			local tuck = smooth((a - 0.9) / 0.1)
-			applyPose(blendPose(fallPose(t), LAND_POSE, tuck))
+			applyPose(blendPose(fallPose(t), IMPACT_POSE, smooth((a - 0.88) / 0.12)))
+			-- sonic boom rings while diving
+			if now >= nextBoom and a > 0.15 and a < 0.9 then
+				nextBoom = now + 0.32
+				ring(CFrame.new(actorCF.Position + Vector3.new(0, -2, 0)), 3, 16, 0.45, WHITE)
+			end
 		elseif t < T_STAND then
-			-- small bounce from the impact
 			local since = t - T_IMPACT
-			local dip = math.exp(-since * 9) * math.sin(since * 25) * 0.25
-			actorCF = landCF * CFrame.new(0, -math.abs(dip), 0)
-			applyPose(LAND_POSE)
+			-- squash into the deep crouch, then settle into the pose
+			local settle = smooth((since - 0.25) / 0.6)
+			local pose = blendPose(IMPACT_POSE, LAND_POSE, settle)
+			-- breathing, and the head slowly lifts for the hero shot
+			local breath = math.sin(since * 2.4) * 2
+			pose.Waist[1] += breath
+			pose.Neck[1] += smooth((t - T_HERO) / 1.2) * 8
+			applyPose(pose)
+			actorCF = landCF
+			-- the glow pulses
+			outline.FillTransparency = 0.55 + math.sin(since * 4) * 0.15
 		else
 			actorCF = landCF
-			applyPose(blendPose(LAND_POSE, {}, smooth((t - T_STAND) / 0.7)))
+			applyPose(blendPose(LAND_POSE, {}, smooth((t - T_STAND) / 0.8)))
 		end
 		actorRoot.CFrame = actorCF
 		local actorPos = actorCF.Position
@@ -593,35 +871,60 @@ local function run()
 			end
 		end
 
-		-- camera
+		-- CAMERA
 		local cam
-		if t < T_FALL then
-			-- on the ground, looking up the beam
-			local a = smooth(t / T_FALL)
-			local eye = ground + look * (24 - a * 4) + right * 4 + Vector3.new(0, 3, 0)
-			cam = CFrame.lookAt(eye, ground + Vector3.new(0, 25 + a * 60, 0))
+		if t < T_SKY then
+			-- 1. on the ground, looking up the beam at the portal
+			local a = smooth(t / T_SKY)
+			local eye = ground + look * (24 - a * 5) + right * 4 + Vector3.new(0, 3, 0)
+			cam = CFrame.lookAt(eye, ground + Vector3.new(0, 30 + a * 90, 0))
+		elseif t < T_FALL then
+			-- 2. up in the sky beside the portal, looking down the beam;
+			-- then turning to you as you burst out
+			local a = smooth((t - T_SKY) / (T_FALL - T_SKY))
+			local orbit = a * 0.5
+			local side = right * math.cos(orbit) + look * math.sin(orbit)
+			local eye = Vector3.new(ground.X, portalY - 6 + a * 4, ground.Z) + side * (34 - a * 12) - look * 10
+			local downBeam = ground + Vector3.new(0, FALL_HEIGHT * 0.25, 0)
+			local target = downBeam:Lerp(actorPos, smooth((t - T_APPEAR) / 0.7))
+			cam = CFrame.lookAt(eye, target)
 		elseif t < T_IMPACT then
+			-- 3. ride along: above you (the island below), then beside and
+			-- below you, then from the ground as you come in
 			local height = actorPos.Y - groundY
-			-- up high: fly next to you; close to the ground: watch from the ground
-			local follow = CFrame.lookAt(actorPos + right * 13 + look * 7 + Vector3.new(0, -5, 0), actorPos + Vector3.new(0, -2, 0))
+			local above = CFrame.lookAt(actorPos + right * 9 - look * 5 + Vector3.new(0, 9, 0), actorPos + Vector3.new(0, -8, 0))
+			local beside = CFrame.lookAt(actorPos + right * 13 + look * 7 + Vector3.new(0, -5, 0), actorPos + Vector3.new(0, -2, 0))
 			local fromGround = CFrame.lookAt(ground + look * 15 - right * 5 + Vector3.new(0, 2.2, 0), actorPos)
-			cam = follow:Lerp(fromGround, smooth(1 - (height - 15) / 70))
+			local fallA = (t - T_FALL) / (T_IMPACT - T_FALL)
+			cam = above:Lerp(beside, smooth((fallA - 0.15) / 0.35))
+			cam = cam:Lerp(fromGround, smooth(1 - (height - 15) / 70))
+		elseif t < T_CLOSEUP then
+			-- 4. the impact: low wide shot from the side, whole body in view
+			local a = smooth((t - T_IMPACT) / (T_CLOSEUP - T_IMPACT))
+			local eye = ground + right * (7.5 - a * 1.2) + look * (3.5 + a * 1) + Vector3.new(0, 1.2, 0)
+			cam = CFrame.lookAt(eye, ground + Vector3.new(0, 1.4 * rigScale, 0) + look * 0.5)
+		elseif t < T_HERO then
+			-- 5. close-up: the fist in the ground, cracks glowing
+			local a = smooth((t - T_CLOSEUP) / (T_HERO - T_CLOSEUP))
+			local fistPos = fist.Position
+			local eye = fistPos + look * (2.6 - a * 0.8) + right * (2.8 - a * 0.6) + Vector3.new(0, 0.5 + a * 0.2, 0)
+			cam = CFrame.lookAt(eye, fistPos + Vector3.new(0, 0.2, 0))
 		elseif t < T_STAND then
-			-- low and in front: the hero shot
-			local a = smooth((t - T_IMPACT) / (T_STAND - T_IMPACT))
-			local eye = ground + look * (9.5 - a * 2.2) + right * 3.2 + Vector3.new(0, 1.4 + a * 0.4, 0)
-			cam = CFrame.lookAt(eye, ground + Vector3.new(0, 1.3 * rigScale, 0))
+			-- 6. hero shot: rises from low in front up to your face
+			local a = smooth((t - T_HERO) / (T_STAND - T_HERO))
+			local eye = ground + look * (8 - a * 2) + right * (2.5 - a * 1.2) + Vector3.new(0, 0.5 + a * 1.4, 0)
+			cam = CFrame.lookAt(eye, Vector3.new(ground.X, headY - 0.6 + a * 0.3, ground.Z))
 		else
-			-- swing round behind you
+			-- 7. swing round behind you
 			local a = smooth((t - T_STAND) / (T_END - T_STAND))
-			local eye = ground + look * 7.3 + right * 3.2 + Vector3.new(0, 1.8, 0)
-			cam = CFrame.lookAt(eye, ground + Vector3.new(0, 1.3 * rigScale, 0)):Lerp(finalCam, a)
+			local heroEye = ground + look * 6 + right * 1.3 + Vector3.new(0, 1.9, 0)
+			cam = CFrame.lookAt(heroEye, Vector3.new(ground.X, headY - 0.3, ground.Z)):Lerp(finalCam, a)
 		end
 		-- the ground shakes
 		if now < shakeUntil then
-			local strength = ((shakeUntil - now) / 1.3) ^ 2
-			cam = cam * CFrame.new(rand:NextNumber(-1, 1) * strength * 0.9, rand:NextNumber(-1, 1) * strength * 0.9, 0)
-				* CFrame.Angles(0, 0, rand:NextNumber(-1, 1) * strength * 0.05)
+			local strength = ((shakeUntil - now) / shakeLength) ^ 2
+			cam = cam * CFrame.new(rand:NextNumber(-1, 1) * strength * 0.6, rand:NextNumber(-1, 1) * strength * 0.6, 0)
+				* CFrame.Angles(0, 0, rand:NextNumber(-1, 1) * strength * 0.04)
 			camera.FieldOfView = fov + strength * 10
 		else
 			camera.FieldOfView = fov
@@ -635,7 +938,7 @@ local function run()
 	end)
 
 	-- (safety: never get stuck, even if a frame errors)
-	while not done and os.clock() - start < T_END + 4 do
+	while not done and os.clock() - start < T_END + 5 do
 		task.wait()
 	end
 	connection:Disconnect()

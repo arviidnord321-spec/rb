@@ -16,11 +16,16 @@ game pass IDs in `CosmicConfig`).
 ## What's in the game
 
 ### Join cutscene
-- When you join, the screen goes into movie mode for about 10 seconds:
-  1. A thin beam of light comes down from the sky and gets wider and wider.
-  2. **Your own avatar** falls down the beam, spinning, with a glowing comet trail. The camera flies next to you, then watches from the ground.
-  3. You smash into the ground in a **superhero landing**: one knee down, one fist on the ground, the other arm swept back. There's a white flash, shockwaves, glowing cracks, flying rocks and dust, and the camera shakes.
-  4. "✦ YOUR NAME HAS ARRIVED ✦" shows, you stand up, the camera swings behind you, and the title card and menus slide in.
+- When you join, the screen goes into movie mode for about 13 seconds, with moodier colors:
+  1. **Ground shot:** a thin beam comes down from a swirling portal in the sky and gets wider. Rune rings climb and spin around it, glowing lights spiral up it, sparkles drift along it, and a magic circle lights up on the ground.
+  2. **Sky shot:** the camera is up beside the portal, looking down the beam at the island far below. **Your own avatar** bursts out of the portal in a flash, glowing with an outline, a soft aura and sparkles.
+  3. **The fall:** you dive, spinning, with a comet trail, wind streaks and sonic-boom rings. The camera rides above you, then beside you, then watches from the ground.
+  4. **The landing (slow motion):** a superhero landing: one knee down, fist in the ground, the other arm swept back.
+     - There's a short flash, shockwave rings, and glowing cracks spreading from the fist with a small crater.
+     - Rocks fly up, sparks burst, and the ground shakes.
+     - The dust rolls outward, so you can still see the pose.
+     - Then there's a close-up of the fist crackling with energy, and a hero shot rising to your face with "✦ YOUR NAME HAS ARRIVED ✦".
+  5. You stand up, the glow fades, the camera swings behind you, and the menus slide in.
 - Only the joining player sees it, and they can press **SKIP**. It plays once per join, not when you respawn.
 - Turn it off or change the fall height and beam color in `Config.IntroCutscene`.
 
