@@ -12,12 +12,12 @@ local Config = {}
 -- and nobody owns it in the live game.
 ---------------------------------------------------------------------
 Config.GamePasses = {
-	AutoRoll = 0, -- unlocks the Auto Roll button          (suggested price: 99 Robux)
-	QuickRoll = 0, -- faster rolling (see QuickRollCooldown) (suggested: 149 Robux)
-	DoubleLuck = 0, -- permanent x2 luck                     (suggested: 349 Robux)
-	VIP = 0, -- x1.25 luck, VIP Sanctum, trading...         (suggested: 249 Robux)
-	MultiRoll = 0, -- every roll rolls 3 auras at once      (suggested: 299 Robux)
-	LuckyCharm = 0, -- lucky roll every 5 rolls, not 10     (suggested: 129 Robux)
+	AutoRoll = 2037898113, -- unlocks the Auto Roll button          (suggested price: 99 Robux)
+	QuickRoll = 2040663608, -- faster rolling (see QuickRollCooldown) (suggested: 149 Robux)
+	DoubleLuck = 2038066168, -- permanent x2 luck                     (suggested: 349 Robux)
+	VIP = 2040579637, -- x1.25 luck, VIP Sanctum, trading...         (suggested: 249 Robux)
+	MultiRoll = 2040651692, -- every roll rolls 3 auras at once      (suggested: 299 Robux)
+	LuckyCharm = 2039865973, -- lucky roll every 5 rolls, not 10     (suggested: 129 Robux)
 }
 Config.FreePassesInStudio = true
 
