@@ -53,6 +53,31 @@ local function emitter(parent, props)
 	return e
 end
 
+-- a cheap glow: a tiny camera-facing Beam with a soft round texture
+-- (looks like a light halo, costs almost nothing compared to a PointLight)
+local function glowSprite(target, color3, size)
+	local a0 = Instance.new("Attachment")
+	a0.Position = Vector3.new(0, -0.02, 0)
+	a0.Parent = target
+	local a1 = Instance.new("Attachment")
+	a1.Position = Vector3.new(0, 0.02, 0)
+	a1.Parent = target
+	local beam = Instance.new("Beam")
+	beam.Attachment0 = a0
+	beam.Attachment1 = a1
+	beam.Texture = Config.Textures.Glow
+	beam.Width0 = size
+	beam.Width1 = size
+	beam.FaceCamera = true
+	beam.LightEmission = 1
+	beam.LightInfluence = 0
+	beam.Transparency = NumberSequence.new(0.45)
+	beam.Color = ColorSequence.new(color3)
+	beam.Segments = 1
+	beam.Parent = target
+	return beam
+end
+
 local function fadeSeq(peak)
 	return NumberSequence.new({
 		NumberSequenceKeypoint.new(0, 0),
@@ -116,13 +141,36 @@ local function flower(model, position, theme)
 		Material = Enum.Material.Neon,
 		Parent = model,
 	})
-	if rand:NextNumber() < 0.25 then
-		local light = Instance.new("PointLight")
-		light.Color = petal
-		light.Range = 7
-		light.Brightness = 0.8
-		light.Shadows = false
-		light.Parent = center
+	-- a soft glow sprite instead of a real light (much cheaper)
+	if rand:NextNumber() < 0.35 then
+		glowSprite(center, petal, 2.6)
+	end
+end
+
+-- small stones and moss: plain parts (no glow, no light) = lots of detail for free
+local function pebbles(model, position, theme)
+	for _ = 1, rand:NextInteger(2, 5) do
+		local size = rand:NextNumber(0.4, 1.3)
+		part({
+			Name = "Pebble",
+			Size = Vector3.new(size * rand:NextNumber(1, 1.6), size * 0.6, size),
+			CFrame = CFrame.new(position + Vector3.new(rand:NextNumber(-1.6, 1.6), size * 0.2, rand:NextNumber(-1.6, 1.6)))
+				* CFrame.Angles(rand:NextNumber(-0.3, 0.3), rand:NextNumber(0, 6), rand:NextNumber(-0.3, 0.3)),
+			Color = pick(theme.Patches):Lerp(Color3.new(0, 0, 0), rand:NextNumber(0, 0.25)),
+			Material = theme.PebbleMaterial or Enum.Material.Slate,
+			Parent = model,
+		})
+	end
+	if theme.Moss and rand:NextNumber() < 0.5 then
+		part({
+			Name = "Moss",
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new(0.1, rand:NextNumber(2, 4), rand:NextNumber(2, 4)),
+			CFrame = CFrame.new(position + Vector3.new(0, 0.05, 0)) * FLAT,
+			Color = theme.Moss,
+			Material = Enum.Material.Grass,
+			Parent = model,
+		})
 	end
 end
 
@@ -219,12 +267,7 @@ local function lightFall(model, center, radius, angleDeg, theme, groundY)
 		Texture = Config.Textures.Smoke, Rate = 6, Lifetime = NumberRange.new(2, 3), Speed = NumberRange.new(1, 2.5),
 		SpreadAngle = Vector2.new(60, 60), Size = fadeSeq(4), Transparency = NumberSequence.new(0.7), Color = ColorSequence.new(theme.Fall), LightEmission = 0.6,
 	})
-	local light = Instance.new("PointLight")
-	light.Color = theme.Fall
-	light.Range = 24
-	light.Brightness = 1.6
-	light.Shadows = false
-	light.Parent = mistAnchor
+	glowSprite(mistAnchor, theme.Fall, 14)
 end
 
 -- fireflies / motes drifting over the whole island
@@ -284,6 +327,12 @@ local function decorate(name, center, radius, groundY, theme, blocked, options)
 				flower(model, spot, theme)
 			end
 		end
+		for _ = 1, options.Pebbles or 0 do
+			local spot = randomSpot(10, radius - 4)
+			if spot then
+				pebbles(model, spot, theme)
+			end
+		end
 		for _ = 1, options.Constellations or 0 do
 			local spot = randomSpot(20, radius - 15)
 			if spot then
@@ -316,7 +365,7 @@ local MAIN_THEME = {
 	Petals = { rgb(255, 140, 220), rgb(140, 220, 255), rgb(200, 160, 255), rgb(255, 220, 140) },
 	Heart = rgb(255, 250, 220), Stem = rgb(60, 50, 95),
 	Patches = { rgb(70, 60, 100), rgb(56, 48, 82), rgb(66, 62, 108), rgb(74, 58, 96) },
-	GroundMaterial = Enum.Material.Slate, Rim = rgb(60, 50, 95),
+	GroundMaterial = Enum.Material.Slate, Rim = rgb(60, 50, 95), Moss = rgb(70, 110, 120),
 	Vines = { rgb(150, 110, 255), rgb(100, 220, 255), rgb(255, 120, 220) }, Bulb = rgb(255, 255, 255),
 	Fall = rgb(160, 200, 255), Motes = { rgb(170, 230, 255), rgb(255, 200, 255) },
 }
@@ -351,7 +400,7 @@ do
 		return nearPath(x, z) or (math.abs(x) < 8 and z > 40)
 	end
 	decorate("Main", Vector3.zero, R, 0, MAIN_THEME, blocked, {
-		Ground = true, Patches = 40, Grass = 170, Flowers = 70, Constellations = 6, Vines = 64,
+		Ground = true, Patches = 40, Grass = 100, Flowers = 45, Pebbles = 60, Constellations = 6, Vines = 44,
 		Falls = { 15, 135, 275, 345 },
 	})
 end
@@ -365,7 +414,7 @@ do
 		Fall = rgb(255, 210, 150), Motes = { rgb(255, 220, 140), rgb(255, 170, 215) },
 	}, function()
 		return true
-	end, { Ground = false, Vines = 48, Falls = { 60, 200, 320 } })
+	end, { Ground = false, Vines = 32, Falls = { 60, 200, 320 } })
 end
 
 -- REBIRTH ISLANDS
@@ -373,21 +422,21 @@ local REBIRTH_THEMES = {
 	Frostfall = {
 		Grass = { rgb(220, 245, 255), rgb(160, 225, 255), rgb(200, 255, 245) }, GrassMaterial = Enum.Material.Ice, GrassTransparency = 0.2,
 		Petals = { rgb(200, 240, 255), rgb(255, 255, 255), rgb(170, 200, 255) }, PetalTransparency = 0.2, Heart = rgb(140, 230, 255), Stem = rgb(120, 160, 200),
-		Patches = { rgb(225, 238, 252), rgb(210, 228, 248), rgb(240, 248, 255) }, GroundMaterial = Enum.Material.Snow, Rim = rgb(200, 225, 250),
+		Patches = { rgb(225, 238, 252), rgb(210, 228, 248), rgb(240, 248, 255) }, GroundMaterial = Enum.Material.Snow, Rim = rgb(200, 225, 250), PebbleMaterial = Enum.Material.Ice,
 		Vines = { rgb(190, 235, 255), rgb(150, 210, 255) }, VineMaterial = Enum.Material.Ice, VineTransparency = 0.25, Bulb = rgb(220, 250, 255),
 		Fall = rgb(170, 230, 255), Motes = { rgb(200, 240, 255), rgb(160, 255, 220) }, MoteSize = 0.35,
 	},
 	Ember = {
 		Grass = { rgb(255, 120, 40), rgb(255, 70, 30), rgb(255, 190, 70) }, GrassTransparency = 0.15,
 		Petals = { rgb(255, 110, 30), rgb(255, 60, 40), rgb(255, 200, 60) }, Heart = rgb(255, 245, 160), Stem = rgb(40, 28, 26),
-		Patches = { rgb(60, 44, 40), rgb(78, 56, 50), rgb(52, 36, 36) }, GroundMaterial = Enum.Material.Basalt, Rim = rgb(40, 30, 30),
+		Patches = { rgb(60, 44, 40), rgb(78, 56, 50), rgb(52, 36, 36) }, GroundMaterial = Enum.Material.Basalt, Rim = rgb(40, 30, 30), PebbleMaterial = Enum.Material.Basalt,
 		Vines = { rgb(255, 100, 30), rgb(255, 160, 50) }, Bulb = rgb(255, 230, 120),
 		Fall = rgb(255, 120, 40), Motes = { rgb(255, 170, 60), rgb(255, 80, 40) }, MoteSize = 0.3, MoteRate = 35,
 	},
 	Nexus = {
 		Grass = { rgb(60, 230, 255), rgb(255, 70, 220), rgb(140, 80, 255) },
 		Petals = { rgb(255, 80, 230), rgb(80, 240, 255), rgb(180, 120, 255) }, PetalTransparency = 0.3, Heart = rgb(255, 255, 255), Stem = rgb(40, 30, 70),
-		Patches = { rgb(26, 18, 46), rgb(14, 10, 28), rgb(30, 22, 56) }, GroundMaterial = Enum.Material.SmoothPlastic, Rim = rgb(30, 20, 55),
+		Patches = { rgb(26, 18, 46), rgb(14, 10, 28), rgb(30, 22, 56) }, GroundMaterial = Enum.Material.SmoothPlastic, Rim = rgb(30, 20, 55), PebbleMaterial = Enum.Material.Glass,
 		Vines = { rgb(60, 230, 255), rgb(255, 70, 220) }, Bulb = rgb(255, 255, 255),
 		Fall = rgb(80, 220, 255), Motes = { rgb(80, 240, 255), rgb(255, 100, 230) },
 		MoteTexture = "rbxasset://textures/particles/SquareParticle.png", MoteSize = 0.3,
@@ -404,7 +453,7 @@ for _, info in ipairs(Config.RebirthIslands) do
 				or (point - Vector3.new(hatchery.X, 0, hatchery.Z)).Magnitude < 20
 		end
 		decorate(info.Key, info.Center, info.Radius, info.Center.Y, theme, blocked, {
-			Ground = true, Patches = 26, Grass = 120, Flowers = 45, Vines = 56, Falls = { 0, 160, 200 },
+			Ground = true, Patches = 26, Grass = 70, Flowers = 30, Pebbles = 45, Vines = 36, Falls = { 0, 160, 200 },
 		})
 	end
 end

@@ -333,12 +333,25 @@ end
 
 local t = 0
 local frame = 0
+local activeTwinklers = {}
 RunService.RenderStepped:Connect(function(dt)
 	t += dt
 	frame += 1
 
-	for _, s in ipairs(twinklers) do
-		s.Part.Transparency = math.clamp(s.Base + (math.sin(t * 2.3 + s.Phase * 3) + 1) * 0.3, 0, 0.95)
+	-- only twinkle what's near you (the list is refreshed every second)
+	if frame % 60 == 1 then
+		activeTwinklers = {}
+		local eye = camera.CFrame.Position
+		for _, s in ipairs(twinklers) do
+			if (s.Part.Position - eye).Magnitude < 500 then
+				table.insert(activeTwinklers, s)
+			end
+		end
+	end
+	if frame % 2 == 0 then
+		for _, s in ipairs(activeTwinklers) do
+			s.Part.Transparency = math.clamp(s.Base + (math.sin(t * 2.3 + s.Phase * 3) + 1) * 0.3, 0, 0.95)
+		end
 	end
 	for _, b in ipairs(breathers) do
 		local wave = math.sin(t * 0.9 + b.Phase)
@@ -350,7 +363,7 @@ RunService.RenderStepped:Connect(function(dt)
 	for index, c in ipairs(creatures) do
 		local distance = (camera.CFrame.Position - c.Center).Magnitude
 		-- close creatures every frame, further ones every 3rd frame (smooth + cheap)
-		if distance < 450 or (distance < 800 and (frame + index) % 3 == 0) then
+		if distance < 320 or (distance < 650 and (frame + index) % 4 == 0) then
 			moveCreature(c, t)
 		end
 	end

@@ -15,6 +15,7 @@ local AuraData = require(ReplicatedStorage:WaitForChild("AuraData"))
 local Luck = require(ReplicatedStorage:WaitForChild("Luck"))
 local Rebirth = require(ReplicatedStorage:WaitForChild("Rebirth"))
 local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
+local QuestData = require(ReplicatedStorage:WaitForChild("QuestData"))
 local SoundFX = require(ReplicatedStorage:WaitForChild("SoundFX"))
 local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
 
@@ -500,7 +501,7 @@ end
 ---------------------------------------------------------------------
 -- LUCK LINE + STATS
 ---------------------------------------------------------------------
-local BONUS_ICONS = { ["2x Luck"] = "🍀", VIP = "👑", Potion = "🧪", Server = "🌌", Event = "☄️", ["Lucky Isle"] = "🏝", Parkour = "🏃", Rebirth = "⭐", Pets = "🐾", Forever = "♾", ["Cosmic Roll"] = "🎲" }
+local BONUS_ICONS = { ["2x Luck"] = "🍀", VIP = "👑", Potion = "🧪", Server = "🌌", Event = "☄️", ["Lucky Isle"] = "🏝", Parkour = "🏃", Rebirth = "⭐", Pets = "🐾", Forever = "♾", ["Cosmic Roll"] = "🎲", Index = "📖" }
 
 local function updateInfo()
 	local total = Luck.Get(player)
@@ -725,6 +726,9 @@ local function playRollAnimation(result, fast)
 	local steps = fast and 7 or 16
 	-- rebirths make rolling faster, the spin speeds up to match
 	local pace = Rebirth.CooldownScale(player:GetAttribute("Rebirths") or 0)
+	if (ReplicatedStorage:GetAttribute("EventEnds") or 0) > Luck.Now() then
+		pace *= ReplicatedStorage:GetAttribute("EventRollSpeed") or 1 -- Star Surge
+	end
 	local showLuck = math.max(result.Luck or 1, 1) * 40 -- show exciting names while spinning
 	for i = 1, steps do
 		local progress = i / steps
@@ -1145,8 +1149,18 @@ refreshInventory = function(animate)
 		end
 		buildCard(aura, count, #AuraData.List - index, animate)
 	end
-	discoveredLabel.Text = ("Discovered %d / %d auras  •  Rarer auras = stronger duel powers"):format(
-		discovered, #AuraData.List)
+	-- the Aura Index counts every aura you've EVER had (even if you traded it)
+	local indexCount = player:GetAttribute("IndexCount") or discovered
+	local nextGoal
+	for _, milestone in ipairs(Config.Index.Milestones) do
+		if indexCount < milestone.Count then
+			nextGoal = milestone.Count
+			break
+		end
+	end
+	discoveredLabel.Text = ("📖 Index %d / %d  •  +%d%% luck forever%s"):format(
+		indexCount, #AuraData.List, math.floor(indexCount * Config.Index.LuckPerAura * 100 + 0.5),
+		nextGoal and ("  •  reward at %d"):format(nextGoal) or "  •  all rewards claimed!")
 end
 
 setInventoryOpen = function(open)
@@ -1239,6 +1253,32 @@ AnnounceRemote.OnClientEvent:Connect(function(info)
 			showBanner(("🥚 <b>%s</b> hatched a <font color='#%s'><b>%s</b></font> pet (%s)!"):format(
 				info.PlayerName, color:ToHex(), pet.Name, pet.Rarity), color)
 		end
+		return
+	end
+	if info.Type == "EventStart" then
+		showBanner(("✨ COSMIC EVENT: <b>%s</b> - %s"):format(tostring(info.Name), tostring(info.Description)), THEME.Gold)
+		return
+	end
+	if info.Type == "EventEnd" then
+		return
+	end
+	if info.Type == "DuelSteal" then
+		local aura = AuraData.Get(info.Aura or "")
+		local hex = aura and tierOf(aura).Color:ToHex() or "ffffff"
+		showBanner(("⚔ <b>%s</b> beat <b>%s</b> and took their <font color='#%s'><b>%s</b></font>!"):format(
+			info.Winner, info.Loser, hex, tostring(info.Aura)), Color3.fromRGB(255, 90, 100), aura and AuraData.GetImage(aura.Name) or nil)
+		if info.WinnerId == player.UserId then
+			UIKit.toast(("⚔ You won their %s!"):format(tostring(info.Aura)), THEME.Gold)
+			SoundFX.Chime(1, 5)
+		elseif info.LoserId == player.UserId then
+			UIKit.toast(("💔 You lost your %s in the duel"):format(tostring(info.Aura)), THEME.Bad)
+		end
+		return
+	end
+	if info.Type == "IndexMilestone" then
+		UIKit.toast(("📖 Aura Index %d reached! Reward: %s"):format(info.Count, QuestData.RewardText(info.Reward)), THEME.Gold)
+		UIKit.confetti({ THEME.Gold, THEME.Accent, THEME.Accent2 }, 80)
+		SoundFX.Jingle("Victory")
 		return
 	end
 	if info.Type == "Wheel" then

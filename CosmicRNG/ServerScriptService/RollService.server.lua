@@ -94,6 +94,8 @@ local function newData()
 		Daily = { Streak = 0, LastClaimDay = -1 }, -- daily login reward
 		Quests = { Day = -1, List = {}, Bonus = false }, -- today's quests
 		Settings = { Music = 1, Sfx = 1, Muted = false }, -- sound sliders
+		Discovered = {}, -- [auraName] = true for every aura you've ever had (Aura Index)
+		IndexClaimed = 0, -- highest Index milestone already rewarded
 		WheelNext = 0, -- when the next free Lucky Wheel spin is ready (os.time)
 		VipChestDay = -1, -- last day the VIP chest was opened
 		Receipts = {}, -- recent purchase IDs, so nothing is granted twice
@@ -199,6 +201,7 @@ local function snapshot(data)
 		Pets = data.Pets,
 		EquippedPets = data.EquippedPets,
 		Settings = data.Settings,
+		Discovered = data.Discovered,
 	}
 end
 
@@ -222,6 +225,29 @@ local function refreshStats(player)
 		stats.Wins.Value = data.DuelWins or 0
 		stats.Rebirths.Value = data.Rebirths or 0
 	end
+	-- Aura Index: remember every aura you've ever owned
+	data.Discovered = data.Discovered or {}
+	local found = 0
+	for name, count in pairs(data.Inventory) do
+		if count > 0 and AuraData.Get(name) then
+			data.Discovered[name] = true
+		end
+	end
+	for name in pairs(data.Discovered) do
+		if AuraData.Get(name) then
+			found += 1
+		end
+	end
+	player:SetAttribute("IndexCount", found)
+	-- your rarest aura (what you'd lose in a player duel)
+	local bestName, bestChance = "", 0
+	for name, count in pairs(data.Inventory) do
+		local aura = AuraData.Get(name)
+		if aura and count > 0 and aura.Chance > bestChance then
+			bestName, bestChance = name, aura.Chance
+		end
+	end
+	player:SetAttribute("BestAura", bestName)
 	player:SetAttribute("Rolls", data.Rolls)
 	player:SetAttribute("Rebirths", data.Rebirths or 0)
 	player:SetAttribute("RebirthRolls", data.RebirthRolls or 0)
@@ -245,6 +271,7 @@ end
 
 -- quests are filled in further down (rolling, hatching... report progress)
 local addQuestProgress = function(_player, _kind, _amount, _extra) end
+local checkIndex = function(_player) end -- Aura Index milestones (filled in below)
 
 ---------------------------------------------------------------------
 -- Rolling
@@ -260,6 +287,11 @@ RollRemote.OnServerInvoke = function(player)
 
 	local cooldown = hasPass(player, "QuickRoll") and Config.QuickRollCooldown or Config.RollCooldown
 	cooldown *= Rebirth.CooldownScale(data.Rebirths or 0)
+	-- Star Surge event: everyone rolls faster
+	local eventEnds = ReplicatedStorage:GetAttribute("EventEnds") or 0
+	if eventEnds > Luck.Now() then
+		cooldown *= ReplicatedStorage:GetAttribute("EventRollSpeed") or 1
+	end
 	local now = os.clock()
 	-- small grace window for network jitter
 	if now - (lastRollTime[player] or 0) < cooldown - 0.1 then
@@ -311,7 +343,8 @@ RollRemote.OnServerInvoke = function(player)
 	end
 	refreshStats(player)
 
-	-- quest progress
+	-- quest progress + Aura Index milestones
+	checkIndex(player)
 	addQuestProgress(player, "Rolls", 1)
 	if player:GetAttribute("OnLuckyIsland") or player:GetAttribute("OnRebirthIsland") then
 		addQuestProgress(player, "LuckyRolls", 1)
@@ -614,6 +647,22 @@ task.spawn(function()
 		end
 	end
 end)
+
+-- Aura Index milestones: a one-time reward when you've found N different auras
+checkIndex = function(player)
+	local data = sessions[player]
+	if not data then
+		return
+	end
+	local found = player:GetAttribute("IndexCount") or 0
+	for _, milestone in ipairs(Config.Index.Milestones) do
+		if found >= milestone.Count and (data.IndexClaimed or 0) < milestone.Count then
+			data.IndexClaimed = milestone.Count
+			grantReward(player, data, milestone.Reward)
+			AnnounceRemote:FireClient(player, { Type = "IndexMilestone", Count = milestone.Count, Reward = milestone.Reward })
+		end
+	end
+end
 
 ---------------------------------------------------------------------
 -- LUCKY WHEEL + VIP CHEST (Lucky Isle)
@@ -1035,12 +1084,53 @@ task.spawn(function()
 	if not duelWin then
 		return
 	end
-	duelWin.Event:Connect(function(player)
+	duelWin.Event:Connect(function(player, loser)
 		local data = sessions[player]
 		if data then
 			data.DuelWins = (data.DuelWins or 0) + 1
 			refreshStats(player)
 		end
+		-- DUEL STAKES: the winner takes 1 copy of the loser's best aura
+		local loserData = loser and sessions[loser]
+		if not (Config.DuelStakes.Enabled and data and loserData) then
+			return
+		end
+		local bestName, bestChance = nil, 0
+		for name, count in pairs(loserData.Inventory) do
+			local aura = AuraData.Get(name)
+			if aura and count > 0 and aura.Chance > bestChance then
+				bestName, bestChance = name, aura.Chance
+			end
+		end
+		if not bestName then
+			return
+		end
+		loserData.Inventory[bestName] -= 1
+		if loserData.Inventory[bestName] <= 0 then
+			loserData.Inventory[bestName] = nil
+			if loserData.Equipped == bestName then
+				loserData.Equipped = ""
+			end
+		end
+		data.Inventory[bestName] = (data.Inventory[bestName] or 0) + 1
+		if bestChance > data.BestChance then
+			data.BestChance = bestChance
+		end
+		for _, who in ipairs({ player, loser }) do
+			applyAuraToCharacter(who)
+			refreshStats(who)
+			DataUpdatedRemote:FireClient(who, snapshot(sessions[who]))
+			task.spawn(saveData, who)
+		end
+		checkIndex(player)
+		AnnounceRemote:FireAllClients({
+			Type = "DuelSteal",
+			Winner = player.DisplayName,
+			WinnerId = player.UserId,
+			Loser = loser.DisplayName,
+			LoserId = loser.UserId,
+			Aura = bestName,
+		})
 	end)
 end)
 

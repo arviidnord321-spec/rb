@@ -1635,6 +1635,42 @@ Config.LuckyWheel = {
 -- VIP CHEST in the Sanctum: VIP pass owners can open it once a day
 Config.VipChest = { BoostRolls = 2, Potion = 15, Aura = "Pulsar", Count = 2 }
 
+-- DUEL STAKES: in player-vs-player duels the winner takes 1 copy of the
+-- loser's best (rarest) aura. Bot fights never cost anything.
+Config.DuelStakes = { Enabled = true }
+
+-- AURA INDEX: every different aura you've ever found gives permanent luck,
+-- and reaching these counts gives a one-time reward.
+Config.Index = {
+	LuckPerAura = 0.03, -- +3% luck for each different aura found
+	Milestones = {
+		{ Count = 5, Reward = { BoostRolls = 1, Potion = 10 } },
+		{ Count = 10, Reward = { BoostRolls = 2, Potion = 15 } },
+		{ Count = 15, Reward = { BoostRolls = 3, Aura = "Solar Flare", Count = 1 } },
+		{ Count = 20, Reward = { BoostRolls = 5, Potion = 30 } },
+		{ Count = 25, Reward = { BoostRolls = 10, Aura = "Black Hole", Count = 1 } },
+	},
+}
+
+-- COSMIC EVENTS: every few minutes a server-wide event starts for a while.
+-- Luck = extra luck for everyone, RollSpeed = roll cooldown multiplier.
+Config.Events = {
+	EveryMinutes = 20,
+	DurationMinutes = 5,
+	List = {
+		{ Key = "MeteorShower", Name = "☄️ Meteor Shower", Luck = 2, Color = Color3.fromRGB(255, 140, 60), Weight = 30,
+			Description = "x2 luck for everyone while meteors rain down!" },
+		{ Key = "StarSurge", Name = "⭐ Star Surge", Luck = 1.5, RollSpeed = 0.6, Color = Color3.fromRGB(255, 230, 120), Weight = 25,
+			Description = "x1.5 luck and everyone rolls 40% faster!" },
+		{ Key = "AuroraNight", Name = "🌌 Aurora Night", Luck = 2.5, Color = Color3.fromRGB(110, 255, 190), Weight = 20,
+			Description = "x2.5 luck under a glowing aurora sky!" },
+		{ Key = "Eclipse", Name = "🌑 Cosmic Eclipse", Luck = 3, Color = Color3.fromRGB(255, 120, 60), Weight = 15,
+			Description = "The sky goes dark... x3 luck for everyone!" },
+		{ Key = "RainbowRift", Name = "🌈 Rainbow Rift", Luck = 5, Color = Color3.fromRGB(255, 120, 230), Weight = 10,
+			Description = "The rarest event: x5 luck for everyone!" },
+	},
+}
+
 -- TRADING: swap auras and pets with other players.
 -- At least ONE of the two players needs the VIP pass.
 Config.Trading = {
@@ -1895,10 +1931,18 @@ function Luck.GetBonuses(player)
 		table.insert(bonuses, { Name = "Cosmic Roll", Multiplier = Config.Drop.BoostMultiplier, Show = true, NextRoll = true })
 	end
 
-	-- Reserved for events in a later part
+	
+	-- Cosmic Events (EventService sets these for the whole server)
 	local eventLuck = ReplicatedStorage:GetAttribute("EventLuck")
-	if eventLuck and eventLuck > 1 then
-		table.insert(bonuses, { Name = "Event", Multiplier = eventLuck })
+	local eventEnds = ReplicatedStorage:GetAttribute("EventEnds") or 0
+	if eventLuck and eventLuck > 1 and eventEnds > now then
+		table.insert(bonuses, { Name = "Event", Multiplier = eventLuck, EndsAt = eventEnds })
+	end
+
+	-- Aura Index: +3% for every different aura you've found
+	local found = player:GetAttribute("IndexCount") or 0
+	if found > 0 then
+		table.insert(bonuses, { Name = "Index", Icon = "📖", Multiplier = 1 + found * Config.Index.LuckPerAura, Show = true })
 	end
 
 	return bonuses
@@ -4151,7 +4195,7 @@ endDuel = function(duel, winner, reason)
 			end
 		end
 		if winner.Player and loser.Kind == "Player" then
-			DuelWinEvent:Fire(winner.Player)
+			DuelWinEvent:Fire(winner.Player, loser.Player)
 			AnnounceRemote:FireAllClients({
 				Type = "Duel",
 				Winner = winner.Name,
@@ -5070,6 +5114,101 @@ end)
     </Item>
     <Item class="Script" referent="15">
       <Properties>
+        <string name="Name">EventService</string>
+        <token name="RunContext">0</token>
+        <string name="Source"><![CDATA[-- EventService (Script in ServerScriptService)
+-- COSMIC EVENTS: every 20 minutes (Config.Events) a random server-wide event
+-- starts for 5 minutes: Meteor Shower, Star Surge, Aurora Night, Cosmic
+-- Eclipse or the rare Rainbow Rift. Each gives everyone extra luck (and Star
+-- Surge makes rolling faster). The EventClient script shows the banner,
+-- the timer and the sky effects.
+--
+-- Shared through ReplicatedStorage attributes:
+--   EventKey, EventName, EventLuck, EventRollSpeed, EventEnds, EventNextAt
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
+
+local EVENTS = Config.Events
+local rand = Random.new()
+
+local remotes = ReplicatedStorage:WaitForChild("CosmicRemotes")
+local AnnounceRemote = remotes:WaitForChild("Announce", 30)
+
+local function now()
+	return workspace:GetServerTimeNow()
+end
+
+local function pickEvent(lastKey)
+	local total = 0
+	for _, event in ipairs(EVENTS.List) do
+		if event.Key ~= lastKey then
+			total += event.Weight
+		end
+	end
+	local value = rand:NextNumber() * total
+	for _, event in ipairs(EVENTS.List) do
+		if event.Key ~= lastKey then
+			value -= event.Weight
+			if value <= 0 then
+				return event
+			end
+		end
+	end
+	return EVENTS.List[1]
+end
+
+local function clearEvent()
+	ReplicatedStorage:SetAttribute("EventKey", "")
+	ReplicatedStorage:SetAttribute("EventName", "")
+	ReplicatedStorage:SetAttribute("EventLuck", 1)
+	ReplicatedStorage:SetAttribute("EventRollSpeed", 1)
+	ReplicatedStorage:SetAttribute("EventEnds", 0)
+end
+
+local function startEvent(event)
+	local ends = now() + EVENTS.DurationMinutes * 60
+	ReplicatedStorage:SetAttribute("EventKey", event.Key)
+	ReplicatedStorage:SetAttribute("EventName", event.Name)
+	ReplicatedStorage:SetAttribute("EventLuck", event.Luck or 1)
+	ReplicatedStorage:SetAttribute("EventRollSpeed", event.RollSpeed or 1)
+	ReplicatedStorage:SetAttribute("EventEnds", ends)
+	if AnnounceRemote then
+		AnnounceRemote:FireAllClients({ Type = "EventStart", Key = event.Key, Name = event.Name, Description = event.Description })
+	end
+end
+
+clearEvent()
+-- the first event comes a bit sooner than the rest
+ReplicatedStorage:SetAttribute("EventNextAt", now() + math.min(8, EVENTS.EveryMinutes) * 60)
+
+task.spawn(function()
+	local lastKey
+	while true do
+		task.wait(1)
+		local t = now()
+		local ends = ReplicatedStorage:GetAttribute("EventEnds") or 0
+		if ends > 0 and t >= ends then
+			clearEvent()
+			if AnnounceRemote then
+				AnnounceRemote:FireAllClients({ Type = "EventEnd" })
+			end
+		end
+		local nextAt = ReplicatedStorage:GetAttribute("EventNextAt") or t
+		if t >= nextAt and (ReplicatedStorage:GetAttribute("EventEnds") or 0) == 0 then
+			local event = pickEvent(lastKey)
+			lastKey = event.Key
+			startEvent(event)
+			ReplicatedStorage:SetAttribute("EventNextAt", t + EVENTS.EveryMinutes * 60)
+		end
+	end
+end)
+]]></string>
+      </Properties>
+    </Item>
+    <Item class="Script" referent="16">
+      <Properties>
         <string name="Name">Leaderboard</string>
         <token name="RunContext">0</token>
         <string name="Source"><![CDATA[-- Leaderboard (Script in ServerScriptService)
@@ -5222,7 +5361,7 @@ end
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="16">
+    <Item class="Script" referent="17">
       <Properties>
         <string name="Name">LuckyIsland</string>
         <token name="RunContext">0</token>
@@ -6221,7 +6360,7 @@ end)
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="17">
+    <Item class="Script" referent="18">
       <Properties>
         <string name="Name">Movement</string>
         <token name="RunContext">0</token>
@@ -6291,7 +6430,7 @@ end
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="18">
+    <Item class="Script" referent="19">
       <Properties>
         <string name="Name">Parkour</string>
         <token name="RunContext">0</token>
@@ -7328,7 +7467,7 @@ end)
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="19">
+    <Item class="Script" referent="20">
       <Properties>
         <string name="Name">PetWorld</string>
         <token name="RunContext">0</token>
@@ -7562,7 +7701,7 @@ root.Parent = workspace
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="20">
+    <Item class="Script" referent="21">
       <Properties>
         <string name="Name">RebirthIslands</string>
         <token name="RunContext">0</token>
@@ -8956,7 +9095,7 @@ end)
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="21">
+    <Item class="Script" referent="22">
       <Properties>
         <string name="Name">RollService</string>
         <token name="RunContext">0</token>
@@ -9056,6 +9195,8 @@ local function newData()
 		Daily = { Streak = 0, LastClaimDay = -1 }, -- daily login reward
 		Quests = { Day = -1, List = {}, Bonus = false }, -- today's quests
 		Settings = { Music = 1, Sfx = 1, Muted = false }, -- sound sliders
+		Discovered = {}, -- [auraName] = true for every aura you've ever had (Aura Index)
+		IndexClaimed = 0, -- highest Index milestone already rewarded
 		WheelNext = 0, -- when the next free Lucky Wheel spin is ready (os.time)
 		VipChestDay = -1, -- last day the VIP chest was opened
 		Receipts = {}, -- recent purchase IDs, so nothing is granted twice
@@ -9161,6 +9302,7 @@ local function snapshot(data)
 		Pets = data.Pets,
 		EquippedPets = data.EquippedPets,
 		Settings = data.Settings,
+		Discovered = data.Discovered,
 	}
 end
 
@@ -9184,6 +9326,29 @@ local function refreshStats(player)
 		stats.Wins.Value = data.DuelWins or 0
 		stats.Rebirths.Value = data.Rebirths or 0
 	end
+	-- Aura Index: remember every aura you've ever owned
+	data.Discovered = data.Discovered or {}
+	local found = 0
+	for name, count in pairs(data.Inventory) do
+		if count > 0 and AuraData.Get(name) then
+			data.Discovered[name] = true
+		end
+	end
+	for name in pairs(data.Discovered) do
+		if AuraData.Get(name) then
+			found += 1
+		end
+	end
+	player:SetAttribute("IndexCount", found)
+	-- your rarest aura (what you'd lose in a player duel)
+	local bestName, bestChance = "", 0
+	for name, count in pairs(data.Inventory) do
+		local aura = AuraData.Get(name)
+		if aura and count > 0 and aura.Chance > bestChance then
+			bestName, bestChance = name, aura.Chance
+		end
+	end
+	player:SetAttribute("BestAura", bestName)
 	player:SetAttribute("Rolls", data.Rolls)
 	player:SetAttribute("Rebirths", data.Rebirths or 0)
 	player:SetAttribute("RebirthRolls", data.RebirthRolls or 0)
@@ -9207,6 +9372,7 @@ end
 
 -- quests are filled in further down (rolling, hatching... report progress)
 local addQuestProgress = function(_player, _kind, _amount, _extra) end
+local checkIndex = function(_player) end -- Aura Index milestones (filled in below)
 
 ---------------------------------------------------------------------
 -- Rolling
@@ -9222,6 +9388,11 @@ RollRemote.OnServerInvoke = function(player)
 
 	local cooldown = hasPass(player, "QuickRoll") and Config.QuickRollCooldown or Config.RollCooldown
 	cooldown *= Rebirth.CooldownScale(data.Rebirths or 0)
+	-- Star Surge event: everyone rolls faster
+	local eventEnds = ReplicatedStorage:GetAttribute("EventEnds") or 0
+	if eventEnds > Luck.Now() then
+		cooldown *= ReplicatedStorage:GetAttribute("EventRollSpeed") or 1
+	end
 	local now = os.clock()
 	-- small grace window for network jitter
 	if now - (lastRollTime[player] or 0) < cooldown - 0.1 then
@@ -9273,7 +9444,8 @@ RollRemote.OnServerInvoke = function(player)
 	end
 	refreshStats(player)
 
-	-- quest progress
+	-- quest progress + Aura Index milestones
+	checkIndex(player)
 	addQuestProgress(player, "Rolls", 1)
 	if player:GetAttribute("OnLuckyIsland") or player:GetAttribute("OnRebirthIsland") then
 		addQuestProgress(player, "LuckyRolls", 1)
@@ -9576,6 +9748,22 @@ task.spawn(function()
 		end
 	end
 end)
+
+-- Aura Index milestones: a one-time reward when you've found N different auras
+checkIndex = function(player)
+	local data = sessions[player]
+	if not data then
+		return
+	end
+	local found = player:GetAttribute("IndexCount") or 0
+	for _, milestone in ipairs(Config.Index.Milestones) do
+		if found >= milestone.Count and (data.IndexClaimed or 0) < milestone.Count then
+			data.IndexClaimed = milestone.Count
+			grantReward(player, data, milestone.Reward)
+			AnnounceRemote:FireClient(player, { Type = "IndexMilestone", Count = milestone.Count, Reward = milestone.Reward })
+		end
+	end
+end
 
 ---------------------------------------------------------------------
 -- LUCKY WHEEL + VIP CHEST (Lucky Isle)
@@ -9997,12 +10185,53 @@ task.spawn(function()
 	if not duelWin then
 		return
 	end
-	duelWin.Event:Connect(function(player)
+	duelWin.Event:Connect(function(player, loser)
 		local data = sessions[player]
 		if data then
 			data.DuelWins = (data.DuelWins or 0) + 1
 			refreshStats(player)
 		end
+		-- DUEL STAKES: the winner takes 1 copy of the loser's best aura
+		local loserData = loser and sessions[loser]
+		if not (Config.DuelStakes.Enabled and data and loserData) then
+			return
+		end
+		local bestName, bestChance = nil, 0
+		for name, count in pairs(loserData.Inventory) do
+			local aura = AuraData.Get(name)
+			if aura and count > 0 and aura.Chance > bestChance then
+				bestName, bestChance = name, aura.Chance
+			end
+		end
+		if not bestName then
+			return
+		end
+		loserData.Inventory[bestName] -= 1
+		if loserData.Inventory[bestName] <= 0 then
+			loserData.Inventory[bestName] = nil
+			if loserData.Equipped == bestName then
+				loserData.Equipped = ""
+			end
+		end
+		data.Inventory[bestName] = (data.Inventory[bestName] or 0) + 1
+		if bestChance > data.BestChance then
+			data.BestChance = bestChance
+		end
+		for _, who in ipairs({ player, loser }) do
+			applyAuraToCharacter(who)
+			refreshStats(who)
+			DataUpdatedRemote:FireClient(who, snapshot(sessions[who]))
+			task.spawn(saveData, who)
+		end
+		checkIndex(player)
+		AnnounceRemote:FireAllClients({
+			Type = "DuelSteal",
+			Winner = player.DisplayName,
+			WinnerId = player.UserId,
+			Loser = loser.DisplayName,
+			LoserId = loser.UserId,
+			Aura = bestName,
+		})
 	end)
 end)
 
@@ -10117,7 +10346,7 @@ end)
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="22">
+    <Item class="Script" referent="23">
       <Properties>
         <string name="Name">SkyDecor</string>
         <token name="RunContext">0</token>
@@ -10168,13 +10397,33 @@ local function part(props)
 	return p
 end
 
-local function addLight(target, color3, range, brightness)
-	local light = Instance.new("PointLight")
-	light.Color = color3
-	light.Range = range
-	light.Brightness = brightness
-	light.Shadows = false
-	light.Parent = target
+-- Sky scenery floats far from anything it could light up, so real lights
+-- would only cost frame rate. Neon + bloom already makes it glow, so big
+-- glowing things get a cheap "glow sprite" (a camera-facing Beam) instead.
+local GLOW_TEXTURE = Config.Textures.Glow
+local function addLight(target, color3, range, _brightness)
+	if not target or range < 18 then
+		return
+	end
+	local a0 = Instance.new("Attachment")
+	a0.Position = Vector3.new(0, -0.05, 0)
+	a0.Parent = target
+	local a1 = Instance.new("Attachment")
+	a1.Position = Vector3.new(0, 0.05, 0)
+	a1.Parent = target
+	local beam = Instance.new("Beam")
+	beam.Attachment0 = a0
+	beam.Attachment1 = a1
+	beam.Texture = GLOW_TEXTURE
+	beam.Width0 = range * 0.5
+	beam.Width1 = range * 0.5
+	beam.FaceCamera = true
+	beam.LightEmission = 1
+	beam.LightInfluence = 0
+	beam.Transparency = NumberSequence.new(0.55)
+	beam.Color = ColorSequence.new(color3)
+	beam.Segments = 1
+	beam.Parent = target
 end
 
 local function sparkles(target, color3, rate, size, speed)
@@ -11075,7 +11324,7 @@ decorate("MainSky", MAIN, {
 		Glow = Color3.fromRGB(120, 230, 255), Fall = Color3.fromRGB(170, 140, 255),
 		Trunk = Color3.fromRGB(70, 50, 90), Leaves = Color3.fromRGB(255, 120, 220),
 	},
-	Creatures = { { "Whale", 3 }, { "Manta", 5 }, { "Jelly", 10 }, { "School", 7 }, { "Turtle", 2 }, { "Koi", 5 }, { "Star", 12 }, { "Serpent", 1 }, { "Butterflies", 5 }, { "Angler", 2 } },
+	Creatures = { { "Whale", 2 }, { "Manta", 4 }, { "Jelly", 7 }, { "School", 5 }, { "Turtle", 2 }, { "Koi", 4 }, { "Star", 8 }, { "Serpent", 1 }, { "Butterflies", 3 }, { "Angler", 2 } },
 	CreatureColors = {
 		palette(Color3.fromRGB(60, 70, 150), Color3.fromRGB(150, 190, 255), Color3.fromRGB(120, 230, 255)),
 		palette(Color3.fromRGB(120, 60, 160), Color3.fromRGB(240, 170, 255), Color3.fromRGB(255, 120, 220)),
@@ -11101,7 +11350,7 @@ decorate("LuckySky", LUCKY.Center, {
 		Glow = Color3.fromRGB(255, 200, 70), Fall = Color3.fromRGB(255, 180, 210),
 		Trunk = Color3.fromRGB(120, 80, 60), Leaves = Color3.fromRGB(255, 150, 200),
 	},
-	Creatures = { { "Koi", 7 }, { "Manta", 3 }, { "Jelly", 6 }, { "School", 4 }, { "Turtle", 1 }, { "Star", 10 }, { "Butterflies", 6 } },
+	Creatures = { { "Koi", 5 }, { "Manta", 2 }, { "Jelly", 5 }, { "School", 3 }, { "Turtle", 1 }, { "Star", 6 }, { "Butterflies", 4 } },
 	CreatureColors = {
 		palette(Color3.fromRGB(255, 120, 60), Color3.fromRGB(255, 245, 235), Color3.fromRGB(255, 200, 80)),
 		palette(Color3.fromRGB(255, 150, 200), Color3.fromRGB(255, 235, 245), Color3.fromRGB(255, 120, 190)),
@@ -11129,7 +11378,7 @@ local islandThemes = {
 			Glow = Color3.fromRGB(140, 230, 255), Fall = Color3.fromRGB(200, 240, 255),
 			Trunk = Color3.fromRGB(90, 60, 45), Leaves = Color3.fromRGB(70, 140, 120), LeavesMaterial = Enum.Material.Grass,
 		},
-		Creatures = { { "Whale", 2 }, { "Jelly", 8 }, { "Manta", 3 }, { "School", 5 }, { "Turtle", 1 }, { "Star", 10 }, { "Angler", 1 } },
+		Creatures = { { "Whale", 1 }, { "Jelly", 6 }, { "Manta", 3 }, { "School", 4 }, { "Turtle", 1 }, { "Star", 6 }, { "Angler", 1 } },
 		CreatureColors = {
 			palette(Color3.fromRGB(200, 230, 255), Color3.fromRGB(255, 255, 255), Color3.fromRGB(120, 230, 255)),
 			palette(Color3.fromRGB(110, 200, 255), Color3.fromRGB(230, 250, 255), Color3.fromRGB(90, 255, 190)),
@@ -11151,7 +11400,7 @@ local islandThemes = {
 			Glow = Color3.fromRGB(255, 120, 40), Fall = Color3.fromRGB(255, 110, 30),
 			Trunk = Color3.fromRGB(35, 25, 22), Leaves = Color3.fromRGB(255, 120, 40),
 		},
-		Creatures = { { "Serpent", 2 }, { "Manta", 4 }, { "School", 6 }, { "Koi", 3 }, { "Star", 10 }, { "Angler", 2 }, { "Butterflies", 3 } },
+		Creatures = { { "Serpent", 1 }, { "Manta", 3 }, { "School", 4 }, { "Koi", 3 }, { "Star", 6 }, { "Angler", 2 }, { "Butterflies", 2 } },
 		CreatureColors = {
 			palette(Color3.fromRGB(120, 30, 20), Color3.fromRGB(255, 150, 60), Color3.fromRGB(255, 200, 70)),
 			palette(Color3.fromRGB(40, 25, 25), Color3.fromRGB(200, 60, 30), Color3.fromRGB(255, 110, 30)),
@@ -11172,7 +11421,7 @@ local islandThemes = {
 			Glow = Color3.fromRGB(60, 230, 255), Fall = Color3.fromRGB(255, 70, 220),
 			Trunk = Color3.fromRGB(40, 25, 70), Leaves = Color3.fromRGB(255, 70, 220),
 		},
-		Creatures = { { "Whale", 2 }, { "Jelly", 8 }, { "Manta", 4 }, { "School", 5 }, { "Serpent", 1 }, { "Star", 12 }, { "Butterflies", 4 }, { "Angler", 1 } },
+		Creatures = { { "Whale", 1 }, { "Jelly", 6 }, { "Manta", 3 }, { "School", 4 }, { "Serpent", 1 }, { "Star", 7 }, { "Butterflies", 3 }, { "Angler", 1 } },
 		CreatureColors = {
 			palette(Color3.fromRGB(30, 20, 60), Color3.fromRGB(60, 230, 255), Color3.fromRGB(255, 70, 220)),
 			palette(Color3.fromRGB(60, 20, 80), Color3.fromRGB(255, 120, 240), Color3.fromRGB(60, 230, 255)),
@@ -11200,7 +11449,7 @@ root.Parent = workspace
 ]]></string>
       </Properties>
     </Item>
-    <Item class="ModuleScript" referent="23">
+    <Item class="ModuleScript" referent="24">
       <Properties>
         <string name="Name">TradeService</string>
         <string name="Source"><![CDATA[-- TradeService (ModuleScript in ServerScriptService)
@@ -11528,7 +11777,7 @@ end
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="24">
+    <Item class="Script" referent="25">
       <Properties>
         <string name="Name">WorldDetails</string>
         <token name="RunContext">0</token>
@@ -11585,6 +11834,31 @@ local function emitter(parent, props)
 	e.LightInfluence = 0
 	e.Parent = parent
 	return e
+end
+
+-- a cheap glow: a tiny camera-facing Beam with a soft round texture
+-- (looks like a light halo, costs almost nothing compared to a PointLight)
+local function glowSprite(target, color3, size)
+	local a0 = Instance.new("Attachment")
+	a0.Position = Vector3.new(0, -0.02, 0)
+	a0.Parent = target
+	local a1 = Instance.new("Attachment")
+	a1.Position = Vector3.new(0, 0.02, 0)
+	a1.Parent = target
+	local beam = Instance.new("Beam")
+	beam.Attachment0 = a0
+	beam.Attachment1 = a1
+	beam.Texture = Config.Textures.Glow
+	beam.Width0 = size
+	beam.Width1 = size
+	beam.FaceCamera = true
+	beam.LightEmission = 1
+	beam.LightInfluence = 0
+	beam.Transparency = NumberSequence.new(0.45)
+	beam.Color = ColorSequence.new(color3)
+	beam.Segments = 1
+	beam.Parent = target
+	return beam
 end
 
 local function fadeSeq(peak)
@@ -11650,13 +11924,36 @@ local function flower(model, position, theme)
 		Material = Enum.Material.Neon,
 		Parent = model,
 	})
-	if rand:NextNumber() < 0.25 then
-		local light = Instance.new("PointLight")
-		light.Color = petal
-		light.Range = 7
-		light.Brightness = 0.8
-		light.Shadows = false
-		light.Parent = center
+	-- a soft glow sprite instead of a real light (much cheaper)
+	if rand:NextNumber() < 0.35 then
+		glowSprite(center, petal, 2.6)
+	end
+end
+
+-- small stones and moss: plain parts (no glow, no light) = lots of detail for free
+local function pebbles(model, position, theme)
+	for _ = 1, rand:NextInteger(2, 5) do
+		local size = rand:NextNumber(0.4, 1.3)
+		part({
+			Name = "Pebble",
+			Size = Vector3.new(size * rand:NextNumber(1, 1.6), size * 0.6, size),
+			CFrame = CFrame.new(position + Vector3.new(rand:NextNumber(-1.6, 1.6), size * 0.2, rand:NextNumber(-1.6, 1.6)))
+				* CFrame.Angles(rand:NextNumber(-0.3, 0.3), rand:NextNumber(0, 6), rand:NextNumber(-0.3, 0.3)),
+			Color = pick(theme.Patches):Lerp(Color3.new(0, 0, 0), rand:NextNumber(0, 0.25)),
+			Material = theme.PebbleMaterial or Enum.Material.Slate,
+			Parent = model,
+		})
+	end
+	if theme.Moss and rand:NextNumber() < 0.5 then
+		part({
+			Name = "Moss",
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new(0.1, rand:NextNumber(2, 4), rand:NextNumber(2, 4)),
+			CFrame = CFrame.new(position + Vector3.new(0, 0.05, 0)) * FLAT,
+			Color = theme.Moss,
+			Material = Enum.Material.Grass,
+			Parent = model,
+		})
 	end
 end
 
@@ -11753,12 +12050,7 @@ local function lightFall(model, center, radius, angleDeg, theme, groundY)
 		Texture = Config.Textures.Smoke, Rate = 6, Lifetime = NumberRange.new(2, 3), Speed = NumberRange.new(1, 2.5),
 		SpreadAngle = Vector2.new(60, 60), Size = fadeSeq(4), Transparency = NumberSequence.new(0.7), Color = ColorSequence.new(theme.Fall), LightEmission = 0.6,
 	})
-	local light = Instance.new("PointLight")
-	light.Color = theme.Fall
-	light.Range = 24
-	light.Brightness = 1.6
-	light.Shadows = false
-	light.Parent = mistAnchor
+	glowSprite(mistAnchor, theme.Fall, 14)
 end
 
 -- fireflies / motes drifting over the whole island
@@ -11818,6 +12110,12 @@ local function decorate(name, center, radius, groundY, theme, blocked, options)
 				flower(model, spot, theme)
 			end
 		end
+		for _ = 1, options.Pebbles or 0 do
+			local spot = randomSpot(10, radius - 4)
+			if spot then
+				pebbles(model, spot, theme)
+			end
+		end
 		for _ = 1, options.Constellations or 0 do
 			local spot = randomSpot(20, radius - 15)
 			if spot then
@@ -11850,7 +12148,7 @@ local MAIN_THEME = {
 	Petals = { rgb(255, 140, 220), rgb(140, 220, 255), rgb(200, 160, 255), rgb(255, 220, 140) },
 	Heart = rgb(255, 250, 220), Stem = rgb(60, 50, 95),
 	Patches = { rgb(70, 60, 100), rgb(56, 48, 82), rgb(66, 62, 108), rgb(74, 58, 96) },
-	GroundMaterial = Enum.Material.Slate, Rim = rgb(60, 50, 95),
+	GroundMaterial = Enum.Material.Slate, Rim = rgb(60, 50, 95), Moss = rgb(70, 110, 120),
 	Vines = { rgb(150, 110, 255), rgb(100, 220, 255), rgb(255, 120, 220) }, Bulb = rgb(255, 255, 255),
 	Fall = rgb(160, 200, 255), Motes = { rgb(170, 230, 255), rgb(255, 200, 255) },
 }
@@ -11885,7 +12183,7 @@ do
 		return nearPath(x, z) or (math.abs(x) < 8 and z > 40)
 	end
 	decorate("Main", Vector3.zero, R, 0, MAIN_THEME, blocked, {
-		Ground = true, Patches = 40, Grass = 170, Flowers = 70, Constellations = 6, Vines = 64,
+		Ground = true, Patches = 40, Grass = 100, Flowers = 45, Pebbles = 60, Constellations = 6, Vines = 44,
 		Falls = { 15, 135, 275, 345 },
 	})
 end
@@ -11899,7 +12197,7 @@ do
 		Fall = rgb(255, 210, 150), Motes = { rgb(255, 220, 140), rgb(255, 170, 215) },
 	}, function()
 		return true
-	end, { Ground = false, Vines = 48, Falls = { 60, 200, 320 } })
+	end, { Ground = false, Vines = 32, Falls = { 60, 200, 320 } })
 end
 
 -- REBIRTH ISLANDS
@@ -11907,21 +12205,21 @@ local REBIRTH_THEMES = {
 	Frostfall = {
 		Grass = { rgb(220, 245, 255), rgb(160, 225, 255), rgb(200, 255, 245) }, GrassMaterial = Enum.Material.Ice, GrassTransparency = 0.2,
 		Petals = { rgb(200, 240, 255), rgb(255, 255, 255), rgb(170, 200, 255) }, PetalTransparency = 0.2, Heart = rgb(140, 230, 255), Stem = rgb(120, 160, 200),
-		Patches = { rgb(225, 238, 252), rgb(210, 228, 248), rgb(240, 248, 255) }, GroundMaterial = Enum.Material.Snow, Rim = rgb(200, 225, 250),
+		Patches = { rgb(225, 238, 252), rgb(210, 228, 248), rgb(240, 248, 255) }, GroundMaterial = Enum.Material.Snow, Rim = rgb(200, 225, 250), PebbleMaterial = Enum.Material.Ice,
 		Vines = { rgb(190, 235, 255), rgb(150, 210, 255) }, VineMaterial = Enum.Material.Ice, VineTransparency = 0.25, Bulb = rgb(220, 250, 255),
 		Fall = rgb(170, 230, 255), Motes = { rgb(200, 240, 255), rgb(160, 255, 220) }, MoteSize = 0.35,
 	},
 	Ember = {
 		Grass = { rgb(255, 120, 40), rgb(255, 70, 30), rgb(255, 190, 70) }, GrassTransparency = 0.15,
 		Petals = { rgb(255, 110, 30), rgb(255, 60, 40), rgb(255, 200, 60) }, Heart = rgb(255, 245, 160), Stem = rgb(40, 28, 26),
-		Patches = { rgb(60, 44, 40), rgb(78, 56, 50), rgb(52, 36, 36) }, GroundMaterial = Enum.Material.Basalt, Rim = rgb(40, 30, 30),
+		Patches = { rgb(60, 44, 40), rgb(78, 56, 50), rgb(52, 36, 36) }, GroundMaterial = Enum.Material.Basalt, Rim = rgb(40, 30, 30), PebbleMaterial = Enum.Material.Basalt,
 		Vines = { rgb(255, 100, 30), rgb(255, 160, 50) }, Bulb = rgb(255, 230, 120),
 		Fall = rgb(255, 120, 40), Motes = { rgb(255, 170, 60), rgb(255, 80, 40) }, MoteSize = 0.3, MoteRate = 35,
 	},
 	Nexus = {
 		Grass = { rgb(60, 230, 255), rgb(255, 70, 220), rgb(140, 80, 255) },
 		Petals = { rgb(255, 80, 230), rgb(80, 240, 255), rgb(180, 120, 255) }, PetalTransparency = 0.3, Heart = rgb(255, 255, 255), Stem = rgb(40, 30, 70),
-		Patches = { rgb(26, 18, 46), rgb(14, 10, 28), rgb(30, 22, 56) }, GroundMaterial = Enum.Material.SmoothPlastic, Rim = rgb(30, 20, 55),
+		Patches = { rgb(26, 18, 46), rgb(14, 10, 28), rgb(30, 22, 56) }, GroundMaterial = Enum.Material.SmoothPlastic, Rim = rgb(30, 20, 55), PebbleMaterial = Enum.Material.Glass,
 		Vines = { rgb(60, 230, 255), rgb(255, 70, 220) }, Bulb = rgb(255, 255, 255),
 		Fall = rgb(80, 220, 255), Motes = { rgb(80, 240, 255), rgb(255, 100, 230) },
 		MoteTexture = "rbxasset://textures/particles/SquareParticle.png", MoteSize = 0.3,
@@ -11938,7 +12236,7 @@ for _, info in ipairs(Config.RebirthIslands) do
 				or (point - Vector3.new(hatchery.X, 0, hatchery.Z)).Magnitude < 20
 		end
 		decorate(info.Key, info.Center, info.Radius, info.Center.Y, theme, blocked, {
-			Ground = true, Patches = 26, Grass = 120, Flowers = 45, Vines = 56, Falls = { 0, 160, 200 },
+			Ground = true, Patches = 26, Grass = 70, Flowers = 30, Pebbles = 45, Vines = 36, Falls = { 0, 160, 200 },
 		})
 	end
 end
@@ -11947,7 +12245,7 @@ root.Parent = workspace
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="25">
+    <Item class="Script" referent="26">
       <Properties>
         <string name="Name">WorldSetup</string>
         <token name="RunContext">0</token>
@@ -12011,7 +12309,7 @@ Lighting.Ambient = Color3.fromRGB(70, 60, 110)
 Lighting.OutdoorAmbient = Color3.fromRGB(110, 95, 170)
 Lighting.EnvironmentDiffuseScale = 0.5
 Lighting.EnvironmentSpecularScale = 1 -- shiny glass, ice and gold reflect the sky
-Lighting.ExposureCompensation = 0.25
+Lighting.ExposureCompensation = 0.1
 Lighting.ShadowSoftness = 0.35
 
 local sky = Instance.new("Sky")
@@ -12033,9 +12331,9 @@ atmosphere.Parent = Lighting
 
 local bloom = Instance.new("BloomEffect")
 bloom.Name = "CosmicBloom"
-bloom.Intensity = 1.15
-bloom.Size = 32
-bloom.Threshold = 0.8
+bloom.Intensity = 0.8
+bloom.Size = 24
+bloom.Threshold = 0.9
 bloom.Parent = Lighting
 
 local color = Instance.new("ColorCorrectionEffect")
@@ -12045,20 +12343,7 @@ color.Contrast = 0.12
 color.TintColor = Color3.fromRGB(245, 240, 255)
 color.Parent = Lighting
 
--- soft god-rays from bright things and a gentle blur on far-away scenery
-local rays = Instance.new("SunRaysEffect")
-rays.Name = "CosmicRays"
-rays.Intensity = 0.05
-rays.Spread = 0.7
-rays.Parent = Lighting
-
-local depth = Instance.new("DepthOfFieldEffect")
-depth.Name = "CosmicDepth"
-depth.FarIntensity = 0.12
-depth.FocusDistance = 80
-depth.InFocusRadius = 120
-depth.NearIntensity = 0
-depth.Parent = Lighting
+-- (no sun rays or depth-of-field: they cost frame rate on phones)
 
 ---------------------------------------------------------------------
 -- REMOVE the template baseplate / spawn
@@ -12293,7 +12578,7 @@ local dustArea = part({
 })
 local dust = Instance.new("ParticleEmitter")
 dust.Texture = Config.Textures.Sparkle
-dust.Rate = 40
+dust.Rate = 30
 dust.Lifetime = NumberRange.new(5, 9)
 dust.Speed = NumberRange.new(0.2, 0.8)
 dust.SpreadAngle = Vector2.new(180, 180)
@@ -13248,16 +13533,16 @@ island.Parent = workspace
       </Properties>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="26">
+  <Item class="StarterPlayer" referent="27">
     <Properties>
       <string name="Name">StarterPlayer</string>
       <bool name="EnableMouseLockOption">false</bool>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="27">
+    <Item class="StarterPlayerScripts" referent="28">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="LocalScript" referent="28">
+      <Item class="LocalScript" referent="29">
         <Properties>
           <string name="Name">AuraRenderer</string>
           <string name="Source"><![CDATA[-- AuraRenderer (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -13769,7 +14054,7 @@ end
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="29">
+      <Item class="LocalScript" referent="30">
         <Properties>
           <string name="Name">DropClient</string>
           <string name="Source"><![CDATA[-- DropClient (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -13970,7 +14255,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="30">
+      <Item class="LocalScript" referent="31">
         <Properties>
           <string name="Name">DuelClient</string>
           <string name="Source"><![CDATA[-- DuelClient (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -14128,12 +14413,32 @@ local function refreshPanel()
 	end
 	myStatsLabel.Text = "You: " .. statsText(player:GetAttribute("EquippedAura")) .. "   (rarer aura = stronger!)"
 
+	-- the rules of player duels, right at the top
+	local stakes = Config.DuelStakes and Config.DuelStakes.Enabled
+	local rules = new("Frame", {
+		LayoutOrder = -1, Size = UDim2.new(1, 0, 0, stakes and 96 or 60), BackgroundColor3 = Color3.fromRGB(60, 20, 28), Parent = list,
+	}, { corner(UDim.new(0, 12)), stroke(RED, 1.5, 0.2) })
+	local myBest = player:GetAttribute("BestAura") or ""
+	label({
+		Position = UDim2.fromOffset(12, 6), Size = UDim2.new(1, -24, 1, -12), RichText = true, TextWrapped = true, TextSize = 14,
+		TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, Parent = rules,
+		Text = stakes and ("<b>⚠ PLAYER DUELS ARE FOR KEEPS!</b> The winner takes <b>1 copy of the loser's BEST aura</b>."
+			.. " Bot fights are just for practice - you never lose anything."
+			.. "\n<font color='#ffb4b4'>At stake for you: <b>%s</b></font>   •   Controls: click/F attack, Q power, hold G block, E dodge"):format(myBest ~= "" and myBest or "nothing yet")
+			or "Controls: click/F attack, Q power, hold G block, E dodge, Shift sprint",
+	})
+
 	sectionTitle(0, "✦ PLAYERS")
 	local order = 1
 	for _, other in ipairs(Players:GetPlayers()) do
 		if other ~= player then
 			local busy = other:GetAttribute("InDuel") == true
-			row(order, "🧑‍🚀", other.DisplayName, statsText(other:GetAttribute("EquippedAura")), nil,
+			local theirBest = other:GetAttribute("BestAura") or ""
+			local subtitle = statsText(other:GetAttribute("EquippedAura"))
+			if Config.DuelStakes and Config.DuelStakes.Enabled and theirBest ~= "" then
+				subtitle ..= ("  •  🏆 win: <b>%s</b>"):format(theirBest)
+			end
+			row(order, "🧑‍🚀", other.DisplayName, subtitle, nil,
 				busy and "IN DUEL" or "CHALLENGE", RED, not busy and not inDuel, function()
 					DuelRequest:FireServer({ Action = "Challenge", Target = other.UserId })
 				end)
@@ -14226,17 +14531,17 @@ end)
 local popup = new("Frame", {
 	AnchorPoint = Vector2.new(0.5, 0),
 	Position = UDim2.new(0.5, 0, 0, -200),
-	Size = UDim2.fromOffset(460, 150),
+	Size = UDim2.fromOffset(480, 184),
 	BackgroundColor3 = THEME.Panel,
 	Parent = gui,
 }, { corner(UDim.new(0, 18)), stroke(RED, 3, 0) })
 UIKit.addAutoScale(popup)
 local popupText = label({
-	Position = UDim2.fromOffset(16, 10), Size = UDim2.new(1, -32, 0, 60), Text = "", RichText = true,
+	Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -32, 0, 92), Text = "", RichText = true,
 	Font = TITLE_FONT, TextSize = 22, TextWrapped = true, Parent = popup,
 })
 local timeBar = new("Frame", {
-	Position = UDim2.new(0, 16, 0, 74), Size = UDim2.new(1, -32, 0, 6), BackgroundColor3 = RED, BorderSizePixel = 0, Parent = popup,
+	Position = UDim2.new(0, 16, 0, 104), Size = UDim2.new(1, -32, 0, 6), BackgroundColor3 = RED, BorderSizePixel = 0, Parent = popup,
 }, { corner(UDim.new(1, 0)) })
 local function popupButton(text, color, x)
 	local b = new("TextButton", {
@@ -14262,7 +14567,12 @@ local function showChallenge(info)
 	popupToken += 1
 	local token = popupToken
 	pendingFrom = info.FromUserId
-	popupText.Text = ("⚔ <b>%s</b> challenges you!\n<font size='16'>%s</font>"):format(info.FromName, statsText(info.FromAura))
+	local stakeLine = ""
+	if Config.DuelStakes and Config.DuelStakes.Enabled then
+		local mine = player:GetAttribute("BestAura") or ""
+		stakeLine = ("\n<font size='14' color='#ffb4b4'>⚠ Winner takes the loser's best aura! You risk: <b>%s</b></font>"):format(mine ~= "" and mine or "nothing")
+	end
+	popupText.Text = ("⚔ <b>%s</b> challenges you!\n<font size='16'>%s</font>%s"):format(info.FromName, statsText(info.FromAura), stakeLine)
 	popup.Position = UDim2.new(0.5, 0, 0, -200)
 	tween(popup, 0.45, { Position = UDim2.new(0.5, 0, 0, 80) }, Enum.EasingStyle.Back)
 	timeBar.Size = UDim2.new(1, -32, 0, 6)
@@ -15039,7 +15349,7 @@ end
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="31">
+      <Item class="LocalScript" referent="32">
         <Properties>
           <string name="Name">DuelFX</string>
           <string name="Source"><![CDATA[-- DuelFX (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -16237,7 +16547,222 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="32">
+      <Item class="LocalScript" referent="33">
+        <Properties>
+          <string name="Name">EventClient</string>
+          <string name="Source"><![CDATA[-- EventClient (LocalScript in StarterPlayer > StarterPlayerScripts)
+-- Cosmic Events on your screen:
+--   * a small timer (top-left, under the Cosmic Drop timer): the event
+--     that's on right now, or when the next one starts
+--   * the sky changes color for the event
+--   * Meteor Shower: meteors streak down around you
+--   * Star Surge: golden shooting stars everywhere
+--   * Rainbow Rift: the sky cycles through the rainbow
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local Lighting = game:GetService("Lighting")
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
+
+local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
+local SoundFX = require(ReplicatedStorage:WaitForChild("SoundFX"))
+local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+local THEME = UIKit.Theme
+local new, corner, stroke, label = UIKit.new, UIKit.corner, UIKit.stroke, UIKit.label
+local rand = Random.new()
+
+local EVENT_BY_KEY = {}
+for _, event in ipairs(Config.Events.List) do
+	EVENT_BY_KEY[event.Key] = event
+end
+
+-- sky colors for each event (A = haze, B = deep color)
+local SKY = {
+	MeteorShower = { Color3.fromRGB(255, 140, 70), Color3.fromRGB(120, 40, 30) },
+	StarSurge = { Color3.fromRGB(255, 225, 140), Color3.fromRGB(90, 80, 170) },
+	AuroraNight = { Color3.fromRGB(110, 255, 190), Color3.fromRGB(90, 40, 170) },
+	Eclipse = { Color3.fromRGB(60, 25, 40), Color3.fromRGB(255, 110, 40) },
+}
+
+local function now()
+	return workspace:GetServerTimeNow()
+end
+
+---------------------------------------------------------------------
+-- The timer pill
+---------------------------------------------------------------------
+local gui = UIKit.screen("CosmicEvents", 4)
+local pill = new("Frame", {
+	Position = UDim2.new(0, 16, 0, 194),
+	Size = UDim2.fromOffset(260, 34),
+	BackgroundColor3 = THEME.Panel,
+	BackgroundTransparency = 0.3,
+	Parent = gui,
+}, { corner(UDim.new(1, 0)) })
+local pillStroke = stroke(Color3.fromRGB(170, 140, 255), 1.5, 0.4)
+pillStroke.Parent = pill
+UIKit.addAutoScale(pill)
+local text = label({
+	Position = UDim2.fromOffset(12, 0), Size = UDim2.new(1, -20, 1, 0), Text = "", TextSize = 14, RichText = true,
+	TextXAlignment = Enum.TextXAlignment.Left, Parent = pill,
+})
+
+RunService.RenderStepped:Connect(function()
+	pill.Visible = not player:GetAttribute("InDuel")
+	local ends = ReplicatedStorage:GetAttribute("EventEnds") or 0
+	local t = now()
+	if ends > t then
+		local left = math.floor(ends - t)
+		local event = EVENT_BY_KEY[ReplicatedStorage:GetAttribute("EventKey") or ""]
+		local color = event and event.Color or THEME.Gold
+		pillStroke.Color = color
+		pillStroke.Transparency = 0.1
+		text.Text = ("<font color='#%s'><b>%s</b></font> x%s luck • %d:%02d"):format(
+			color:ToHex(), tostring(ReplicatedStorage:GetAttribute("EventName")), tostring(ReplicatedStorage:GetAttribute("EventLuck") or 1), left // 60, left % 60)
+	else
+		local left = math.max(0, math.floor((ReplicatedStorage:GetAttribute("EventNextAt") or t) - t))
+		pillStroke.Color = Color3.fromRGB(170, 140, 255)
+		pillStroke.Transparency = 0.4
+		text.Text = ("✨ Next cosmic event in <b>%d:%02d</b>"):format(left // 60, left % 60)
+	end
+end)
+
+---------------------------------------------------------------------
+-- Effects
+---------------------------------------------------------------------
+local fxFolder = Instance.new("Folder")
+fxFolder.Name = "EventFX"
+fxFolder.Parent = workspace
+
+local function streak(color3, size, speed, impact)
+	local eye = camera.CFrame.Position
+	local target = eye + Vector3.new(rand:NextNumber(-140, 140), -rand:NextNumber(10, 60), rand:NextNumber(-140, 140))
+	local direction = Vector3.new(rand:NextNumber(-0.6, 0.6), -1, rand:NextNumber(-0.6, 0.6)).Unit
+	local start = target - direction * rand:NextNumber(140, 220)
+	local rock = Instance.new("Part")
+	rock.Anchored = true
+	rock.CanCollide = false
+	rock.CanQuery = false
+	rock.CanTouch = false
+	rock.CastShadow = false
+	rock.Shape = Enum.PartType.Ball
+	rock.Material = Enum.Material.Neon
+	rock.Color = color3
+	rock.Size = Vector3.one * size
+	rock.CFrame = CFrame.new(start)
+	rock.Parent = fxFolder
+	local a0 = Instance.new("Attachment")
+	a0.Position = Vector3.new(0, size * 0.4, 0)
+	a0.Parent = rock
+	local a1 = Instance.new("Attachment")
+	a1.Position = Vector3.new(0, -size * 0.4, 0)
+	a1.Parent = rock
+	local trail = Instance.new("Trail")
+	trail.Attachment0 = a0
+	trail.Attachment1 = a1
+	trail.Lifetime = 0.5
+	trail.FaceCamera = true
+	trail.LightEmission = 1
+	trail.Color = ColorSequence.new(Color3.new(1, 1, 1), color3)
+	trail.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 1) })
+	trail.Parent = rock
+	local duration = (start - target).Magnitude / speed
+	TweenService:Create(rock, TweenInfo.new(duration, Enum.EasingStyle.Linear), { CFrame = CFrame.new(target) }):Play()
+	Debris:AddItem(rock, duration + 0.6)
+	if impact then
+		task.delay(duration, function()
+			if not rock.Parent then
+				return
+			end
+			rock.Transparency = 1
+			local burst = Instance.new("ParticleEmitter")
+			burst.Texture = Config.Textures.Spark
+			burst.Rate = 0
+			burst.Lifetime = NumberRange.new(0.4, 0.8)
+			burst.Speed = NumberRange.new(10, 22)
+			burst.SpreadAngle = Vector2.new(180, 180)
+			burst.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.6), NumberSequenceKeypoint.new(1, 0) })
+			burst.Color = ColorSequence.new(Color3.fromRGB(255, 220, 120), color3)
+			burst.LightEmission = 1
+			burst.Parent = rock
+			burst:Emit(20)
+		end)
+	end
+end
+
+local function applySky(key, remaining)
+	local colors = SKY[key]
+	if colors then
+		Lighting:SetAttribute("SkyShiftA", colors[1])
+		Lighting:SetAttribute("SkyShiftB", colors[2])
+		Lighting:SetAttribute("SkyShiftUntil", os.clock() + remaining)
+	end
+end
+
+-- keep the effects running while an event is on
+task.spawn(function()
+	local lastRainbow = 0
+	while true do
+		task.wait(0.3)
+		local ends = ReplicatedStorage:GetAttribute("EventEnds") or 0
+		local key = ReplicatedStorage:GetAttribute("EventKey") or ""
+		local remaining = ends - now()
+		if remaining > 0 then
+			if key == "MeteorShower" then
+				streak(Color3.fromRGB(255, 120, 40), rand:NextNumber(1.6, 3.2), 140, true)
+			elseif key == "StarSurge" then
+				for _ = 1, 2 do
+					streak(Color3.fromRGB(255, 230, 140), rand:NextNumber(0.5, 1), 260, false)
+				end
+			elseif key == "RainbowRift" and os.clock() - lastRainbow > 1.5 then
+				lastRainbow = os.clock()
+				local hue = (os.clock() * 0.08) % 1
+				Lighting:SetAttribute("SkyShiftA", Color3.fromHSV(hue, 0.55, 1))
+				Lighting:SetAttribute("SkyShiftB", Color3.fromHSV((hue + 0.4) % 1, 0.7, 0.6))
+				Lighting:SetAttribute("SkyShiftUntil", os.clock() + 2)
+				if rand:NextNumber() < 0.5 then
+					streak(Color3.fromHSV(rand:NextNumber(), 0.6, 1), 1, 220, false)
+				end
+			end
+		end
+	end
+end)
+
+-- start / end messages
+local remotes = ReplicatedStorage:WaitForChild("CosmicRemotes")
+local AnnounceRemote = remotes:WaitForChild("Announce")
+AnnounceRemote.OnClientEvent:Connect(function(info)
+	if type(info) ~= "table" then
+		return
+	end
+	if info.Type == "EventStart" then
+		local event = EVENT_BY_KEY[info.Key]
+		applySky(info.Key, Config.Events.DurationMinutes * 60)
+		SoundFX.Play("RevealLegendary", { Volume = 0.6 })
+		SoundFX.Chime(0.9, 5)
+		UIKit.burst({ event and event.Color or THEME.Gold, Color3.new(1, 1, 1) }, 40, 1.3, Vector2.new(0.5, 0.25))
+	elseif info.Type == "EventEnd" then
+		Lighting:SetAttribute("SkyShiftUntil", 0)
+		UIKit.toast("✨ The cosmic event is over", THEME.SubText)
+	end
+end)
+
+-- joined while an event is already on? paint the sky right away
+task.delay(3, function()
+	local remaining = (ReplicatedStorage:GetAttribute("EventEnds") or 0) - now()
+	if remaining > 0 then
+		applySky(ReplicatedStorage:GetAttribute("EventKey") or "", remaining)
+	end
+end)
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="LocalScript" referent="34">
         <Properties>
           <string name="Name">IslandFX</string>
           <string name="Source"><![CDATA[-- IslandFX (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -16471,7 +16996,7 @@ end
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="33">
+      <Item class="LocalScript" referent="35">
         <Properties>
           <string name="Name">LimitedOffer</string>
           <string name="Source"><![CDATA[-- LimitedOffer (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -16723,7 +17248,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="34">
+      <Item class="LocalScript" referent="36">
         <Properties>
           <string name="Name">NameplateStyler</string>
           <string name="Source"><![CDATA[-- NameplateStyler (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -16867,7 +17392,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="35">
+      <Item class="LocalScript" referent="37">
         <Properties>
           <string name="Name">ParkourClient</string>
           <string name="Source"><![CDATA[-- ParkourClient (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -17100,7 +17625,179 @@ end
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="36">
+      <Item class="LocalScript" referent="38">
+        <Properties>
+          <string name="Name">PerformanceTuner</string>
+          <string name="Source"><![CDATA[-- PerformanceTuner (LocalScript in StarterPlayer > StarterPlayerScripts)
+-- Keeps the game smooth, even on phones:
+--   * lights: only the nearest ones are switched on (a "light budget"),
+--     no light casts shadows, and all scenery lights are a bit dimmer
+--   * particles and trails far away from you are paused
+--   * how much it allows depends on your Roblox graphics quality setting
+-- Only map scenery is touched (never your character, duels or effects).
+
+local Players = game:GetService("Players")
+
+local camera = workspace.CurrentCamera
+local player = Players.LocalPlayer
+
+-- the map folders/models whose scenery we manage
+local ROOTS = {
+	"CosmicIsland", "CosmicSky", "LuckyIsland", "ParkourCourses", "RebirthIslands",
+	"PetHatcheries", "DuelIsland", "CosmicSkyDecor", "IslandDetails",
+}
+
+local LIGHT_DIM = 0.7 -- scenery lights are turned down to 70%
+
+-- budgets for low / medium / high graphics
+local PRESETS = {
+	Low = { Lights = 12, LightRange = 90, Particles = 120, Trails = 160, RateScale = 0.45 },
+	Medium = { Lights = 24, LightRange = 130, Particles = 190, Trails = 260, RateScale = 0.7 },
+	High = { Lights = 40, LightRange = 170, Particles = 260, Trails = 360, RateScale = 1 },
+}
+
+local function currentPreset()
+	local ok, level = pcall(function()
+		return UserSettings():GetService("UserGameSettings").SavedQualityLevel
+	end)
+	if not ok or level == Enum.SavedQualitySetting.Automatic then
+		return PRESETS.Medium
+	end
+	local number = tonumber(string.match(tostring(level), "%d+")) or 5
+	if number <= 3 then
+		return PRESETS.Low
+	elseif number <= 7 then
+		return PRESETS.Medium
+	end
+	return PRESETS.High
+end
+
+local lights = {} -- { Light, BaseBrightness }
+local emitters = {} -- { Emitter, BaseRate }
+local trails = {} -- { Trail }
+local known = {}
+
+local function positionOf(instance)
+	local parent = instance.Parent
+	if parent and parent:IsA("BasePart") then
+		return parent.Position
+	elseif parent and parent:IsA("Attachment") then
+		return parent.WorldPosition
+	end
+	return nil
+end
+
+local function register(item)
+	if known[item] then
+		return
+	end
+	if item:IsA("PointLight") or item:IsA("SpotLight") or item:IsA("SurfaceLight") then
+		known[item] = true
+		item.Shadows = false
+		item.Brightness *= LIGHT_DIM
+		table.insert(lights, { Light = item })
+	elseif item:IsA("ParticleEmitter") then
+		known[item] = true
+		table.insert(emitters, { Emitter = item, BaseRate = item.Rate })
+	elseif item:IsA("Trail") then
+		known[item] = true
+		table.insert(trails, { Trail = item })
+	elseif item:IsA("BasePart") then
+		-- scenery doesn't need to cast shadows (a big saving)
+		if item.Transparency > 0.2 or item.Material == Enum.Material.Neon or not item.CanCollide then
+			item.CastShadow = false
+		end
+	end
+end
+
+local function watchRoot(root)
+	for _, item in ipairs(root:GetDescendants()) do
+		register(item)
+	end
+	root.DescendantAdded:Connect(register)
+end
+
+for _, name in ipairs(ROOTS) do
+	task.spawn(function()
+		local root = workspace:WaitForChild(name, 60)
+		if root then
+			watchRoot(root)
+		end
+	end)
+end
+workspace.ChildAdded:Connect(function(child)
+	if table.find(ROOTS, child.Name) then
+		watchRoot(child)
+	end
+end)
+
+-- every half second: switch on the nearest lights, pause far particles
+task.spawn(function()
+	while true do
+		task.wait(0.5)
+		local preset = currentPreset()
+		local eye = camera.CFrame.Position
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		local center = root and root.Position or eye
+
+		-- lights: nearest first, up to the budget
+		local candidates = {}
+		for i = #lights, 1, -1 do
+			local entry = lights[i]
+			local light = entry.Light
+			if not light.Parent then
+				table.remove(lights, i)
+			else
+				local position = positionOf(light)
+				local distance = position and (position - center).Magnitude or math.huge
+				entry.Distance = distance
+				if distance < preset.LightRange then
+					table.insert(candidates, entry)
+				else
+					light.Enabled = false
+				end
+			end
+		end
+		table.sort(candidates, function(a, b)
+			return a.Distance < b.Distance
+		end)
+		for index, entry in ipairs(candidates) do
+			entry.Light.Enabled = index <= preset.Lights
+		end
+
+		-- particles: only near you, and fewer on low graphics
+		for i = #emitters, 1, -1 do
+			local entry = emitters[i]
+			local emitter = entry.Emitter
+			if not emitter.Parent then
+				table.remove(emitters, i)
+			else
+				local position = positionOf(emitter)
+				local near = position ~= nil and (position - eye).Magnitude < preset.Particles
+				emitter.Enabled = near
+				if near then
+					emitter.Rate = entry.BaseRate * preset.RateScale
+				end
+			end
+		end
+
+		-- trails (sky creatures)
+		for i = #trails, 1, -1 do
+			local trail = trails[i].Trail
+			if not trail.Parent then
+				table.remove(trails, i)
+			else
+				local position = positionOf(trail)
+				trail.Enabled = position ~= nil and (position - eye).Magnitude < preset.Trails
+			end
+		end
+	end
+end)
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="LocalScript" referent="39">
         <Properties>
           <string name="Name">PetClient</string>
           <string name="Source"><![CDATA[-- PetClient (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -18117,7 +18814,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="37">
+      <Item class="LocalScript" referent="40">
         <Properties>
           <string name="Name">QuestClient</string>
           <string name="Source"><![CDATA[-- QuestClient (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -18469,7 +19166,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="38">
+      <Item class="LocalScript" referent="41">
         <Properties>
           <string name="Name">RebirthClient</string>
           <string name="Source"><![CDATA[-- RebirthClient (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -19262,7 +19959,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="39">
+      <Item class="LocalScript" referent="42">
         <Properties>
           <string name="Name">RollUI</string>
           <string name="Source"><![CDATA[-- RollUI (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -19282,6 +19979,7 @@ local AuraData = require(ReplicatedStorage:WaitForChild("AuraData"))
 local Luck = require(ReplicatedStorage:WaitForChild("Luck"))
 local Rebirth = require(ReplicatedStorage:WaitForChild("Rebirth"))
 local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
+local QuestData = require(ReplicatedStorage:WaitForChild("QuestData"))
 local SoundFX = require(ReplicatedStorage:WaitForChild("SoundFX"))
 local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
 
@@ -19767,7 +20465,7 @@ end
 ---------------------------------------------------------------------
 -- LUCK LINE + STATS
 ---------------------------------------------------------------------
-local BONUS_ICONS = { ["2x Luck"] = "🍀", VIP = "👑", Potion = "🧪", Server = "🌌", Event = "☄️", ["Lucky Isle"] = "🏝", Parkour = "🏃", Rebirth = "⭐", Pets = "🐾", Forever = "♾", ["Cosmic Roll"] = "🎲" }
+local BONUS_ICONS = { ["2x Luck"] = "🍀", VIP = "👑", Potion = "🧪", Server = "🌌", Event = "☄️", ["Lucky Isle"] = "🏝", Parkour = "🏃", Rebirth = "⭐", Pets = "🐾", Forever = "♾", ["Cosmic Roll"] = "🎲", Index = "📖" }
 
 local function updateInfo()
 	local total = Luck.Get(player)
@@ -19992,6 +20690,9 @@ local function playRollAnimation(result, fast)
 	local steps = fast and 7 or 16
 	-- rebirths make rolling faster, the spin speeds up to match
 	local pace = Rebirth.CooldownScale(player:GetAttribute("Rebirths") or 0)
+	if (ReplicatedStorage:GetAttribute("EventEnds") or 0) > Luck.Now() then
+		pace *= ReplicatedStorage:GetAttribute("EventRollSpeed") or 1 -- Star Surge
+	end
 	local showLuck = math.max(result.Luck or 1, 1) * 40 -- show exciting names while spinning
 	for i = 1, steps do
 		local progress = i / steps
@@ -20412,8 +21113,18 @@ refreshInventory = function(animate)
 		end
 		buildCard(aura, count, #AuraData.List - index, animate)
 	end
-	discoveredLabel.Text = ("Discovered %d / %d auras  •  Rarer auras = stronger duel powers"):format(
-		discovered, #AuraData.List)
+	-- the Aura Index counts every aura you've EVER had (even if you traded it)
+	local indexCount = player:GetAttribute("IndexCount") or discovered
+	local nextGoal
+	for _, milestone in ipairs(Config.Index.Milestones) do
+		if indexCount < milestone.Count then
+			nextGoal = milestone.Count
+			break
+		end
+	end
+	discoveredLabel.Text = ("📖 Index %d / %d  •  +%d%% luck forever%s"):format(
+		indexCount, #AuraData.List, math.floor(indexCount * Config.Index.LuckPerAura * 100 + 0.5),
+		nextGoal and ("  •  reward at %d"):format(nextGoal) or "  •  all rewards claimed!")
 end
 
 setInventoryOpen = function(open)
@@ -20506,6 +21217,32 @@ AnnounceRemote.OnClientEvent:Connect(function(info)
 			showBanner(("🥚 <b>%s</b> hatched a <font color='#%s'><b>%s</b></font> pet (%s)!"):format(
 				info.PlayerName, color:ToHex(), pet.Name, pet.Rarity), color)
 		end
+		return
+	end
+	if info.Type == "EventStart" then
+		showBanner(("✨ COSMIC EVENT: <b>%s</b> - %s"):format(tostring(info.Name), tostring(info.Description)), THEME.Gold)
+		return
+	end
+	if info.Type == "EventEnd" then
+		return
+	end
+	if info.Type == "DuelSteal" then
+		local aura = AuraData.Get(info.Aura or "")
+		local hex = aura and tierOf(aura).Color:ToHex() or "ffffff"
+		showBanner(("⚔ <b>%s</b> beat <b>%s</b> and took their <font color='#%s'><b>%s</b></font>!"):format(
+			info.Winner, info.Loser, hex, tostring(info.Aura)), Color3.fromRGB(255, 90, 100), aura and AuraData.GetImage(aura.Name) or nil)
+		if info.WinnerId == player.UserId then
+			UIKit.toast(("⚔ You won their %s!"):format(tostring(info.Aura)), THEME.Gold)
+			SoundFX.Chime(1, 5)
+		elseif info.LoserId == player.UserId then
+			UIKit.toast(("💔 You lost your %s in the duel"):format(tostring(info.Aura)), THEME.Bad)
+		end
+		return
+	end
+	if info.Type == "IndexMilestone" then
+		UIKit.toast(("📖 Aura Index %d reached! Reward: %s"):format(info.Count, QuestData.RewardText(info.Reward)), THEME.Gold)
+		UIKit.confetti({ THEME.Gold, THEME.Accent, THEME.Accent2 }, 80)
+		SoundFX.Jingle("Victory")
 		return
 	end
 	if info.Type == "Wheel" then
@@ -20632,7 +21369,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="40">
+      <Item class="LocalScript" referent="43">
         <Properties>
           <string name="Name">SkyFX</string>
           <string name="Source"><![CDATA[-- SkyFX (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -20970,12 +21707,25 @@ end
 
 local t = 0
 local frame = 0
+local activeTwinklers = {}
 RunService.RenderStepped:Connect(function(dt)
 	t += dt
 	frame += 1
 
-	for _, s in ipairs(twinklers) do
-		s.Part.Transparency = math.clamp(s.Base + (math.sin(t * 2.3 + s.Phase * 3) + 1) * 0.3, 0, 0.95)
+	-- only twinkle what's near you (the list is refreshed every second)
+	if frame % 60 == 1 then
+		activeTwinklers = {}
+		local eye = camera.CFrame.Position
+		for _, s in ipairs(twinklers) do
+			if (s.Part.Position - eye).Magnitude < 500 then
+				table.insert(activeTwinklers, s)
+			end
+		end
+	end
+	if frame % 2 == 0 then
+		for _, s in ipairs(activeTwinklers) do
+			s.Part.Transparency = math.clamp(s.Base + (math.sin(t * 2.3 + s.Phase * 3) + 1) * 0.3, 0, 0.95)
+		end
 	end
 	for _, b in ipairs(breathers) do
 		local wave = math.sin(t * 0.9 + b.Phase)
@@ -20987,7 +21737,7 @@ RunService.RenderStepped:Connect(function(dt)
 	for index, c in ipairs(creatures) do
 		local distance = (camera.CFrame.Position - c.Center).Magnitude
 		-- close creatures every frame, further ones every 3rd frame (smooth + cheap)
-		if distance < 450 or (distance < 800 and (frame + index) % 3 == 0) then
+		if distance < 320 or (distance < 650 and (frame + index) % 4 == 0) then
 			moveCreature(c, t)
 		end
 	end
@@ -21009,7 +21759,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="41">
+      <Item class="LocalScript" referent="44">
         <Properties>
           <string name="Name">Sprint</string>
           <string name="Source"><![CDATA[-- Sprint (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -21251,7 +22001,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="42">
+      <Item class="LocalScript" referent="45">
         <Properties>
           <string name="Name">StoreUI</string>
           <string name="Source"><![CDATA[-- StoreUI (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -21790,7 +22540,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="43">
+      <Item class="LocalScript" referent="46">
         <Properties>
           <string name="Name">TradeClient</string>
           <string name="Source"><![CDATA[-- TradeClient (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -22315,7 +23065,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="44">
+      <Item class="LocalScript" referent="47">
         <Properties>
           <string name="Name">VipIslandClient</string>
           <string name="Source"><![CDATA[-- VipIslandClient (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -22565,7 +23315,7 @@ end
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="45">
+      <Item class="LocalScript" referent="48">
         <Properties>
           <string name="Name">WorldFX</string>
           <string name="Source"><![CDATA[-- WorldFX (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -22877,7 +23627,7 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="46">
+  <Item class="Workspace" referent="49">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>

@@ -622,7 +622,7 @@ endDuel = function(duel, winner, reason)
 			end
 		end
 		if winner.Player and loser.Kind == "Player" then
-			DuelWinEvent:Fire(winner.Player)
+			DuelWinEvent:Fire(winner.Player, loser.Player)
 			AnnounceRemote:FireAllClients({
 				Type = "Duel",
 				Winner = winner.Name,

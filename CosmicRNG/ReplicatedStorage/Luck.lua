@@ -83,10 +83,18 @@ function Luck.GetBonuses(player)
 		table.insert(bonuses, { Name = "Cosmic Roll", Multiplier = Config.Drop.BoostMultiplier, Show = true, NextRoll = true })
 	end
 
-	-- Reserved for events in a later part
+	
+	-- Cosmic Events (EventService sets these for the whole server)
 	local eventLuck = ReplicatedStorage:GetAttribute("EventLuck")
-	if eventLuck and eventLuck > 1 then
-		table.insert(bonuses, { Name = "Event", Multiplier = eventLuck })
+	local eventEnds = ReplicatedStorage:GetAttribute("EventEnds") or 0
+	if eventLuck and eventLuck > 1 and eventEnds > now then
+		table.insert(bonuses, { Name = "Event", Multiplier = eventLuck, EndsAt = eventEnds })
+	end
+
+	-- Aura Index: +3% for every different aura you've found
+	local found = player:GetAttribute("IndexCount") or 0
+	if found > 0 then
+		table.insert(bonuses, { Name = "Index", Icon = "📖", Multiplier = 1 + found * Config.Index.LuckPerAura, Show = true })
 	end
 
 	return bonuses

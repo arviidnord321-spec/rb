@@ -153,12 +153,32 @@ local function refreshPanel()
 	end
 	myStatsLabel.Text = "You: " .. statsText(player:GetAttribute("EquippedAura")) .. "   (rarer aura = stronger!)"
 
+	-- the rules of player duels, right at the top
+	local stakes = Config.DuelStakes and Config.DuelStakes.Enabled
+	local rules = new("Frame", {
+		LayoutOrder = -1, Size = UDim2.new(1, 0, 0, stakes and 96 or 60), BackgroundColor3 = Color3.fromRGB(60, 20, 28), Parent = list,
+	}, { corner(UDim.new(0, 12)), stroke(RED, 1.5, 0.2) })
+	local myBest = player:GetAttribute("BestAura") or ""
+	label({
+		Position = UDim2.fromOffset(12, 6), Size = UDim2.new(1, -24, 1, -12), RichText = true, TextWrapped = true, TextSize = 14,
+		TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, Parent = rules,
+		Text = stakes and ("<b>⚠ PLAYER DUELS ARE FOR KEEPS!</b> The winner takes <b>1 copy of the loser's BEST aura</b>."
+			.. " Bot fights are just for practice - you never lose anything."
+			.. "\n<font color='#ffb4b4'>At stake for you: <b>%s</b></font>   •   Controls: click/F attack, Q power, hold G block, E dodge"):format(myBest ~= "" and myBest or "nothing yet")
+			or "Controls: click/F attack, Q power, hold G block, E dodge, Shift sprint",
+	})
+
 	sectionTitle(0, "✦ PLAYERS")
 	local order = 1
 	for _, other in ipairs(Players:GetPlayers()) do
 		if other ~= player then
 			local busy = other:GetAttribute("InDuel") == true
-			row(order, "🧑‍🚀", other.DisplayName, statsText(other:GetAttribute("EquippedAura")), nil,
+			local theirBest = other:GetAttribute("BestAura") or ""
+			local subtitle = statsText(other:GetAttribute("EquippedAura"))
+			if Config.DuelStakes and Config.DuelStakes.Enabled and theirBest ~= "" then
+				subtitle ..= ("  •  🏆 win: <b>%s</b>"):format(theirBest)
+			end
+			row(order, "🧑‍🚀", other.DisplayName, subtitle, nil,
 				busy and "IN DUEL" or "CHALLENGE", RED, not busy and not inDuel, function()
 					DuelRequest:FireServer({ Action = "Challenge", Target = other.UserId })
 				end)
@@ -251,17 +271,17 @@ end)
 local popup = new("Frame", {
 	AnchorPoint = Vector2.new(0.5, 0),
 	Position = UDim2.new(0.5, 0, 0, -200),
-	Size = UDim2.fromOffset(460, 150),
+	Size = UDim2.fromOffset(480, 184),
 	BackgroundColor3 = THEME.Panel,
 	Parent = gui,
 }, { corner(UDim.new(0, 18)), stroke(RED, 3, 0) })
 UIKit.addAutoScale(popup)
 local popupText = label({
-	Position = UDim2.fromOffset(16, 10), Size = UDim2.new(1, -32, 0, 60), Text = "", RichText = true,
+	Position = UDim2.fromOffset(16, 8), Size = UDim2.new(1, -32, 0, 92), Text = "", RichText = true,
 	Font = TITLE_FONT, TextSize = 22, TextWrapped = true, Parent = popup,
 })
 local timeBar = new("Frame", {
-	Position = UDim2.new(0, 16, 0, 74), Size = UDim2.new(1, -32, 0, 6), BackgroundColor3 = RED, BorderSizePixel = 0, Parent = popup,
+	Position = UDim2.new(0, 16, 0, 104), Size = UDim2.new(1, -32, 0, 6), BackgroundColor3 = RED, BorderSizePixel = 0, Parent = popup,
 }, { corner(UDim.new(1, 0)) })
 local function popupButton(text, color, x)
 	local b = new("TextButton", {
@@ -287,7 +307,12 @@ local function showChallenge(info)
 	popupToken += 1
 	local token = popupToken
 	pendingFrom = info.FromUserId
-	popupText.Text = ("⚔ <b>%s</b> challenges you!\n<font size='16'>%s</font>"):format(info.FromName, statsText(info.FromAura))
+	local stakeLine = ""
+	if Config.DuelStakes and Config.DuelStakes.Enabled then
+		local mine = player:GetAttribute("BestAura") or ""
+		stakeLine = ("\n<font size='14' color='#ffb4b4'>⚠ Winner takes the loser's best aura! You risk: <b>%s</b></font>"):format(mine ~= "" and mine or "nothing")
+	end
+	popupText.Text = ("⚔ <b>%s</b> challenges you!\n<font size='16'>%s</font>%s"):format(info.FromName, statsText(info.FromAura), stakeLine)
 	popup.Position = UDim2.new(0.5, 0, 0, -200)
 	tween(popup, 0.45, { Position = UDim2.new(0.5, 0, 0, 80) }, Enum.EasingStyle.Back)
 	timeBar.Size = UDim2.new(1, -32, 0, 6)

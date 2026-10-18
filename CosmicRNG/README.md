@@ -55,6 +55,23 @@ Open **📜 QUESTS** in the side menu. A red number shows how many rewards are w
 - **Bonus chest:** finish all 3 quests for 2 Cosmic Rolls + 15 min x2 luck.
 - Everything resets at midnight UTC, with a countdown in the panel. Edit the rewards and quests in the `QuestData` module.
 
+### Cosmic Events
+- Every **20 minutes** a server-wide event starts for **5 minutes**:
+
+  | Event | Effect |
+  |---|---|
+  | ☄️ Meteor Shower | x2 luck, meteors streak down around you |
+  | ⭐ Star Surge | x1.5 luck, everyone rolls 40% faster, golden shooting stars |
+  | 🌌 Aurora Night | x2.5 luck under a green-violet sky |
+  | 🌑 Cosmic Eclipse | x3 luck, the sky goes dark |
+  | 🌈 Rainbow Rift | x5 luck, the sky cycles through the rainbow (rarest) |
+- A small timer under the Cosmic Drop timer shows the current event or when the next one starts. The luck stacks with everything else. Settings: `Config.Events`.
+
+### Aura Index
+- Every **different** aura you've ever found counts, even if you traded it, spent it on an egg or lost it in a duel. Each one gives **+3% luck forever** (all 27 = +81%).
+- Milestones give one-time rewards: 5, 10, 15, 20 and 25 auras found give Cosmic Rolls, potions, a Solar Flare and finally a Black Hole aura.
+- Your progress shows at the top of your aura inventory and in your luck line (📖). Settings: `Config.Index`.
+
 ### Cosmic Drop
 - A small timer under your stats (top-left) counts down **15 minutes**.
 - At 0:00 a glowing **Cosmic Roll** die lands somewhere on the main island or Lucky Isle, under a tall beam of light. Everyone gets a banner, and the timer turns into an arrow pointing at it, with the distance.
@@ -135,7 +152,12 @@ Side menu (2 columns) with **LIMITED**, **DUEL**, **STORE**, **REBIRTH**, **PETS
   - Glowing vines hang under every island edge (icicles on Frostfall, lava strands on Ember Isle).
   - Waterfalls of light pour off the edges from little springs, with mist.
   - Firefly motes drift in the air (snowy motes, embers, or neon pixels on Neon Nexus).
-- **Better lighting:** more stars, softer shadows, shinier glass and ice, light rays, a subtle blur on far scenery and richer bloom and contrast.
+- **Lighting:** more stars, softer shadows and shinier glass and ice, with gentle bloom so neon doesn't overpower.
+- **Performance** (`PerformanceTuner`):
+  - Only the nearest lights are switched on (12 / 24 / 40 depending on the player's graphics quality), and no scenery light casts shadows.
+  - Scenery lights are dimmed a bit.
+  - Particles and creature trails far from you are paused.
+  - Sky decorations and flowers use cheap glow sprites instead of real lights.
 - **Sky creatures move like real animals:**
   - Whale fins flap, their tails beat up and down, and a soft shimmer surrounds them.
   - Manta wings flap with glowing ribbons from the wingtips.
@@ -283,6 +305,7 @@ Hold **Shift** to sprint, or tap the **RUN** button on phones.
   Fire, rainbow, black-hole and dark auras each add their own touch to the cutscene. Spectators see the 3D effects too.
 - 3-2-1 countdown, a 90-second limit (the higher HP % wins), and a forfeit button.
 - Player-vs-player wins go on the leaderboard (**Wins**) and are announced to the server.
+- **⚠ Player duels are for keeps:** the winner takes **1 copy of the loser's best (rarest) aura**. The duel menu explains this at the top, shows what each player has at stake ("win: Nebula"), and the challenge popup warns you what you risk before you accept. Forfeiting counts as losing. **Bot fights never cost anything.** Turn it off with `Config.DuelStakes.Enabled = false`.
 - You can't roll or switch auras during a fight.
 
 ### Sounds
@@ -303,8 +326,8 @@ All sounds are made from Roblox's built-in sound files, so they always work:
 | Where in Studio | Type | Name |
 |---|---|---|
 | ReplicatedStorage | ModuleScript | `CosmicConfig`, `AuraData`, `AuraImages`, `AuraEffects`, `CombatAnim`, `Luck`, `Rebirth`, `PetData`, `QuestData`, `SoundFX`, `UIKit` |
-| ServerScriptService | Script | `RollService`, `WorldSetup`, `LuckyIsland`, `RebirthIslands`, `SkyDecor`, `WorldDetails`, `PetWorld`, `DropService`, `Parkour`, `DuelService`, `Movement`, `Leaderboard` |
-| StarterPlayer > StarterPlayerScripts | LocalScript | `AuraRenderer`, `RollUI`, `StoreUI`, `WorldFX`, `ParkourClient`, `DuelClient`, `DuelFX`, `Sprint`, `RebirthClient`, `IslandFX`, `SkyFX`, `PetClient`, `DropClient`, `LimitedOffer`, `NameplateStyler`, `QuestClient`, `VipIslandClient`, `TradeClient` |
+| ServerScriptService | Script | `RollService`, `WorldSetup`, `LuckyIsland`, `RebirthIslands`, `SkyDecor`, `WorldDetails`, `PetWorld`, `DropService`, `EventService`, `Parkour`, `DuelService`, `Movement`, `Leaderboard` |
+| StarterPlayer > StarterPlayerScripts | LocalScript | `AuraRenderer`, `RollUI`, `StoreUI`, `WorldFX`, `ParkourClient`, `DuelClient`, `DuelFX`, `Sprint`, `RebirthClient`, `IslandFX`, `SkyFX`, `PetClient`, `DropClient`, `LimitedOffer`, `NameplateStyler`, `QuestClient`, `VipIslandClient`, `TradeClient`, `EventClient`, `PerformanceTuner` |
 | ServerScriptService | ModuleScript | `TradeService` (started by RollService) |
 
 ## Adding the aura pictures
@@ -351,5 +374,3 @@ Enable Studio Access to API Services**.
 - To test as a non-VIP, set `Config.FreePassesInStudio = false`.
 
 ## Coming in later parts
-- Cosmic events (Meteor Shower, Eclipse, Solar Flare)
-- Index rewards

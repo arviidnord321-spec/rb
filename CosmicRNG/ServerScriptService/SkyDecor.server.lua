@@ -45,13 +45,33 @@ local function part(props)
 	return p
 end
 
-local function addLight(target, color3, range, brightness)
-	local light = Instance.new("PointLight")
-	light.Color = color3
-	light.Range = range
-	light.Brightness = brightness
-	light.Shadows = false
-	light.Parent = target
+-- Sky scenery floats far from anything it could light up, so real lights
+-- would only cost frame rate. Neon + bloom already makes it glow, so big
+-- glowing things get a cheap "glow sprite" (a camera-facing Beam) instead.
+local GLOW_TEXTURE = Config.Textures.Glow
+local function addLight(target, color3, range, _brightness)
+	if not target or range < 18 then
+		return
+	end
+	local a0 = Instance.new("Attachment")
+	a0.Position = Vector3.new(0, -0.05, 0)
+	a0.Parent = target
+	local a1 = Instance.new("Attachment")
+	a1.Position = Vector3.new(0, 0.05, 0)
+	a1.Parent = target
+	local beam = Instance.new("Beam")
+	beam.Attachment0 = a0
+	beam.Attachment1 = a1
+	beam.Texture = GLOW_TEXTURE
+	beam.Width0 = range * 0.5
+	beam.Width1 = range * 0.5
+	beam.FaceCamera = true
+	beam.LightEmission = 1
+	beam.LightInfluence = 0
+	beam.Transparency = NumberSequence.new(0.55)
+	beam.Color = ColorSequence.new(color3)
+	beam.Segments = 1
+	beam.Parent = target
 end
 
 local function sparkles(target, color3, rate, size, speed)
@@ -952,7 +972,7 @@ decorate("MainSky", MAIN, {
 		Glow = Color3.fromRGB(120, 230, 255), Fall = Color3.fromRGB(170, 140, 255),
 		Trunk = Color3.fromRGB(70, 50, 90), Leaves = Color3.fromRGB(255, 120, 220),
 	},
-	Creatures = { { "Whale", 3 }, { "Manta", 5 }, { "Jelly", 10 }, { "School", 7 }, { "Turtle", 2 }, { "Koi", 5 }, { "Star", 12 }, { "Serpent", 1 }, { "Butterflies", 5 }, { "Angler", 2 } },
+	Creatures = { { "Whale", 2 }, { "Manta", 4 }, { "Jelly", 7 }, { "School", 5 }, { "Turtle", 2 }, { "Koi", 4 }, { "Star", 8 }, { "Serpent", 1 }, { "Butterflies", 3 }, { "Angler", 2 } },
 	CreatureColors = {
 		palette(Color3.fromRGB(60, 70, 150), Color3.fromRGB(150, 190, 255), Color3.fromRGB(120, 230, 255)),
 		palette(Color3.fromRGB(120, 60, 160), Color3.fromRGB(240, 170, 255), Color3.fromRGB(255, 120, 220)),
@@ -978,7 +998,7 @@ decorate("LuckySky", LUCKY.Center, {
 		Glow = Color3.fromRGB(255, 200, 70), Fall = Color3.fromRGB(255, 180, 210),
 		Trunk = Color3.fromRGB(120, 80, 60), Leaves = Color3.fromRGB(255, 150, 200),
 	},
-	Creatures = { { "Koi", 7 }, { "Manta", 3 }, { "Jelly", 6 }, { "School", 4 }, { "Turtle", 1 }, { "Star", 10 }, { "Butterflies", 6 } },
+	Creatures = { { "Koi", 5 }, { "Manta", 2 }, { "Jelly", 5 }, { "School", 3 }, { "Turtle", 1 }, { "Star", 6 }, { "Butterflies", 4 } },
 	CreatureColors = {
 		palette(Color3.fromRGB(255, 120, 60), Color3.fromRGB(255, 245, 235), Color3.fromRGB(255, 200, 80)),
 		palette(Color3.fromRGB(255, 150, 200), Color3.fromRGB(255, 235, 245), Color3.fromRGB(255, 120, 190)),
@@ -1006,7 +1026,7 @@ local islandThemes = {
 			Glow = Color3.fromRGB(140, 230, 255), Fall = Color3.fromRGB(200, 240, 255),
 			Trunk = Color3.fromRGB(90, 60, 45), Leaves = Color3.fromRGB(70, 140, 120), LeavesMaterial = Enum.Material.Grass,
 		},
-		Creatures = { { "Whale", 2 }, { "Jelly", 8 }, { "Manta", 3 }, { "School", 5 }, { "Turtle", 1 }, { "Star", 10 }, { "Angler", 1 } },
+		Creatures = { { "Whale", 1 }, { "Jelly", 6 }, { "Manta", 3 }, { "School", 4 }, { "Turtle", 1 }, { "Star", 6 }, { "Angler", 1 } },
 		CreatureColors = {
 			palette(Color3.fromRGB(200, 230, 255), Color3.fromRGB(255, 255, 255), Color3.fromRGB(120, 230, 255)),
 			palette(Color3.fromRGB(110, 200, 255), Color3.fromRGB(230, 250, 255), Color3.fromRGB(90, 255, 190)),
@@ -1028,7 +1048,7 @@ local islandThemes = {
 			Glow = Color3.fromRGB(255, 120, 40), Fall = Color3.fromRGB(255, 110, 30),
 			Trunk = Color3.fromRGB(35, 25, 22), Leaves = Color3.fromRGB(255, 120, 40),
 		},
-		Creatures = { { "Serpent", 2 }, { "Manta", 4 }, { "School", 6 }, { "Koi", 3 }, { "Star", 10 }, { "Angler", 2 }, { "Butterflies", 3 } },
+		Creatures = { { "Serpent", 1 }, { "Manta", 3 }, { "School", 4 }, { "Koi", 3 }, { "Star", 6 }, { "Angler", 2 }, { "Butterflies", 2 } },
 		CreatureColors = {
 			palette(Color3.fromRGB(120, 30, 20), Color3.fromRGB(255, 150, 60), Color3.fromRGB(255, 200, 70)),
 			palette(Color3.fromRGB(40, 25, 25), Color3.fromRGB(200, 60, 30), Color3.fromRGB(255, 110, 30)),
@@ -1049,7 +1069,7 @@ local islandThemes = {
 			Glow = Color3.fromRGB(60, 230, 255), Fall = Color3.fromRGB(255, 70, 220),
 			Trunk = Color3.fromRGB(40, 25, 70), Leaves = Color3.fromRGB(255, 70, 220),
 		},
-		Creatures = { { "Whale", 2 }, { "Jelly", 8 }, { "Manta", 4 }, { "School", 5 }, { "Serpent", 1 }, { "Star", 12 }, { "Butterflies", 4 }, { "Angler", 1 } },
+		Creatures = { { "Whale", 1 }, { "Jelly", 6 }, { "Manta", 3 }, { "School", 4 }, { "Serpent", 1 }, { "Star", 7 }, { "Butterflies", 3 }, { "Angler", 1 } },
 		CreatureColors = {
 			palette(Color3.fromRGB(30, 20, 60), Color3.fromRGB(60, 230, 255), Color3.fromRGB(255, 70, 220)),
 			palette(Color3.fromRGB(60, 20, 80), Color3.fromRGB(255, 120, 240), Color3.fromRGB(60, 230, 255)),

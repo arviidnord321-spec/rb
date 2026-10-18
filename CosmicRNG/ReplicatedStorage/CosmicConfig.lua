@@ -177,6 +177,42 @@ Config.LuckyWheel = {
 -- VIP CHEST in the Sanctum: VIP pass owners can open it once a day
 Config.VipChest = { BoostRolls = 2, Potion = 15, Aura = "Pulsar", Count = 2 }
 
+-- DUEL STAKES: in player-vs-player duels the winner takes 1 copy of the
+-- loser's best (rarest) aura. Bot fights never cost anything.
+Config.DuelStakes = { Enabled = true }
+
+-- AURA INDEX: every different aura you've ever found gives permanent luck,
+-- and reaching these counts gives a one-time reward.
+Config.Index = {
+	LuckPerAura = 0.03, -- +3% luck for each different aura found
+	Milestones = {
+		{ Count = 5, Reward = { BoostRolls = 1, Potion = 10 } },
+		{ Count = 10, Reward = { BoostRolls = 2, Potion = 15 } },
+		{ Count = 15, Reward = { BoostRolls = 3, Aura = "Solar Flare", Count = 1 } },
+		{ Count = 20, Reward = { BoostRolls = 5, Potion = 30 } },
+		{ Count = 25, Reward = { BoostRolls = 10, Aura = "Black Hole", Count = 1 } },
+	},
+}
+
+-- COSMIC EVENTS: every few minutes a server-wide event starts for a while.
+-- Luck = extra luck for everyone, RollSpeed = roll cooldown multiplier.
+Config.Events = {
+	EveryMinutes = 20,
+	DurationMinutes = 5,
+	List = {
+		{ Key = "MeteorShower", Name = "☄️ Meteor Shower", Luck = 2, Color = Color3.fromRGB(255, 140, 60), Weight = 30,
+			Description = "x2 luck for everyone while meteors rain down!" },
+		{ Key = "StarSurge", Name = "⭐ Star Surge", Luck = 1.5, RollSpeed = 0.6, Color = Color3.fromRGB(255, 230, 120), Weight = 25,
+			Description = "x1.5 luck and everyone rolls 40% faster!" },
+		{ Key = "AuroraNight", Name = "🌌 Aurora Night", Luck = 2.5, Color = Color3.fromRGB(110, 255, 190), Weight = 20,
+			Description = "x2.5 luck under a glowing aurora sky!" },
+		{ Key = "Eclipse", Name = "🌑 Cosmic Eclipse", Luck = 3, Color = Color3.fromRGB(255, 120, 60), Weight = 15,
+			Description = "The sky goes dark... x3 luck for everyone!" },
+		{ Key = "RainbowRift", Name = "🌈 Rainbow Rift", Luck = 5, Color = Color3.fromRGB(255, 120, 230), Weight = 10,
+			Description = "The rarest event: x5 luck for everyone!" },
+	},
+}
+
 -- TRADING: swap auras and pets with other players.
 -- At least ONE of the two players needs the VIP pass.
 Config.Trading = {

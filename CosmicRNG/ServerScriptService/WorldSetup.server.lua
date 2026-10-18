@@ -58,7 +58,7 @@ Lighting.Ambient = Color3.fromRGB(70, 60, 110)
 Lighting.OutdoorAmbient = Color3.fromRGB(110, 95, 170)
 Lighting.EnvironmentDiffuseScale = 0.5
 Lighting.EnvironmentSpecularScale = 1 -- shiny glass, ice and gold reflect the sky
-Lighting.ExposureCompensation = 0.25
+Lighting.ExposureCompensation = 0.1
 Lighting.ShadowSoftness = 0.35
 
 local sky = Instance.new("Sky")
@@ -80,9 +80,9 @@ atmosphere.Parent = Lighting
 
 local bloom = Instance.new("BloomEffect")
 bloom.Name = "CosmicBloom"
-bloom.Intensity = 1.15
-bloom.Size = 32
-bloom.Threshold = 0.8
+bloom.Intensity = 0.8
+bloom.Size = 24
+bloom.Threshold = 0.9
 bloom.Parent = Lighting
 
 local color = Instance.new("ColorCorrectionEffect")
@@ -92,20 +92,7 @@ color.Contrast = 0.12
 color.TintColor = Color3.fromRGB(245, 240, 255)
 color.Parent = Lighting
 
--- soft god-rays from bright things and a gentle blur on far-away scenery
-local rays = Instance.new("SunRaysEffect")
-rays.Name = "CosmicRays"
-rays.Intensity = 0.05
-rays.Spread = 0.7
-rays.Parent = Lighting
-
-local depth = Instance.new("DepthOfFieldEffect")
-depth.Name = "CosmicDepth"
-depth.FarIntensity = 0.12
-depth.FocusDistance = 80
-depth.InFocusRadius = 120
-depth.NearIntensity = 0
-depth.Parent = Lighting
+-- (no sun rays or depth-of-field: they cost frame rate on phones)
 
 ---------------------------------------------------------------------
 -- REMOVE the template baseplate / spawn
@@ -340,7 +327,7 @@ local dustArea = part({
 })
 local dust = Instance.new("ParticleEmitter")
 dust.Texture = Config.Textures.Sparkle
-dust.Rate = 40
+dust.Rate = 30
 dust.Lifetime = NumberRange.new(5, 9)
 dust.Speed = NumberRange.new(0.2, 0.8)
 dust.SpreadAngle = Vector2.new(180, 180)
