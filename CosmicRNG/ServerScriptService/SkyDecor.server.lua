@@ -6,7 +6,9 @@
 --   * a big planet or sun for each rebirth island and Lucky Isle
 --   * big sky isles with tiny temples, trees and waterfalls of light
 --   * lots of sky creatures: whales, manta rays, jellyfish, fish schools,
---     space turtles, koi, star sprites and long sky serpents
+--     space turtles, koi, star sprites, sky serpents, butterfly swarms and
+--     lantern-fish anglers. Their fins, wings, tails and tentacles move on
+--     their own (SkyFX), and many leave glowing ribbons behind them
 -- Everything here is just scenery (no collisions). Things marked with FX_
 -- attributes are animated by the SkyFX script on each player's screen.
 
@@ -468,82 +470,201 @@ local function glowSpot(model, position, size, color3)
 	return spot
 end
 
--- WHALE: big, slow, glowing spots and a sparkle trail
+-- Secondary motion: SkyFX swings these parts around a joint while the
+-- creature swims. Joint is in the creature's own space (built at 0, 0, 0).
+--   Flap  = roll around the creature's forward axis (wings, fins)
+--   Yaw   = swing left/right (tails)
+--   Pitch = swing up/down (whale flukes, tentacles)
+--   Pulse = grow and shrink (jelly domes)
+local function wiggle(p, kind, joint, amp, speed, phase, side)
+	p:SetAttribute("Wiggle", kind)
+	p:SetAttribute("Joint", joint or Vector3.zero)
+	p:SetAttribute("Amp", amp)
+	p:SetAttribute("WSpeed", speed)
+	p:SetAttribute("WPhase", phase or 0)
+	p:SetAttribute("Side", side or 1)
+	return p
+end
+
+-- a glowing ribbon that follows a part (Trail between two attachments)
+local function trail(p, offsetA, offsetB, color3, lifetime, transparency)
+	local a0 = Instance.new("Attachment")
+	a0.Position = offsetA
+	a0.Parent = p
+	local a1 = Instance.new("Attachment")
+	a1.Position = offsetB
+	a1.Parent = p
+	local t = Instance.new("Trail")
+	t.Attachment0 = a0
+	t.Attachment1 = a1
+	t.Lifetime = lifetime or 2
+	t.LightEmission = 1
+	t.LightInfluence = 0
+	t.FaceCamera = true
+	t.Color = ColorSequence.new(color3, Color3.new(1, 1, 1))
+	t.Transparency = NumberSequence.new({ NumberSequenceKeypoint.new(0, transparency or 0.35), NumberSequenceKeypoint.new(1, 1) })
+	t.WidthScale = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0.15) })
+	t.Parent = p
+	return t
+end
+
+local function eye(model, position, size, glowColor)
+	part({ Name = "Eye", Shape = Enum.PartType.Ball, Size = Vector3.one * size, CFrame = CFrame.new(position), Color = Color3.fromRGB(245, 245, 255), Material = Enum.Material.SmoothPlastic, Parent = model })
+	part({ Name = "Pupil", Shape = Enum.PartType.Ball, Size = Vector3.one * size * 0.6, CFrame = CFrame.new(position + Vector3.new(0, 0, -size * 0.25)), Color = Color3.fromRGB(15, 10, 30), Material = Enum.Material.SmoothPlastic, Parent = model })
+	part({ Name = "EyeShine", Shape = Enum.PartType.Ball, Size = Vector3.one * size * 0.22, CFrame = CFrame.new(position + Vector3.new(size * 0.15, size * 0.18, -size * 0.45)), Color = glowColor or Color3.new(1, 1, 1), Material = Enum.Material.Neon, Parent = model })
+end
+
+-- WHALE: big and slow, bioluminescent spots, belly grooves, flapping fins,
+-- a tail that beats up and down and a glowing ribbon behind it
 local function whale(parent, colors, scale)
 	local model = creatureModel("SkyWhale", parent)
 	local sizes = { 13, 16, 17, 16, 14, 11, 8, 6, 4.5 }
+	local phase = rand:NextNumber(0, 6)
 	for i, s in ipairs(sizes) do
 		s *= scale
 		local z = (i - 3) * 6.5 * scale
-		part({ Name = "Body", Shape = Enum.PartType.Ball, Size = Vector3.new(s * 1.05, s * 0.85, s * 1.1), CFrame = CFrame.new(0, 0, z), Color = colors.Body, Material = Enum.Material.SmoothPlastic, Parent = model })
-		part({ Name = "Belly", Shape = Enum.PartType.Ball, Size = Vector3.new(s * 0.8, s * 0.55, s), CFrame = CFrame.new(0, -s * 0.2, z), Color = colors.Belly, Material = Enum.Material.SmoothPlastic, Parent = model })
+		-- the back half of the body sways with the tail
+		local function sway(p)
+			if i >= 6 then
+				wiggle(p, "Pitch", Vector3.new(0, 0, 13 * scale), 0.06 * (i - 5), 0.8, phase - i * 0.2)
+			end
+			return p
+		end
+		sway(part({ Name = "Body", Shape = Enum.PartType.Ball, Size = Vector3.new(s * 1.05, s * 0.85, s * 1.1), CFrame = CFrame.new(0, 0, z), Color = colors.Body, Material = Enum.Material.SmoothPlastic, Parent = model }))
+		sway(part({ Name = "Belly", Shape = Enum.PartType.Ball, Size = Vector3.new(s * 0.8, s * 0.55, s), CFrame = CFrame.new(0, -s * 0.2, z), Color = colors.Belly, Material = Enum.Material.SmoothPlastic, Parent = model }))
 		if i >= 2 and i <= 7 then
 			for _, side in ipairs({ -1, 1 }) do
-				glowSpot(model, Vector3.new(side * s * 0.47, s * 0.12, z), s * 0.12, colors.Glow)
+				sway(glowSpot(model, Vector3.new(side * s * 0.47, s * 0.12, z), s * 0.12, colors.Glow))
+				sway(glowSpot(model, Vector3.new(side * s * 0.38, s * 0.28, z + s * 0.25), s * 0.07, colors.Glow))
+			end
+			-- dorsal glow line
+			sway(glowSpot(model, Vector3.new(0, s * 0.43, z), s * 0.09, colors.Glow))
+		end
+		if i <= 3 then
+			-- belly grooves
+			for g = -2, 2 do
+				part({ Name = "Groove", Size = Vector3.new(0.25 * scale, 0.25 * scale, s * 0.9), CFrame = CFrame.new(g * s * 0.09, -s * 0.44, z), Color = colors.Belly:Lerp(Color3.new(1, 1, 1), 0.35), Material = Enum.Material.SmoothPlastic, Parent = model })
 			end
 		end
 	end
+	-- a soft shimmering glow around the body
+	part({ Name = "Aura", Shape = Enum.PartType.Ball, Size = Vector3.new(22, 18, 46) * scale, CFrame = CFrame.new(0, 0, 4 * scale), Color = colors.Glow, Material = Enum.Material.ForceField, Transparency = 0.55, Parent = model })
 	for _, side in ipairs({ -1, 1 }) do
-		part({ Name = "Eye", Shape = Enum.PartType.Ball, Size = Vector3.one * 1.6 * scale, CFrame = CFrame.new(side * 5.6 * scale, 1 * scale, -17 * scale), Color = Color3.new(1, 1, 1), Material = Enum.Material.Neon, Parent = model })
-		part({ ClassName = "WedgePart", Name = "Fin", Size = Vector3.new(1, 3, 12) * scale, CFrame = CFrame.new(side * 11 * scale, -3 * scale, -6 * scale) * CFrame.Angles(0, side * 0.5, side * 0.4), Color = colors.Body, Material = Enum.Material.SmoothPlastic, Parent = model })
-		part({ ClassName = "WedgePart", Name = "Tail", Size = Vector3.new(1, 2, 10) * scale, CFrame = CFrame.new(side * 5 * scale, 0, 43 * scale) * CFrame.Angles(0, math.pi + side * 0.6, 0) * CFrame.Angles(0, 0, math.rad(90)), Color = colors.Body, Material = Enum.Material.SmoothPlastic, Parent = model })
+		eye(model, Vector3.new(side * 5.6, 1, -17) * scale, 1.8 * scale, colors.Glow)
+		-- pectoral fins flap slowly
+		local fin = part({ Name = "Fin", Size = Vector3.new(11, 0.7, 4.5) * scale, CFrame = CFrame.new(side * 12 * scale, -3.5 * scale, -5 * scale) * CFrame.Angles(0, side * -0.35, side * -0.3), Color = colors.Body, Material = Enum.Material.SmoothPlastic, Parent = model })
+		wiggle(fin, "Flap", Vector3.new(side * 7 * scale, -3 * scale, -5 * scale), 0.35, 1.1, phase, side)
+		local finEdge = part({ Name = "FinEdge", Size = Vector3.new(10, 0.3, 0.4) * scale, CFrame = fin.CFrame * CFrame.new(0, 0, -2.3 * scale), Color = colors.Glow, Material = Enum.Material.Neon, Parent = model })
+		wiggle(finEdge, "Flap", Vector3.new(side * 7 * scale, -3 * scale, -5 * scale), 0.35, 1.1, phase, side)
+		-- tail flukes beat up and down
+		local fluke = part({ Name = "Fluke", Size = Vector3.new(9, 0.6, 5) * scale, CFrame = CFrame.new(side * 4.5 * scale, 0, 45 * scale) * CFrame.Angles(0, side * 0.45, 0), Color = colors.Body, Material = Enum.Material.SmoothPlastic, Parent = model })
+		wiggle(fluke, "Pitch", Vector3.new(0, 0, 13 * scale), 0.3, 0.8, phase - 2)
+		local flukeEdge = part({ Name = "FlukeEdge", Size = Vector3.new(9, 0.25, 0.4) * scale, CFrame = fluke.CFrame * CFrame.new(0, 0, 2.6 * scale), Color = colors.Glow, Material = Enum.Material.Neon, Parent = model })
+		wiggle(flukeEdge, "Pitch", Vector3.new(0, 0, 13 * scale), 0.3, 0.8, phase - 2)
 	end
 	local tailGlow = part({ Name = "TailGlow", Shape = Enum.PartType.Ball, Size = Vector3.one * 3 * scale, CFrame = CFrame.new(0, 0, 40 * scale), Color = colors.Glow, Material = Enum.Material.Neon, Transparency = 0.3, Parent = model })
-	local trail = sparkles(tailGlow, colors.Glow, 25, 1.2 * scale, 0.3)
-	trail.Lifetime = NumberRange.new(4, 6)
+	wiggle(tailGlow, "Pitch", Vector3.new(0, 0, 13 * scale), 0.24, 0.8, phase - 1.6)
+	local dust = sparkles(tailGlow, colors.Glow, 25, 1.2 * scale, 0.3)
+	dust.Lifetime = NumberRange.new(4, 6)
+	trail(tailGlow, Vector3.new(0, 2.5 * scale, 0), Vector3.new(0, -2.5 * scale, 0), colors.Glow, 3, 0.4)
 	addLight(tailGlow, colors.Glow, 40, 2)
 	return model
 end
 
--- MANTA RAY: flat and wide, glowing wing edges
+-- MANTA RAY: wide wings that flap like a bird's, glowing edges and
+-- ribbons streaming from the wingtips
 local function manta(parent, colors, scale)
 	local model = creatureModel("SkyManta", parent)
-	part({ Name = "Body", Shape = Enum.PartType.Ball, Size = Vector3.new(7, 1.6, 9) * scale, CFrame = CFrame.new(), Color = colors.Body, Material = Enum.Material.SmoothPlastic, Parent = model })
+	local phase = rand:NextNumber(0, 6)
+	part({ Name = "Body", Shape = Enum.PartType.Ball, Size = Vector3.new(7, 1.8, 9) * scale, CFrame = CFrame.new(), Color = colors.Body, Material = Enum.Material.SmoothPlastic, Parent = model })
+	part({ Name = "Underside", Shape = Enum.PartType.Ball, Size = Vector3.new(6, 1.2, 8) * scale, CFrame = CFrame.new(0, -0.35 * scale, 0), Color = colors.Belly, Material = Enum.Material.SmoothPlastic, Parent = model })
 	for _, side in ipairs({ -1, 1 }) do
-		part({ ClassName = "WedgePart", Name = "Wing", Size = Vector3.new(0.6, 9, 8) * scale, CFrame = CFrame.new(side * 6.5 * scale, 0, 0.5 * scale) * CFrame.Angles(0, 0, side * math.rad(90)) * CFrame.Angles(0, math.pi, 0), Color = colors.Body, Material = Enum.Material.SmoothPlastic, Parent = model })
-		part({ Name = "WingEdge", Size = Vector3.new(9, 0.3, 0.3) * scale, CFrame = CFrame.new(side * 7 * scale, 0, -2.5 * scale) * CFrame.Angles(0, side * 0.35, 0), Color = colors.Glow, Material = Enum.Material.Neon, Parent = model })
-		part({ Name = "Horn", Size = Vector3.new(0.5, 0.5, 2.5) * scale, CFrame = CFrame.new(side * 1.6 * scale, 0, -4.8 * scale), Color = colors.Body, Material = Enum.Material.SmoothPlastic, Parent = model })
-		glowSpot(model, Vector3.new(side * 1.2, 0.7, -3) * scale, 0.6 * scale, colors.Glow)
+		local joint = Vector3.new(side * 3 * scale, 0, 0)
+		local wing = part({ Name = "Wing", Size = Vector3.new(10, 0.5, 6.5) * scale, CFrame = CFrame.new(side * 7.5 * scale, 0, 0.8 * scale) * CFrame.Angles(0, side * 0.3, 0), Color = colors.Body, Material = Enum.Material.SmoothPlastic, Parent = model })
+		wiggle(wing, "Flap", joint, 0.45, 1.6, phase, side)
+		local inner = part({ Name = "WingPattern", Size = Vector3.new(7, 0.55, 3) * scale, CFrame = wing.CFrame * CFrame.new(side * -0.5 * scale, 0, 0.5 * scale), Color = colors.Belly, Material = Enum.Material.SmoothPlastic, Parent = model })
+		wiggle(inner, "Flap", joint, 0.45, 1.6, phase, side)
+		local edge = part({ Name = "WingEdge", Size = Vector3.new(10.5, 0.3, 0.35) * scale, CFrame = wing.CFrame * CFrame.new(0, 0, -3.3 * scale), Color = colors.Glow, Material = Enum.Material.Neon, Parent = model })
+		wiggle(edge, "Flap", joint, 0.45, 1.6, phase, side)
+		local tip = part({ Name = "WingTip", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.8 * scale, CFrame = wing.CFrame * CFrame.new(side * 5.2 * scale, 0, -2 * scale), Color = colors.Glow, Material = Enum.Material.Neon, Parent = model })
+		wiggle(tip, "Flap", joint, 0.45, 1.6, phase, side)
+		trail(tip, Vector3.new(0, 0.4 * scale, 0), Vector3.new(0, -0.4 * scale, 0), colors.Glow, 1.6, 0.25)
+		for k = 1, 3 do
+			local spot = glowSpot(model, Vector3.new(side * (4 + k * 1.6), 0.35, -0.5 + k * 0.6) * scale, 0.45 * scale, colors.Glow)
+			wiggle(spot, "Flap", joint, 0.45, 1.6, phase, side)
+		end
+		part({ Name = "Horn", Size = Vector3.new(0.5, 0.5, 2.8) * scale, CFrame = CFrame.new(side * 1.6 * scale, 0, -5 * scale) * CFrame.Angles(0, side * -0.15, 0), Color = colors.Body, Material = Enum.Material.SmoothPlastic, Parent = model })
+		eye(model, Vector3.new(side * 2.4, 0.4, -3.6) * scale, 0.6 * scale, colors.Glow)
 	end
-	local tail = part({ Name = "Tail", Size = Vector3.new(0.3, 0.3, 10) * scale, CFrame = CFrame.new(0, 0, 9 * scale), Color = colors.Glow, Material = Enum.Material.Neon, Parent = model })
+	local tail = part({ Name = "Tail", Size = Vector3.new(0.3, 0.3, 11) * scale, CFrame = CFrame.new(0, 0, 9.5 * scale), Color = colors.Glow, Material = Enum.Material.Neon, Parent = model })
+	wiggle(tail, "Yaw", Vector3.new(0, 0, 4 * scale), 0.3, 1.6, phase + 1)
 	sparkles(tail, colors.Glow, 6, 0.6 * scale, 0.2)
 	return model
 end
 
--- JELLYFISH: see-through dome with long glowing tentacles
+-- JELLYFISH: a breathing see-through bell, frilly arms and long tentacles
+-- that sway in waves
 local function jelly(parent, colors, scale)
 	local model = creatureModel("SkyJelly", parent)
-	local dome = part({ Name = "Dome", Shape = Enum.PartType.Ball, Size = Vector3.new(8, 5.5, 8) * scale, CFrame = CFrame.new(), Color = colors.Body, Material = Enum.Material.Neon, Transparency = 0.45, Parent = model })
-	part({ Name = "Core", Shape = Enum.PartType.Ball, Size = Vector3.one * 3 * scale, CFrame = CFrame.new(0, 0.3 * scale, 0), Color = colors.Glow, Material = Enum.Material.Neon, Parent = model })
+	local phase = rand:NextNumber(0, 6)
+	local dome = part({ Name = "Dome", Shape = Enum.PartType.Ball, Size = Vector3.new(8, 5.5, 8) * scale, CFrame = CFrame.new(), Color = colors.Body, Material = Enum.Material.Neon, Transparency = 0.5, Parent = model })
+	wiggle(dome, "Pulse", Vector3.zero, 0.08, 1.4, phase)
+	local shell = part({ Name = "Shell", Shape = Enum.PartType.Ball, Size = Vector3.new(8.8, 6.2, 8.8) * scale, CFrame = CFrame.new(), Color = colors.Glow, Material = Enum.Material.ForceField, Transparency = 0.4, Parent = model })
+	wiggle(shell, "Pulse", Vector3.zero, 0.08, 1.4, phase)
+	part({ Name = "Core", Shape = Enum.PartType.Ball, Size = Vector3.one * 3 * scale, CFrame = CFrame.new(0, 0.4 * scale, 0), Color = colors.Glow, Material = Enum.Material.Neon, Parent = model })
+	for k = 1, 4 do -- the four glowing rings inside the bell
+		local a = k / 4 * math.pi * 2
+		part({ Name = "Organ", Shape = Enum.PartType.Ball, Size = Vector3.new(1.2, 0.5, 1.2) * scale, CFrame = CFrame.new(math.cos(a) * 1.6 * scale, 0.9 * scale, math.sin(a) * 1.6 * scale), Color = colors.Belly, Material = Enum.Material.Neon, Parent = model })
+	end
 	part({ Name = "Skirt", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.4, 8.4, 8.4) * scale, CFrame = CFrame.new(0, -1.4 * scale, 0) * FLAT, Color = colors.Glow, Material = Enum.Material.Neon, Transparency = 0.3, Parent = model })
-	for k = 1, 8 do
-		local a = k / 8 * math.pi * 2
-		local length = rand:NextNumber(8, 14) * scale
-		part({ Name = "Tentacle", Size = Vector3.new(0.25 * scale, length, 0.25 * scale), CFrame = CFrame.new(math.cos(a) * 2.6 * scale, -1.5 * scale - length / 2, math.sin(a) * 2.6 * scale) * CFrame.Angles(math.sin(a) * 0.12, 0, math.cos(a) * 0.12),
+	for k = 1, 10 do
+		local a = k / 10 * math.pi * 2
+		local length = rand:NextNumber(9, 16) * scale
+		local top = Vector3.new(math.cos(a) * 3 * scale, -1.5 * scale, math.sin(a) * 3 * scale)
+		local tentacle = part({ Name = "Tentacle", Size = Vector3.new(0.22 * scale, length, 0.22 * scale), CFrame = CFrame.new(top - Vector3.new(0, length / 2, 0)),
 			Color = (k % 2 == 0) and colors.Glow or colors.Body, Material = Enum.Material.Neon, Transparency = 0.2, Parent = model })
+		wiggle(tentacle, "Pitch", top, 0.18, 1.2, phase + k * 0.6)
+		local bead = part({ Name = "Bead", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.5 * scale, CFrame = CFrame.new(top - Vector3.new(0, length, 0)), Color = Color3.new(1, 1, 1), Material = Enum.Material.Neon, Parent = model })
+		wiggle(bead, "Pitch", top, 0.18, 1.2, phase + k * 0.6)
+	end
+	for k = 1, 4 do -- frilly oral arms
+		local a = k / 4 * math.pi * 2 + 0.4
+		local top = Vector3.new(math.cos(a) * 0.8 * scale, -1.6 * scale, math.sin(a) * 0.8 * scale)
+		local arm = part({ Name = "Arm", Size = Vector3.new(1.1 * scale, 7 * scale, 0.15 * scale), CFrame = CFrame.new(top - Vector3.new(0, 3.5 * scale, 0)) * CFrame.Angles(0, a, 0), Color = colors.Belly, Material = Enum.Material.Neon, Transparency = 0.35, Parent = model })
+		wiggle(arm, "Pitch", top, 0.12, 0.9, phase + k)
 	end
 	addLight(dome, colors.Glow, 30 * scale, 1.5)
 	sparkles(dome, colors.Glow, 3, 0.5 * scale, 0.3)
 	return model
 end
 
--- FISH SCHOOL: a bunch of small fish swimming together
+-- FISH SCHOOL: a bunch of little fish, each with its own tail beat
 local function school(parent, colors, count)
 	local model = creatureModel("SkySchool", parent)
 	for i = 1, count do
-		local offset = Vector3.new(rand:NextNumber(-7, 7), rand:NextNumber(-3, 3), rand:NextNumber(-8, 8))
-		local s = rand:NextNumber(0.8, 1.3)
+		local offset = Vector3.new(rand:NextNumber(-8, 8), rand:NextNumber(-3.5, 3.5), rand:NextNumber(-9, 9))
+		local s = rand:NextNumber(0.8, 1.35)
 		local color = (i % 3 == 0) and colors.Glow or colors.Body
+		local phase = rand:NextNumber(0, 6)
 		part({ Name = "FishBody", Shape = Enum.PartType.Ball, Size = Vector3.new(1, 1.3, 2.4) * s, CFrame = CFrame.new(offset), Color = color, Material = Enum.Material.Neon, Parent = model })
-		part({ ClassName = "WedgePart", Name = "FishTail", Size = Vector3.new(0.15, 1.2, 1) * s, CFrame = CFrame.new(offset + Vector3.new(0, 0, 1.6 * s)), Color = colors.Glow, Material = Enum.Material.Neon, Parent = model })
+		part({ Name = "FishBelly", Shape = Enum.PartType.Ball, Size = Vector3.new(0.8, 0.7, 1.9) * s, CFrame = CFrame.new(offset + Vector3.new(0, -0.3 * s, 0)), Color = colors.Belly, Material = Enum.Material.SmoothPlastic, Parent = model })
+		local tail = part({ ClassName = "WedgePart", Name = "FishTail", Size = Vector3.new(0.15, 1.3, 1.1) * s, CFrame = CFrame.new(offset + Vector3.new(0, 0, 1.7 * s)), Color = colors.Glow, Material = Enum.Material.Neon, Parent = model })
+		wiggle(tail, "Yaw", offset + Vector3.new(0, 0, 1.1 * s), 0.6, 9, phase)
+		part({ Name = "FishEye", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.25 * s, CFrame = CFrame.new(offset + Vector3.new(0.35 * s, 0.25 * s, -0.75 * s)), Color = Color3.fromRGB(15, 10, 30), Material = Enum.Material.SmoothPlastic, Parent = model })
+	end
+	local leader = model:FindFirstChild("FishBody")
+	if leader then
+		trail(leader, Vector3.new(0, 0.3, 0), Vector3.new(0, -0.3, 0), colors.Glow, 1.2, 0.3)
 	end
 	return model
 end
 
--- SPACE TURTLE: shell with glowing hexagon plates, slow flippers
+-- SPACE TURTLE: glowing hexagon shell and slowly rowing flippers
 local function turtle(parent, colors, scale)
 	local model = creatureModel("SkyTurtle", parent)
+	local phase = rand:NextNumber(0, 6)
 	part({ Name = "Shell", Shape = Enum.PartType.Ball, Size = Vector3.new(12, 5, 14) * scale, CFrame = CFrame.new(0, 0.6 * scale, 0), Color = colors.Body, Material = Enum.Material.SmoothPlastic, Parent = model })
+	part({ Name = "ShellRim", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.6, 12.6, 12.6) * scale, CFrame = CFrame.new(0, -0.1 * scale, 0) * FLAT, Color = colors.Glow, Material = Enum.Material.Neon, Transparency = 0.2, Parent = model })
 	part({ Name = "Belly", Shape = Enum.PartType.Ball, Size = Vector3.new(11, 3, 13) * scale, CFrame = CFrame.new(0, -0.6 * scale, 0), Color = colors.Belly, Material = Enum.Material.SmoothPlastic, Parent = model })
 	for k = 0, 6 do
 		local a = k / 7 * math.pi * 2
@@ -552,38 +673,108 @@ local function turtle(parent, colors, scale)
 	end
 	part({ Name = "Head", Shape = Enum.PartType.Ball, Size = Vector3.new(3, 2.6, 3.4) * scale, CFrame = CFrame.new(0, 0.3 * scale, -8.4 * scale), Color = colors.Belly, Material = Enum.Material.SmoothPlastic, Parent = model })
 	for _, side in ipairs({ -1, 1 }) do
-		part({ Name = "Eye", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.7 * scale, CFrame = CFrame.new(side * 1 * scale, 0.9 * scale, -9.6 * scale), Color = Color3.new(0.05, 0.05, 0.1), Material = Enum.Material.SmoothPlastic, Parent = model })
-		part({ Name = "Flipper", Size = Vector3.new(7, 0.5, 2.6) * scale, CFrame = CFrame.new(side * 7 * scale, -0.4 * scale, -3.5 * scale) * CFrame.Angles(0, side * -0.4, side * -0.2), Color = colors.Belly, Material = Enum.Material.SmoothPlastic, Parent = model })
-		part({ Name = "Flipper", Size = Vector3.new(4.5, 0.5, 2) * scale, CFrame = CFrame.new(side * 5.5 * scale, -0.4 * scale, 5 * scale) * CFrame.Angles(0, side * 0.5, 0), Color = colors.Belly, Material = Enum.Material.SmoothPlastic, Parent = model })
+		eye(model, Vector3.new(side * 1.1, 0.9, -9.6) * scale, 0.7 * scale, colors.Glow)
+		local front = part({ Name = "Flipper", Size = Vector3.new(7, 0.5, 2.6) * scale, CFrame = CFrame.new(side * 7 * scale, -0.4 * scale, -3.5 * scale) * CFrame.Angles(0, side * -0.4, side * -0.2), Color = colors.Belly, Material = Enum.Material.SmoothPlastic, Parent = model })
+		wiggle(front, "Flap", Vector3.new(side * 4.5 * scale, 0, -3.5 * scale), 0.4, 0.9, phase, side)
+		local back = part({ Name = "Flipper", Size = Vector3.new(4.5, 0.5, 2) * scale, CFrame = CFrame.new(side * 5.5 * scale, -0.4 * scale, 5 * scale) * CFrame.Angles(0, side * 0.5, 0), Color = colors.Belly, Material = Enum.Material.SmoothPlastic, Parent = model })
+		wiggle(back, "Flap", Vector3.new(side * 4 * scale, 0, 5 * scale), 0.25, 0.9, phase + 1.5, side)
 	end
 	return model
 end
 
--- KOI: long fish with flowing glowing fins
+-- KOI: long fish with flowing see-through fins and a wavy body
 local function koi(parent, colors, scale)
 	local model = creatureModel("SkyKoi", parent)
+	local phase = rand:NextNumber(0, 6)
 	local sizes = { 3, 3.6, 3.4, 2.8, 2, 1.3 }
 	for i, s in ipairs(sizes) do
-		part({ Name = "Body", Shape = Enum.PartType.Ball, Size = Vector3.new(s, s * 0.9, s * 1.3) * scale, CFrame = CFrame.new(0, 0, (i - 2) * 1.9 * scale), Color = (i % 2 == 0) and colors.Body or colors.Belly, Material = Enum.Material.SmoothPlastic, Parent = model })
+		local seg = part({ Name = "Body", Shape = Enum.PartType.Ball, Size = Vector3.new(s, s * 0.9, s * 1.3) * scale, CFrame = CFrame.new(0, 0, (i - 2) * 1.9 * scale), Color = (i % 2 == 0) and colors.Body or colors.Belly, Material = Enum.Material.SmoothPlastic, Parent = model })
+		if i >= 3 then
+			wiggle(seg, "Yaw", Vector3.new(0, 0, 0), 0.08 * (i - 2), 2.2, phase - i * 0.4)
+		end
 	end
 	for _, side in ipairs({ -1, 1 }) do
-		part({ ClassName = "WedgePart", Name = "Fin", Size = Vector3.new(0.15, 1.6, 2.6) * scale, CFrame = CFrame.new(side * 1.9 * scale, -0.6 * scale, -0.4 * scale) * CFrame.Angles(0, 0, side * 1.1), Color = colors.Glow, Material = Enum.Material.Neon, Transparency = 0.25, Parent = model })
-		part({ Name = "Eye", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.5 * scale, CFrame = CFrame.new(side * 1.1 * scale, 0.4 * scale, -3.3 * scale), Color = Color3.new(0.05, 0.05, 0.1), Material = Enum.Material.SmoothPlastic, Parent = model })
-		part({ ClassName = "WedgePart", Name = "TailFin", Size = Vector3.new(0.15, 2.4, 3.2) * scale, CFrame = CFrame.new(side * 0.6 * scale, 0, 9.2 * scale) * CFrame.Angles(0, side * 0.35, 0), Color = colors.Glow, Material = Enum.Material.Neon, Transparency = 0.2, Parent = model })
+		local fin = part({ ClassName = "WedgePart", Name = "Fin", Size = Vector3.new(0.15, 1.8, 2.8) * scale, CFrame = CFrame.new(side * 2 * scale, -0.6 * scale, -0.4 * scale) * CFrame.Angles(0, 0, side * 1.1), Color = colors.Glow, Material = Enum.Material.Neon, Transparency = 0.3, Parent = model })
+		wiggle(fin, "Flap", Vector3.new(side * 1.2 * scale, -0.4 * scale, -0.4 * scale), 0.35, 2, phase, side)
+		eye(model, Vector3.new(side * 1.1, 0.4, -3.3) * scale, 0.55 * scale, colors.Glow)
+		local whisker = part({ Name = "Whisker", Size = Vector3.new(0.1, 0.1, 2.4) * scale, CFrame = CFrame.new(side * 0.8 * scale, -0.6 * scale, -4.4 * scale) * CFrame.Angles(0.3, side * 0.5, 0), Color = colors.Glow, Material = Enum.Material.Neon, Parent = model })
+		wiggle(whisker, "Yaw", Vector3.new(side * 0.6 * scale, -0.5 * scale, -3.4 * scale), 0.2, 1.5, phase + side)
+		local tailFin = part({ ClassName = "WedgePart", Name = "TailFin", Size = Vector3.new(0.15, 2.6, 3.6) * scale, CFrame = CFrame.new(side * 0.6 * scale, 0, 9.4 * scale) * CFrame.Angles(0, side * 0.35, 0), Color = colors.Glow, Material = Enum.Material.Neon, Transparency = 0.2, Parent = model })
+		wiggle(tailFin, "Yaw", Vector3.new(0, 0, 0), 0.4, 2.2, phase - 2.6)
 	end
-	part({ ClassName = "WedgePart", Name = "Dorsal", Size = Vector3.new(0.15, 1.5, 4) * scale, CFrame = CFrame.new(0, 1.7 * scale, 1 * scale), Color = colors.Glow, Material = Enum.Material.Neon, Parent = model })
+	local dorsal = part({ ClassName = "WedgePart", Name = "Dorsal", Size = Vector3.new(0.15, 1.6, 4.4) * scale, CFrame = CFrame.new(0, 1.8 * scale, 1 * scale), Color = colors.Glow, Material = Enum.Material.Neon, Transparency = 0.15, Parent = model })
+	wiggle(dorsal, "Yaw", Vector3.new(0, 0, 0), 0.1, 2.2, phase - 1)
+	local tailRoot = model:FindFirstChild("TailFin")
+	if tailRoot then
+		trail(tailRoot, Vector3.new(0, 1 * scale, 0), Vector3.new(0, -1 * scale, 0), colors.Glow, 1.4, 0.4)
+	end
 	return model
 end
 
--- STAR SPRITE: a spinning five-pointed star that leaves sparkles
+-- STAR SPRITE: a spinning five-pointed star that leaves a sparkling ribbon
 local function starSprite(parent, colors, scale)
 	local model = creatureModel("SkyStar", parent)
 	local core = part({ Name = "Core", Shape = Enum.PartType.Ball, Size = Vector3.one * 1.6 * scale, CFrame = CFrame.new(), Color = Color3.new(1, 1, 1), Material = Enum.Material.Neon, Parent = model })
+	part({ Name = "Halo", Shape = Enum.PartType.Ball, Size = Vector3.one * 4.2 * scale, CFrame = CFrame.new(), Color = colors.Glow, Material = Enum.Material.ForceField, Transparency = 0.3, Parent = model })
 	for k = 0, 4 do
 		part({ ClassName = "WedgePart", Name = "Point", Size = Vector3.new(0.6, 2.4, 1.6) * scale, CFrame = CFrame.Angles(0, 0, k * math.pi * 2 / 5) * CFrame.new(0, 1.8 * scale, 0), Color = (k % 2 == 0) and colors.Glow or colors.Body, Material = Enum.Material.Neon, Parent = model })
 	end
 	sparkles(core, colors.Glow, 8, 0.5 * scale, 1)
+	trail(core, Vector3.new(0, 0.8 * scale, 0), Vector3.new(0, -0.8 * scale, 0), colors.Glow, 1, 0.3)
 	addLight(core, colors.Glow, 20 * scale, 1.5)
+	return model
+end
+
+-- BUTTERFLY SWARM: little glowing butterflies fluttering together
+local function butterflies(parent, colors, count)
+	local model = creatureModel("SkyButterflies", parent)
+	for i = 1, count do
+		local offset = Vector3.new(rand:NextNumber(-7, 7), rand:NextNumber(-4, 4), rand:NextNumber(-7, 7))
+		local s = rand:NextNumber(0.8, 1.3)
+		local wingColor = (i % 2 == 0) and colors.Glow or colors.Belly
+		local phase = rand:NextNumber(0, 6)
+		part({ Name = "ButterflyBody", Size = Vector3.new(0.2, 0.2, 1.2) * s, CFrame = CFrame.new(offset), Color = colors.Body, Material = Enum.Material.SmoothPlastic, Parent = model })
+		for _, side in ipairs({ -1, 1 }) do
+			local joint = offset
+			local upper = part({ Name = "Wing", Size = Vector3.new(1.5, 0.05, 1.1) * s, CFrame = CFrame.new(offset + Vector3.new(side * 0.8 * s, 0, -0.25 * s)), Color = wingColor, Material = Enum.Material.Neon, Transparency = 0.15, Parent = model })
+			wiggle(upper, "Flap", joint, 0.9, 11, phase, side)
+			local lower = part({ Name = "Wing", Size = Vector3.new(1, 0.05, 0.8) * s, CFrame = CFrame.new(offset + Vector3.new(side * 0.55 * s, 0, 0.45 * s)), Color = wingColor:Lerp(Color3.new(1, 1, 1), 0.3), Material = Enum.Material.Neon, Transparency = 0.2, Parent = model })
+			wiggle(lower, "Flap", joint, 0.9, 11, phase, side)
+		end
+	end
+	sparkles(model:FindFirstChild("ButterflyBody"), colors.Glow, 6, 0.4, 0.5)
+	return model
+end
+
+-- ANGLER: a deep-sky lantern fish with teeth and a glowing lure
+local function angler(parent, colors, scale)
+	local model = creatureModel("SkyAngler", parent)
+	local phase = rand:NextNumber(0, 6)
+	part({ Name = "Body", Shape = Enum.PartType.Ball, Size = Vector3.new(6, 5.5, 7) * scale, CFrame = CFrame.new(), Color = colors.Body, Material = Enum.Material.SmoothPlastic, Parent = model })
+	local jaw = part({ Name = "Jaw", Shape = Enum.PartType.Ball, Size = Vector3.new(5.2, 2.4, 4.4) * scale, CFrame = CFrame.new(0, -1.9 * scale, -1.6 * scale), Color = colors.Body, Material = Enum.Material.SmoothPlastic, Parent = model })
+	wiggle(jaw, "Pitch", Vector3.new(0, -1 * scale, 0), 0.08, 1.3, phase)
+	for k = -3, 3 do -- teeth
+		local tooth = part({ ClassName = "WedgePart", Name = "Tooth", Size = Vector3.new(0.3, 0.7, 0.3) * scale, CFrame = CFrame.new(k * 0.6 * scale, -0.9 * scale, -3.5 * scale + math.abs(k) * 0.25 * scale), Color = Color3.fromRGB(240, 240, 250), Material = Enum.Material.SmoothPlastic, Parent = model })
+		wiggle(tooth, "Pitch", Vector3.new(0, -1 * scale, 0), 0.08, 1.3, phase)
+	end
+	for _, side in ipairs({ -1, 1 }) do
+		eye(model, Vector3.new(side * 1.8, 1.2, -2.6) * scale, 0.8 * scale, colors.Glow)
+		local fin = part({ ClassName = "WedgePart", Name = "Fin", Size = Vector3.new(0.15, 1.6, 2) * scale, CFrame = CFrame.new(side * 3 * scale, -0.4 * scale, 0.5 * scale) * CFrame.Angles(0, 0, side * 1.2), Color = colors.Glow, Material = Enum.Material.Neon, Transparency = 0.3, Parent = model })
+		wiggle(fin, "Flap", Vector3.new(side * 2.6 * scale, -0.4 * scale, 0.5 * scale), 0.4, 2.5, phase, side)
+		for k = 1, 3 do
+			glowSpot(model, Vector3.new(side * 2.6, -0.5 + k * 0.6, -1 + k * 1.2) * scale, 0.35 * scale, colors.Glow)
+		end
+	end
+	local tail = part({ ClassName = "WedgePart", Name = "Tail", Size = Vector3.new(0.2, 3, 2.6) * scale, CFrame = CFrame.new(0, 0, 4.6 * scale), Color = colors.Body, Material = Enum.Material.SmoothPlastic, Parent = model })
+	wiggle(tail, "Yaw", Vector3.new(0, 0, 3.3 * scale), 0.45, 3, phase)
+	-- the lure: a bent stalk with a glowing bulb
+	local stalk = part({ Name = "Stalk", Size = Vector3.new(0.18, 0.18, 4.5) * scale, CFrame = CFrame.lookAt(Vector3.new(0, 3.6, -1) * scale, Vector3.new(0, 5, -4.5) * scale) * CFrame.new(0, 0, -2.2 * scale), Color = colors.Body, Material = Enum.Material.SmoothPlastic, Parent = model })
+	wiggle(stalk, "Pitch", Vector3.new(0, 2.6 * scale, -0.5 * scale), 0.15, 1, phase + 1)
+	local lure = part({ Name = "Lure", Shape = Enum.PartType.Ball, Size = Vector3.one * 1.3 * scale, CFrame = CFrame.new(Vector3.new(0, 5.2, -5.4) * scale), Color = colors.Glow, Material = Enum.Material.Neon, Parent = model })
+	wiggle(lure, "Pitch", Vector3.new(0, 2.6 * scale, -0.5 * scale), 0.15, 1, phase + 1)
+	lure:SetAttribute("FX_Twinkle", phase)
+	addLight(lure, colors.Glow, 26 * scale, 2.5)
+	sparkles(lure, colors.Glow, 8, 0.4 * scale, 0.3)
 	return model
 end
 
@@ -612,7 +803,9 @@ local function serpent(parent, colors, segments, scale)
 	end
 	local head = model:FindFirstChild("Seg1")
 	addLight(head, colors.Glow, 40, 2)
-	sparkles(model:FindFirstChild("Seg" .. segments), colors.Glow, 20, 0.8 * scale, 0.3).Lifetime = NumberRange.new(3, 5)
+	local tailEnd = model:FindFirstChild("Seg" .. segments)
+	sparkles(tailEnd, colors.Glow, 20, 0.8 * scale, 0.3).Lifetime = NumberRange.new(3, 5)
+	trail(tailEnd, Vector3.new(0, 1.2 * scale, 0), Vector3.new(0, -1.2 * scale, 0), colors.Glow, 2.5, 0.35)
 	model:SetAttribute("Segments", segments)
 	model:SetAttribute("Spacing", 3.6 * scale)
 	return model
@@ -627,6 +820,8 @@ local BUILD = {
 	Koi = function(parent, colors) return koi(parent, colors, rand:NextNumber(1.2, 1.8)) end,
 	Star = function(parent, colors) return starSprite(parent, colors, rand:NextNumber(1, 1.8)) end,
 	Serpent = function(parent, colors) return serpent(parent, colors, 16, rand:NextNumber(1, 1.3)) end,
+	Butterflies = function(parent, colors) return butterflies(parent, colors, rand:NextInteger(6, 10)) end,
+	Angler = function(parent, colors) return angler(parent, colors, rand:NextNumber(1.1, 1.6)) end,
 }
 -- how each kind likes to move
 local MOTION = {
@@ -638,6 +833,8 @@ local MOTION = {
 	Koi = { "Figure8", 0.05, 0.09 },
 	Star = { "Hover", 0, 0 },
 	Serpent = { "Serpent", 0.05, 0.07 },
+	Butterflies = { "Figure8", 0.06, 0.1 },
+	Angler = { "Orbit", 0.04, 0.06 },
 }
 
 -- spawns a set of creatures around a center
@@ -755,7 +952,7 @@ decorate("MainSky", MAIN, {
 		Glow = Color3.fromRGB(120, 230, 255), Fall = Color3.fromRGB(170, 140, 255),
 		Trunk = Color3.fromRGB(70, 50, 90), Leaves = Color3.fromRGB(255, 120, 220),
 	},
-	Creatures = { { "Whale", 2 }, { "Manta", 4 }, { "Jelly", 8 }, { "School", 5 }, { "Turtle", 2 }, { "Koi", 4 }, { "Star", 10 }, { "Serpent", 1 } },
+	Creatures = { { "Whale", 3 }, { "Manta", 5 }, { "Jelly", 10 }, { "School", 7 }, { "Turtle", 2 }, { "Koi", 5 }, { "Star", 12 }, { "Serpent", 1 }, { "Butterflies", 5 }, { "Angler", 2 } },
 	CreatureColors = {
 		palette(Color3.fromRGB(60, 70, 150), Color3.fromRGB(150, 190, 255), Color3.fromRGB(120, 230, 255)),
 		palette(Color3.fromRGB(120, 60, 160), Color3.fromRGB(240, 170, 255), Color3.fromRGB(255, 120, 220)),
@@ -781,7 +978,7 @@ decorate("LuckySky", LUCKY.Center, {
 		Glow = Color3.fromRGB(255, 200, 70), Fall = Color3.fromRGB(255, 180, 210),
 		Trunk = Color3.fromRGB(120, 80, 60), Leaves = Color3.fromRGB(255, 150, 200),
 	},
-	Creatures = { { "Koi", 6 }, { "Manta", 2 }, { "Jelly", 5 }, { "School", 3 }, { "Turtle", 1 }, { "Star", 8 } },
+	Creatures = { { "Koi", 7 }, { "Manta", 3 }, { "Jelly", 6 }, { "School", 4 }, { "Turtle", 1 }, { "Star", 10 }, { "Butterflies", 6 } },
 	CreatureColors = {
 		palette(Color3.fromRGB(255, 120, 60), Color3.fromRGB(255, 245, 235), Color3.fromRGB(255, 200, 80)),
 		palette(Color3.fromRGB(255, 150, 200), Color3.fromRGB(255, 235, 245), Color3.fromRGB(255, 120, 190)),
@@ -809,7 +1006,7 @@ local islandThemes = {
 			Glow = Color3.fromRGB(140, 230, 255), Fall = Color3.fromRGB(200, 240, 255),
 			Trunk = Color3.fromRGB(90, 60, 45), Leaves = Color3.fromRGB(70, 140, 120), LeavesMaterial = Enum.Material.Grass,
 		},
-		Creatures = { { "Whale", 1 }, { "Jelly", 6 }, { "Manta", 3 }, { "School", 4 }, { "Turtle", 1 }, { "Star", 8 } },
+		Creatures = { { "Whale", 2 }, { "Jelly", 8 }, { "Manta", 3 }, { "School", 5 }, { "Turtle", 1 }, { "Star", 10 }, { "Angler", 1 } },
 		CreatureColors = {
 			palette(Color3.fromRGB(200, 230, 255), Color3.fromRGB(255, 255, 255), Color3.fromRGB(120, 230, 255)),
 			palette(Color3.fromRGB(110, 200, 255), Color3.fromRGB(230, 250, 255), Color3.fromRGB(90, 255, 190)),
@@ -831,7 +1028,7 @@ local islandThemes = {
 			Glow = Color3.fromRGB(255, 120, 40), Fall = Color3.fromRGB(255, 110, 30),
 			Trunk = Color3.fromRGB(35, 25, 22), Leaves = Color3.fromRGB(255, 120, 40),
 		},
-		Creatures = { { "Serpent", 2 }, { "Manta", 3 }, { "School", 5 }, { "Koi", 3 }, { "Star", 8 } },
+		Creatures = { { "Serpent", 2 }, { "Manta", 4 }, { "School", 6 }, { "Koi", 3 }, { "Star", 10 }, { "Angler", 2 }, { "Butterflies", 3 } },
 		CreatureColors = {
 			palette(Color3.fromRGB(120, 30, 20), Color3.fromRGB(255, 150, 60), Color3.fromRGB(255, 200, 70)),
 			palette(Color3.fromRGB(40, 25, 25), Color3.fromRGB(200, 60, 30), Color3.fromRGB(255, 110, 30)),
@@ -852,7 +1049,7 @@ local islandThemes = {
 			Glow = Color3.fromRGB(60, 230, 255), Fall = Color3.fromRGB(255, 70, 220),
 			Trunk = Color3.fromRGB(40, 25, 70), Leaves = Color3.fromRGB(255, 70, 220),
 		},
-		Creatures = { { "Whale", 1 }, { "Jelly", 6 }, { "Manta", 3 }, { "School", 4 }, { "Serpent", 1 }, { "Star", 10 } },
+		Creatures = { { "Whale", 2 }, { "Jelly", 8 }, { "Manta", 4 }, { "School", 5 }, { "Serpent", 1 }, { "Star", 12 }, { "Butterflies", 4 }, { "Angler", 1 } },
 		CreatureColors = {
 			palette(Color3.fromRGB(30, 20, 60), Color3.fromRGB(60, 230, 255), Color3.fromRGB(255, 70, 220)),
 			palette(Color3.fromRGB(60, 20, 80), Color3.fromRGB(255, 120, 240), Color3.fromRGB(60, 230, 255)),

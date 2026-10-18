@@ -56,13 +56,14 @@ Lighting.GeographicLatitude = 20
 Lighting.Brightness = 2
 Lighting.Ambient = Color3.fromRGB(70, 60, 110)
 Lighting.OutdoorAmbient = Color3.fromRGB(110, 95, 170)
-Lighting.EnvironmentDiffuseScale = 0.4
-Lighting.EnvironmentSpecularScale = 0.6
-Lighting.ExposureCompensation = 0.2
+Lighting.EnvironmentDiffuseScale = 0.5
+Lighting.EnvironmentSpecularScale = 1 -- shiny glass, ice and gold reflect the sky
+Lighting.ExposureCompensation = 0.25
+Lighting.ShadowSoftness = 0.35
 
 local sky = Instance.new("Sky")
 sky.Name = "CosmicSky"
-sky.StarCount = 5000
+sky.StarCount = 8000
 sky.CelestialBodiesShown = true
 sky.MoonAngularSize = 20
 sky.Parent = Lighting
@@ -73,23 +74,38 @@ atmosphere.Density = 0.3
 atmosphere.Offset = 0.1
 atmosphere.Color = Color3.fromRGB(120, 90, 210)
 atmosphere.Decay = Color3.fromRGB(50, 30, 110)
-atmosphere.Glare = 0.3
-atmosphere.Haze = 1.2
+atmosphere.Glare = 0.45
+atmosphere.Haze = 1.4
 atmosphere.Parent = Lighting
 
 local bloom = Instance.new("BloomEffect")
 bloom.Name = "CosmicBloom"
-bloom.Intensity = 1
-bloom.Size = 28
-bloom.Threshold = 0.85
+bloom.Intensity = 1.15
+bloom.Size = 32
+bloom.Threshold = 0.8
 bloom.Parent = Lighting
 
 local color = Instance.new("ColorCorrectionEffect")
 color.Name = "CosmicColor"
-color.Saturation = 0.15
-color.Contrast = 0.08
+color.Saturation = 0.18
+color.Contrast = 0.12
 color.TintColor = Color3.fromRGB(245, 240, 255)
 color.Parent = Lighting
+
+-- soft god-rays from bright things and a gentle blur on far-away scenery
+local rays = Instance.new("SunRaysEffect")
+rays.Name = "CosmicRays"
+rays.Intensity = 0.05
+rays.Spread = 0.7
+rays.Parent = Lighting
+
+local depth = Instance.new("DepthOfFieldEffect")
+depth.Name = "CosmicDepth"
+depth.FarIntensity = 0.12
+depth.FocusDistance = 80
+depth.InFocusRadius = 120
+depth.NearIntensity = 0
+depth.Parent = Lighting
 
 ---------------------------------------------------------------------
 -- REMOVE the template baseplate / spawn

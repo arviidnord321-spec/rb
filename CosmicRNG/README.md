@@ -130,6 +130,19 @@ Side menu (2 columns) with **LIMITED**, **DUEL**, **STORE**, **REBIRTH**, **PETS
     | Star sprites | Spinning fast |
     | Long sky serpents | Their bodies follow the head in waves |
 - The **rebirth islands are bigger** too (radius 100), with more trees, spikes, geysers, towers and palms.
+- **Island details** (`WorldDetails`), each island in its own theme:
+  - Glowing grass, crystal flowers, soft color patches on the ground and constellations drawn into the main island's floor.
+  - Glowing vines hang under every island edge (icicles on Frostfall, lava strands on Ember Isle).
+  - Waterfalls of light pour off the edges from little springs, with mist.
+  - Firefly motes drift in the air (snowy motes, embers, or neon pixels on Neon Nexus).
+- **Better lighting:** more stars, softer shadows, shinier glass and ice, light rays, a subtle blur on far scenery and richer bloom and contrast.
+- **Sky creatures move like real animals:**
+  - Whale fins flap, their tails beat up and down, and a soft shimmer surrounds them.
+  - Manta wings flap with glowing ribbons from the wingtips.
+  - Jellyfish bells breathe in and out, and their tentacles sway in waves.
+  - Every fish in a school beats its own tail. Koi bodies wave, turtles row their flippers.
+  - New: **butterfly swarms** and **lantern-fish anglers** with a glowing lure.
+  - Many creatures leave glowing ribbons behind them.
   - Lucky Isle has twin golden moons, Frostfall a frozen ringed planet, Ember Isle a burning red sun and Neon Nexus a neon-ringed planet.
 - **Island luck multiplies ALL your luck.** If you have x30 luck and walk onto Lucky Isle (x2), you roll with x60. A popup counts it up when you arrive (x30 → x60), and your luck line shows it as "x60 (x30 × 2 island)". Rebirth islands work the same way.
 - **Lucky Isle portal**: walk into the portal (or press **E**) to travel to **Lucky Isle**. It's white marble, gold, rose and teal, and gives **x2 luck** while you stand on it. The sky turns pink and gold while you're there, and a return portal takes you back.
@@ -274,7 +287,7 @@ All sounds are made from Roblox's built-in sound files, so they always work:
 | Where in Studio | Type | Name |
 |---|---|---|
 | ReplicatedStorage | ModuleScript | `CosmicConfig`, `AuraData`, `AuraImages`, `AuraEffects`, `CombatAnim`, `Luck`, `Rebirth`, `PetData`, `QuestData`, `SoundFX`, `UIKit` |
-| ServerScriptService | Script | `RollService`, `WorldSetup`, `LuckyIsland`, `RebirthIslands`, `SkyDecor`, `PetWorld`, `DropService`, `Parkour`, `DuelService`, `Movement`, `Leaderboard` |
+| ServerScriptService | Script | `RollService`, `WorldSetup`, `LuckyIsland`, `RebirthIslands`, `SkyDecor`, `WorldDetails`, `PetWorld`, `DropService`, `Parkour`, `DuelService`, `Movement`, `Leaderboard` |
 | StarterPlayer > StarterPlayerScripts | LocalScript | `AuraRenderer`, `RollUI`, `StoreUI`, `WorldFX`, `ParkourClient`, `DuelClient`, `DuelFX`, `Sprint`, `RebirthClient`, `IslandFX`, `SkyFX`, `PetClient`, `DropClient`, `LimitedOffer`, `NameplateStyler`, `QuestClient` |
 
 ## Adding the aura pictures

@@ -199,6 +199,28 @@ for _, item in ipairs(decor:GetDescendants()) do
 				Bob = item:GetAttribute("Bob") or 4,
 				Spin = item:GetAttribute("Spin") or 0,
 			}
+			if entry.Motion ~= "Serpent" then
+				-- remember where every piece sits on the creature, and which pieces
+				-- move on their own (fins flap, tails swing, domes breathe)
+				local pivot = item:GetPivot()
+				entry.Parts = {}
+				for _, p in ipairs(item:GetDescendants()) do
+					if p:IsA("BasePart") then
+						local wiggleKind = p:GetAttribute("Wiggle")
+						table.insert(entry.Parts, {
+							Part = p,
+							Offset = pivot:ToObjectSpace(p.CFrame),
+							Wiggle = wiggleKind,
+							Joint = p:GetAttribute("Joint") or Vector3.zero,
+							Amp = p:GetAttribute("Amp") or 0,
+							WSpeed = p:GetAttribute("WSpeed") or 1,
+							WPhase = p:GetAttribute("WPhase") or 0,
+							Side = p:GetAttribute("Side") or 1,
+							BaseSize = p.Size,
+						})
+					end
+				end
+			end
 			if entry.Motion == "Serpent" then
 				-- remember how every piece sits on its body segment
 				entry.Segments = {}
@@ -244,10 +266,36 @@ local function pathAt(c, t)
 	return c.Center + Vector3.new(math.cos(a) * c.Radius, c.Height + math.sin(t * 0.4 + c.Phase) * c.Bob, math.sin(a) * c.Radius)
 end
 
+-- puts every piece of a creature in place, with its own little motion
+local function placeParts(c, cf, t)
+	for _, info in ipairs(c.Parts) do
+		local kind = info.Wiggle
+		if not kind then
+			info.Part.CFrame = cf * info.Offset
+		elseif kind == "Pulse" then
+			local scale = 1 + math.sin(t * info.WSpeed + info.WPhase) * info.Amp
+			info.Part.Size = info.BaseSize * Vector3.new(scale, 1 / scale, scale)
+			info.Part.CFrame = cf * info.Offset
+		else
+			local swing = math.sin(t * info.WSpeed + info.WPhase) * info.Amp
+			local rotation
+			if kind == "Flap" then
+				rotation = CFrame.Angles(0, 0, -info.Side * swing)
+			elseif kind == "Yaw" then
+				rotation = CFrame.Angles(0, swing, 0)
+			else -- Pitch
+				rotation = CFrame.Angles(swing, 0, 0)
+			end
+			local joint = info.Joint
+			info.Part.CFrame = cf * CFrame.new(joint) * rotation * CFrame.new(-joint) * info.Offset
+		end
+	end
+end
+
 local function moveCreature(c, t)
 	if c.Motion == "Hover" then
 		local position = c.Center + Vector3.new(0, c.Height + math.sin(t * 0.7 + c.Phase) * c.Bob, 0)
-		c.Model:PivotTo(CFrame.new(position) * CFrame.Angles(math.sin(t * 0.5 + c.Phase) * 0.15, t * c.Spin + c.Phase, math.cos(t * 0.4 + c.Phase) * 0.15))
+		placeParts(c, CFrame.new(position) * CFrame.Angles(math.sin(t * 0.5 + c.Phase) * 0.15, t * c.Spin + c.Phase, math.cos(t * 0.4 + c.Phase) * 0.15), t)
 		return
 	end
 	if c.Motion == "Serpent" then
@@ -275,7 +323,7 @@ local function moveCreature(c, t)
 	elseif c.Motion == "Figure8" then
 		bank = math.cos(c.Phase + t * c.Speed) * 0.4
 	end
-	c.Model:PivotTo(cf * CFrame.Angles(0, 0, bank))
+	placeParts(c, cf * CFrame.Angles(0, 0, bank), t)
 end
 
 local FAR = 1100 -- sky things are big, so animate them from further away
@@ -299,8 +347,10 @@ RunService.RenderStepped:Connect(function(dt)
 	end
 
 	-- creatures near you move every frame
-	for _, c in ipairs(creatures) do
-		if near(c.Center, 800) then
+	for index, c in ipairs(creatures) do
+		local distance = (camera.CFrame.Position - c.Center).Magnitude
+		-- close creatures every frame, further ones every 3rd frame (smooth + cheap)
+		if distance < 450 or (distance < 800 and (frame + index) % 3 == 0) then
 			moveCreature(c, t)
 		end
 	end

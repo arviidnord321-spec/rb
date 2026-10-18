@@ -273,6 +273,9 @@ Config.Textures = {
 	Fire = "rbxasset://textures/particles/fire_main.dds",
 	Smoke = "rbxasset://textures/particles/smoke_main.dds",
 	Spark = "rbxasset://textures/particles/fire_sparks_main.dds",
+	Glow = "rbxasset://textures/particles/forcefield_glow_main.dds", -- soft round glow (fireflies, motes)
+	Vortex = "rbxasset://textures/particles/forcefield_vortex_main.dds", -- swirl
+	Shockwave = "rbxasset://textures/particles/explosion01_shockwave_main.dds",
 }
 
 ---------------------------------------------------------------------
