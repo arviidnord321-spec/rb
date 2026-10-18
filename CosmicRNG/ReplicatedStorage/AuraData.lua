@@ -16,6 +16,8 @@ AuraData.Tiers = {
 	Legendary = { Order = 5, Color = Color3.fromRGB(255, 200, 70), MaxHealth = 175, AttackDamage = 12 },
 	Mythic    = { Order = 6, Color = Color3.fromRGB(255, 80, 140), MaxHealth = 210, AttackDamage = 14 },
 	Secret    = { Order = 7, Color = Color3.fromRGB(255, 255, 255), MaxHealth = 260, AttackDamage = 17 },
+	Divine    = { Order = 8, Color = Color3.fromRGB(255, 236, 150), MaxHealth = 320, AttackDamage = 21 },
+	Transcendent = { Order = 9, Color = Color3.fromRGB(140, 255, 235), MaxHealth = 400, AttackDamage = 26 },
 }
 
 ---------------------------------------------------------------------
@@ -184,6 +186,55 @@ AuraData.List = {
 		Colors = { rgb(0, 0, 0), rgb(255, 0, 80) },
 		Power = { Name = "Void Collapse", Type = "Pull", Damage = 100, Range = 70, Stun = 1.5, Cooldown = 15,
 			Description = "The void swallows your opponent and freezes them." },
+	},
+
+	-- DIVINE ---------------------------------------------------------
+	{
+		Name = "Stellar Phoenix", Chance = 10000000, Tier = "Divine", Special = "Fire",
+		Colors = { rgb(255, 150, 40), rgb(255, 240, 160) },
+		Power = { Name = "Rebirth Flame", Type = "Burst", Damage = 80, Radius = 26, Knockback = 90, Cooldown = 11,
+			Burn = { Damage = 8, Ticks = 5, Interval = 0.5 }, Regen = { Amount = 5, Ticks = 5, Interval = 0.6 },
+			Description = "A firestorm of phoenix wings: burns them, heals you." },
+	},
+	{
+		Name = "Chronos", Chance = 25000000, Tier = "Divine",
+		Colors = { rgb(255, 225, 120), rgb(120, 200, 255) },
+		Power = { Name = "Time Stop", Type = "Freeze", Damage = 70, Duration = 2.5, Range = 70, Cooldown = 13,
+			Description = "Stops time around your opponent for 2.5s." },
+	},
+	{
+		Name = "Nebula Leviathan", Chance = 50000000, Tier = "Divine", Special = "Inward",
+		Colors = { rgb(60, 220, 200), rgb(140, 60, 255) },
+		Power = { Name = "Abyss Maw", Type = "Pull", Damage = 120, Range = 80, Stun = 1.2, Cooldown = 14,
+			Description = "A cosmic sea beast drags them in and bites." },
+	},
+
+	-- TRANSCENDENT ---------------------------------------------------
+	{
+		Name = "Astral Dragon", Chance = 100000000, Tier = "Transcendent", Special = "Rainbow",
+		Colors = { rgb(255, 80, 160), rgb(120, 230, 255) },
+		Power = { Name = "Dragon Breath", Type = "Beam", Damage = 140, Range = 110, Pierce = true, Cooldown = 12,
+			Burn = { Damage = 10, Ticks = 4, Interval = 0.5 },
+			Description = "A star-fire beam that ignores shields and burns." },
+	},
+	{
+		Name = "Singularity", Chance = 250000000, Tier = "Transcendent", Special = "Inward",
+		Colors = { rgb(10, 0, 20), rgb(200, 120, 255) },
+		Power = { Name = "Event Collapse", Type = "Pull", Damage = 160, Range = 90, Stun = 2, Cooldown = 15,
+			Description = "Everything falls in. 160 damage and a 2s stun." },
+	},
+	{
+		Name = "Omniverse", Chance = 500000000, Tier = "Transcendent", Special = "Rainbow",
+		Colors = { rgb(255, 255, 255), rgb(150, 100, 255) },
+		Power = { Name = "All Worlds", Type = "Meteor", Damage = 45, Count = 6, Radius = 9, Delay = 0.5, Cooldown = 14,
+			Description = "Six worlds crash down on your opponent." },
+	},
+	{
+		Name = "Genesis", Chance = 1000000000, Tier = "Transcendent", Special = "Rainbow",
+		Colors = { rgb(255, 250, 220), rgb(255, 200, 80) },
+		Power = { Name = "Let There Be Light", Type = "Burst", Damage = 200, Radius = 36, Knockback = 150, Cooldown = 16,
+			Regen = { Amount = 10, Ticks = 5, Interval = 0.6 },
+			Description = "The first light of creation: 200 damage, then you heal." },
 	},
 }
 

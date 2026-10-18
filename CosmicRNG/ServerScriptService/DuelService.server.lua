@@ -1171,6 +1171,10 @@ local function usePower(fighter, aim)
 		if fighter.Duel and fighter.Duel.State == "Fight" and fighter.Root and fighter.Root.Parent then
 			-- re-aim at the moment of release (aim assist still applies)
 			handler(fighter, power, resolveAim(fighter, direction))
+			-- attack powers can also heal you over time (Heal powers do it themselves)
+			if power.Regen and power.Type ~= "Heal" then
+				regen(fighter, power.Regen)
+			end
 		end
 	end)
 end

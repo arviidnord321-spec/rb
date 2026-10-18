@@ -24,6 +24,8 @@ AuraData.Tiers = {
 	Legendary = { Order = 5, Color = Color3.fromRGB(255, 200, 70), MaxHealth = 175, AttackDamage = 12 },
 	Mythic    = { Order = 6, Color = Color3.fromRGB(255, 80, 140), MaxHealth = 210, AttackDamage = 14 },
 	Secret    = { Order = 7, Color = Color3.fromRGB(255, 255, 255), MaxHealth = 260, AttackDamage = 17 },
+	Divine    = { Order = 8, Color = Color3.fromRGB(255, 236, 150), MaxHealth = 320, AttackDamage = 21 },
+	Transcendent = { Order = 9, Color = Color3.fromRGB(140, 255, 235), MaxHealth = 400, AttackDamage = 26 },
 }
 
 ---------------------------------------------------------------------
@@ -192,6 +194,55 @@ AuraData.List = {
 		Colors = { rgb(0, 0, 0), rgb(255, 0, 80) },
 		Power = { Name = "Void Collapse", Type = "Pull", Damage = 100, Range = 70, Stun = 1.5, Cooldown = 15,
 			Description = "The void swallows your opponent and freezes them." },
+	},
+
+	-- DIVINE ---------------------------------------------------------
+	{
+		Name = "Stellar Phoenix", Chance = 10000000, Tier = "Divine", Special = "Fire",
+		Colors = { rgb(255, 150, 40), rgb(255, 240, 160) },
+		Power = { Name = "Rebirth Flame", Type = "Burst", Damage = 80, Radius = 26, Knockback = 90, Cooldown = 11,
+			Burn = { Damage = 8, Ticks = 5, Interval = 0.5 }, Regen = { Amount = 5, Ticks = 5, Interval = 0.6 },
+			Description = "A firestorm of phoenix wings: burns them, heals you." },
+	},
+	{
+		Name = "Chronos", Chance = 25000000, Tier = "Divine",
+		Colors = { rgb(255, 225, 120), rgb(120, 200, 255) },
+		Power = { Name = "Time Stop", Type = "Freeze", Damage = 70, Duration = 2.5, Range = 70, Cooldown = 13,
+			Description = "Stops time around your opponent for 2.5s." },
+	},
+	{
+		Name = "Nebula Leviathan", Chance = 50000000, Tier = "Divine", Special = "Inward",
+		Colors = { rgb(60, 220, 200), rgb(140, 60, 255) },
+		Power = { Name = "Abyss Maw", Type = "Pull", Damage = 120, Range = 80, Stun = 1.2, Cooldown = 14,
+			Description = "A cosmic sea beast drags them in and bites." },
+	},
+
+	-- TRANSCENDENT ---------------------------------------------------
+	{
+		Name = "Astral Dragon", Chance = 100000000, Tier = "Transcendent", Special = "Rainbow",
+		Colors = { rgb(255, 80, 160), rgb(120, 230, 255) },
+		Power = { Name = "Dragon Breath", Type = "Beam", Damage = 140, Range = 110, Pierce = true, Cooldown = 12,
+			Burn = { Damage = 10, Ticks = 4, Interval = 0.5 },
+			Description = "A star-fire beam that ignores shields and burns." },
+	},
+	{
+		Name = "Singularity", Chance = 250000000, Tier = "Transcendent", Special = "Inward",
+		Colors = { rgb(10, 0, 20), rgb(200, 120, 255) },
+		Power = { Name = "Event Collapse", Type = "Pull", Damage = 160, Range = 90, Stun = 2, Cooldown = 15,
+			Description = "Everything falls in. 160 damage and a 2s stun." },
+	},
+	{
+		Name = "Omniverse", Chance = 500000000, Tier = "Transcendent", Special = "Rainbow",
+		Colors = { rgb(255, 255, 255), rgb(150, 100, 255) },
+		Power = { Name = "All Worlds", Type = "Meteor", Damage = 45, Count = 6, Radius = 9, Delay = 0.5, Cooldown = 14,
+			Description = "Six worlds crash down on your opponent." },
+	},
+	{
+		Name = "Genesis", Chance = 1000000000, Tier = "Transcendent", Special = "Rainbow",
+		Colors = { rgb(255, 250, 220), rgb(255, 200, 80) },
+		Power = { Name = "Let There Be Light", Type = "Burst", Damage = 200, Radius = 36, Knockback = 150, Cooldown = 16,
+			Regen = { Amount = 10, Ticks = 5, Interval = 0.6 },
+			Description = "The first light of creation: 200 damage, then you heal." },
 	},
 }
 
@@ -877,6 +928,14 @@ return {
 	["Cosmic Rift"] = 0,
 	["Big Bang"] = 0,
 	["Void Sovereign"] = 0,
+	-- new auras (add pictures the same way)
+	["Stellar Phoenix"] = 0,
+	["Chronos"] = 0,
+	["Nebula Leviathan"] = 0,
+	["Astral Dragon"] = 0,
+	["Singularity"] = 0,
+	["Omniverse"] = 0,
+	["Genesis"] = 0,
 }
 ]]></string>
       </Properties>
@@ -1436,10 +1495,52 @@ Config.PassInfo = {
 Config.Products = {
 	PersonalLuck = 0, -- x2 luck for you
 	ServerLuck = 0, -- x2 luck for everyone in the server
+	-- LIMITED OFFER packs (set the price to 399 Robux or more on the dashboard)
+	LimitedAura = 0,
+	LimitedLuck = 0,
+	LimitedPet = 0,
 }
 Config.ProductInfo = {
 	{ Key = "PersonalLuck", Icon = "🧪", Name = "Luck Potion", Description = "x2 luck for 10 minutes. Stacks time if you buy more." },
 	{ Key = "ServerLuck", Icon = "🌌", Name = "Server Luck", Description = "x2 luck for EVERYONE in the server for 15 minutes." },
+}
+
+---------------------------------------------------------------------
+-- LIMITED OFFER: on sale for the first 7 days after the game goes live.
+-- The 7 days start automatically the first time a live server starts
+-- (saved in a DataStore). Each player can buy ONE pack.
+-- To pick the start yourself, set StartTime to a Unix time (e.g. from
+-- https://www.unixtimestamp.com), or leave it 0 for automatic.
+---------------------------------------------------------------------
+Config.LimitedOffer = {
+	Days = 7,
+	StartTime = 0,
+	PriceText = "399", -- shown on the button (the real price is set on the dashboard)
+	Packs = {
+		{
+			Key = "LimitedAura", Icon = "🌌", Name = "Legend Aura Pack", Color = Color3.fromRGB(255, 80, 140),
+			Gives = { "Cosmic Rift aura (1 in 500,000)", "Black Hole aura (1 in 100,000)", "x2 luck potion for 2 hours" },
+		},
+		{
+			Key = "LimitedLuck", Icon = "🍀", Name = "Infinite Luck Pack", Color = Color3.fromRGB(120, 255, 170),
+			Gives = { "x2 luck FOREVER", "5 Cosmic Rolls (x50 luck each)", "x2 luck potion for 1 hour" },
+		},
+		{
+			Key = "LimitedPet", Icon = "🐉", Name = "Overlord Pet Pack", Color = Color3.fromRGB(255, 200, 70),
+			Gives = { "Cosmic Overlord pet (+300% luck, only here)", "Void Wisp pet (+100% luck)", "3 Cosmic Rolls (x50 luck each)" },
+		},
+	},
+}
+
+---------------------------------------------------------------------
+-- COSMIC DROP: every few minutes a Cosmic Roll appears somewhere on the
+-- main island or Lucky Isle. The first player to grab it gets a huge luck
+-- boost on their next roll (one use).
+---------------------------------------------------------------------
+Config.Drop = {
+	IntervalMinutes = 15,
+	BoostMultiplier = 50,
+	LuckyIsleChance = 0.3, -- chance it lands on Lucky Isle instead of the main island
 }
 
 ---------------------------------------------------------------------
@@ -1485,16 +1586,18 @@ Config.LeaderboardRefresh = 90 -- seconds
 Config.RemoveDefaultBaseplate = true -- deletes the part named "Baseplate"
 
 -- Where things are on the main island (every script uses these)
+Config.MainIslandRadius = 115
 Config.Places = {
-	Core = Vector3.new(0, 0, -34), -- Cosmic Core altar
-	PortalPlaza = Vector3.new(34, 0, 30), -- portal to Lucky Isle
-	Board = Vector3.new(-34, 0, 12), -- Top Rollers board
-	Pond = Vector3.new(-30, 0, -26), -- cosmic pool
-	StarstepStart = Vector3.new(-60, 0, -4), -- easy parkour
-	VoidTowerStart = Vector3.new(44, 0, -46), -- hard parkour
-	DuelIsland = Vector3.new(0, 0, 140), -- center of the duel island
+	Core = Vector3.new(0, 0, -52), -- Cosmic Core altar
+	PortalPlaza = Vector3.new(54, 0, 46), -- portal to Lucky Isle
+	Board = Vector3.new(-52, 0, 18), -- Top Rollers board
+	Pond = Vector3.new(-46, 0, -42), -- cosmic pool
+	StarstepStart = Vector3.new(-104, 0, -6), -- medium parkour
+	VoidTowerStart = Vector3.new(72, 0, -80), -- hard parkour
+	DuelIsland = Vector3.new(0, 0, 215), -- center of the duel island
 	DuelIslandRadius = 46,
-	RebirthGate = Vector3.new(-40, 0, 34), -- 3 portals to the rebirth islands
+	RebirthGate = Vector3.new(-62, 0, 54), -- 3 portals to the rebirth islands
+	Hatchery = Vector3.new(62, 0, -18), -- the pet eggs of the main island
 }
 
 -- Lucky Isle: the island you reach through the portal
@@ -1537,17 +1640,20 @@ Config.Rebirth = {
 Config.RebirthIslands = {
 	{
 		Key = "Frostfall", Name = "Frostfall Isle", Icon = "❄️", Rebirths = 1,
-		Center = Vector3.new(-1000, 30, 0), Radius = 70, LuckMultiplier = 2.5,
+		Center = Vector3.new(-1000, 30, 0), Radius = 100, LuckMultiplier = 2.5,
+		Hatchery = Vector3.new(50, 0, 36), -- where the eggs stand (from the island center)
 		Color = Color3.fromRGB(140, 220, 255),
 	},
 	{
 		Key = "Ember", Name = "Ember Isle", Icon = "🔥", Rebirths = 2,
-		Center = Vector3.new(1000, 30, 0), Radius = 70, LuckMultiplier = 3,
+		Center = Vector3.new(1000, 30, 0), Radius = 100, LuckMultiplier = 3,
+		Hatchery = Vector3.new(46, 0, -34),
 		Color = Color3.fromRGB(255, 120, 40),
 	},
 	{
 		Key = "Nexus", Name = "Neon Nexus", Icon = "💠", Rebirths = 3,
-		Center = Vector3.new(0, 30, -1000), Radius = 70, LuckMultiplier = 4,
+		Center = Vector3.new(0, 30, -1000), Radius = 100, LuckMultiplier = 4,
+		Hatchery = Vector3.new(56, 0, -40),
 		Color = Color3.fromRGB(255, 70, 220),
 	},
 }
@@ -1730,6 +1836,23 @@ function Luck.GetBonuses(player)
 		table.insert(bonuses, { Name = "Parkour", Multiplier = player:GetAttribute("ParkourLuckMultiplier") or 1.5, EndsAt = parkourEnd })
 	end
 
+	-- Equipped pets (the server works this out and sets it)
+	local petLuck = player:GetAttribute("PetLuck") or 1
+	if petLuck > 1 then
+		table.insert(bonuses, { Name = "Pets", Multiplier = petLuck, Show = true })
+	end
+
+	-- Permanent luck (Limited Offer)
+	local permanent = player:GetAttribute("PermanentLuck") or 1
+	if permanent > 1 then
+		table.insert(bonuses, { Name = "Forever", Multiplier = permanent })
+	end
+
+	-- Cosmic Roll from the Cosmic Drop: huge luck on the NEXT roll only
+	if (player:GetAttribute("BoostRolls") or 0) > 0 then
+		table.insert(bonuses, { Name = "Cosmic Roll", Multiplier = Config.Drop.BoostMultiplier, Show = true, NextRoll = true })
+	end
+
 	-- Reserved for events in a later part
 	local eventLuck = ReplicatedStorage:GetAttribute("EventLuck")
 	if eventLuck and eventLuck > 1 then
@@ -1776,6 +1899,197 @@ return Luck
       </Properties>
     </Item>
     <Item class="ModuleScript" referent="7">
+      <Properties>
+        <string name="Name">PetData</string>
+        <string name="Source"><![CDATA[-- PetData (ModuleScript in ReplicatedStorage)
+-- Every pet and every egg. There are no coins: you pay for eggs with AURAS
+-- from your inventory. Each island has 3 eggs; the further you get
+-- (rebirth islands), the pricier the eggs and the better the pets.
+-- Pets give luck: every equipped pet adds its Luck (0.25 = +25%).
+
+local PetData = {}
+
+PetData.MaxEquipped = 3
+
+PetData.Rarities = {
+	Common = { Order = 1, Color = Color3.fromRGB(200, 205, 220) },
+	Uncommon = { Order = 2, Color = Color3.fromRGB(110, 230, 140) },
+	Rare = { Order = 3, Color = Color3.fromRGB(90, 170, 255) },
+	Epic = { Order = 4, Color = Color3.fromRGB(190, 110, 255) },
+	Legendary = { Order = 5, Color = Color3.fromRGB(255, 200, 70) },
+	Mythic = { Order = 6, Color = Color3.fromRGB(255, 80, 140) },
+	Exclusive = { Order = 7, Color = Color3.fromRGB(255, 255, 255) },
+}
+
+local function rgb(r, g, b)
+	return Color3.fromRGB(r, g, b)
+end
+
+-- Shape = how the pet is built (see PetClient): Blob, Cat, Bunny, Bird,
+-- Fish, Jelly, Dragon, Star, Wisp
+PetData.List = {
+	-- COSMIC ISLAND ---------------------------------------------------
+	{ Name = "Pebble Blob", Rarity = "Common", Luck = 0.03, Shape = "Blob", Colors = { rgb(150, 140, 190), rgb(220, 210, 255) } },
+	{ Name = "Star Kitten", Rarity = "Common", Luck = 0.05, Shape = "Cat", Colors = { rgb(240, 230, 255), rgb(170, 180, 255) } },
+	{ Name = "Moon Bunny", Rarity = "Uncommon", Luck = 0.08, Shape = "Bunny", Colors = { rgb(210, 230, 255), rgb(140, 170, 230) } },
+	{ Name = "Comet Pup", Rarity = "Rare", Luck = 0.14, Shape = "Cat", Colors = { rgb(120, 200, 255), rgb(255, 255, 255) } },
+	{ Name = "Nebula Jelly", Rarity = "Rare", Luck = 0.18, Shape = "Jelly", Colors = { rgb(190, 110, 255), rgb(255, 140, 220) } },
+	{ Name = "Aurora Bird", Rarity = "Epic", Luck = 0.28, Shape = "Bird", Colors = { rgb(100, 255, 190), rgb(120, 170, 255) } },
+	{ Name = "Galaxy Cat", Rarity = "Epic", Luck = 0.38, Shape = "Cat", Colors = { rgb(60, 40, 140), rgb(255, 120, 230) } },
+	{ Name = "Solar Dragon", Rarity = "Legendary", Luck = 0.65, Shape = "Dragon", Colors = { rgb(255, 150, 40), rgb(255, 230, 120) } },
+	{ Name = "Void Wisp", Rarity = "Mythic", Luck = 1.0, Shape = "Wisp", Colors = { rgb(20, 10, 40), rgb(255, 40, 120) } },
+
+	-- FROSTFALL -----------------------------------------------------
+	{ Name = "Snow Blob", Rarity = "Uncommon", Luck = 0.12, Shape = "Blob", Colors = { rgb(240, 248, 255), rgb(170, 220, 255) } },
+	{ Name = "Frost Bunny", Rarity = "Rare", Luck = 0.2, Shape = "Bunny", Colors = { rgb(200, 235, 255), rgb(90, 180, 255) } },
+	{ Name = "Ice Penguin", Rarity = "Rare", Luck = 0.26, Shape = "Bird", Colors = { rgb(30, 40, 70), rgb(240, 250, 255) } },
+	{ Name = "Glacier Fox", Rarity = "Epic", Luck = 0.42, Shape = "Cat", Colors = { rgb(170, 225, 255), rgb(255, 255, 255) } },
+	{ Name = "Aurora Owl", Rarity = "Epic", Luck = 0.55, Shape = "Bird", Colors = { rgb(90, 255, 180), rgb(190, 160, 255) } },
+	{ Name = "Frost Dragon", Rarity = "Legendary", Luck = 0.9, Shape = "Dragon", Colors = { rgb(120, 200, 255), rgb(230, 250, 255) } },
+	{ Name = "Polar Spirit", Rarity = "Mythic", Luck = 1.5, Shape = "Wisp", Colors = { rgb(200, 245, 255), rgb(120, 255, 210) } },
+
+	-- EMBER ISLE ----------------------------------------------------
+	{ Name = "Ember Blob", Rarity = "Rare", Luck = 0.3, Shape = "Blob", Colors = { rgb(255, 120, 50), rgb(255, 210, 90) } },
+	{ Name = "Magma Fish", Rarity = "Epic", Luck = 0.5, Shape = "Fish", Colors = { rgb(255, 80, 30), rgb(255, 190, 60) } },
+	{ Name = "Cinder Cat", Rarity = "Epic", Luck = 0.65, Shape = "Cat", Colors = { rgb(60, 30, 30), rgb(255, 120, 40) } },
+	{ Name = "Phoenix Chick", Rarity = "Legendary", Luck = 1.0, Shape = "Bird", Colors = { rgb(255, 160, 40), rgb(255, 60, 40) } },
+	{ Name = "Lava Dragon", Rarity = "Legendary", Luck = 1.4, Shape = "Dragon", Colors = { rgb(200, 40, 20), rgb(255, 170, 40) } },
+	{ Name = "Inferno Spirit", Rarity = "Mythic", Luck = 2.5, Shape = "Wisp", Colors = { rgb(255, 90, 20), rgb(255, 240, 150) } },
+
+	-- NEON NEXUS ----------------------------------------------------
+	{ Name = "Pixel Blob", Rarity = "Epic", Luck = 0.7, Shape = "Blob", Colors = { rgb(60, 230, 255), rgb(255, 70, 220) } },
+	{ Name = "Synth Fish", Rarity = "Epic", Luck = 0.9, Shape = "Fish", Colors = { rgb(255, 70, 220), rgb(60, 230, 255) } },
+	{ Name = "Neon Jelly", Rarity = "Legendary", Luck = 1.3, Shape = "Jelly", Colors = { rgb(255, 90, 230), rgb(120, 255, 255) } },
+	{ Name = "Cyber Dragon", Rarity = "Legendary", Luck = 2.0, Shape = "Dragon", Colors = { rgb(30, 20, 60), rgb(60, 230, 255) } },
+	{ Name = "Hologram Star", Rarity = "Mythic", Luck = 3.0, Shape = "Star", Colors = { rgb(140, 255, 255), rgb(255, 120, 240) } },
+	{ Name = "Nexus Overmind", Rarity = "Mythic", Luck = 4.0, Shape = "Wisp", Colors = { rgb(255, 255, 255), rgb(200, 80, 255) } },
+
+	-- EXCLUSIVE (Limited Offer) ---------------------------------------
+	{ Name = "Cosmic Overlord", Rarity = "Exclusive", Luck = 3.0, Shape = "Dragon", Colors = { rgb(255, 230, 120), rgb(150, 80, 255) } },
+}
+
+-- Eggs: Cost = { Aura = name, Count = how many of that aura it takes }
+-- Pets = { { Name, Weight } } (weights don't have to add up to 100)
+PetData.Eggs = {
+	-- COSMIC ISLAND (everyone)
+	{ Key = "StardustEgg", Name = "Stardust Egg", Island = "Main", Slot = 1, Color = rgb(220, 215, 255),
+		Cost = { Aura = "Stardust", Count = 4 },
+		Pets = { { "Pebble Blob", 50 }, { "Star Kitten", 32 }, { "Moon Bunny", 15 }, { "Comet Pup", 3 } } },
+	{ Key = "CometEgg", Name = "Comet Egg", Island = "Main", Slot = 2, Color = rgb(120, 200, 255),
+		Cost = { Aura = "Comet", Count = 2 },
+		Pets = { { "Comet Pup", 45 }, { "Nebula Jelly", 35 }, { "Aurora Bird", 17 }, { "Galaxy Cat", 3 } } },
+	{ Key = "NebulaEgg", Name = "Nebula Egg", Island = "Main", Slot = 3, Color = rgb(190, 110, 255),
+		Cost = { Aura = "Nebula", Count = 1 },
+		Pets = { { "Aurora Bird", 45 }, { "Galaxy Cat", 35 }, { "Solar Dragon", 17 }, { "Void Wisp", 3 } } },
+
+	-- FROSTFALL (rebirth 1)
+	{ Key = "SnowEgg", Name = "Snow Egg", Island = "Frostfall", Slot = 1, Color = rgb(235, 245, 255),
+		Cost = { Aura = "Aurora", Count = 3 },
+		Pets = { { "Snow Blob", 50 }, { "Frost Bunny", 32 }, { "Ice Penguin", 15 }, { "Glacier Fox", 3 } } },
+	{ Key = "GlacierEgg", Name = "Glacier Egg", Island = "Frostfall", Slot = 2, Color = rgb(140, 210, 255),
+		Cost = { Aura = "Pulsar", Count = 2 },
+		Pets = { { "Ice Penguin", 45 }, { "Glacier Fox", 35 }, { "Aurora Owl", 17 }, { "Frost Dragon", 3 } } },
+	{ Key = "AuroraEgg", Name = "Aurora Egg", Island = "Frostfall", Slot = 3, Color = rgb(120, 255, 200),
+		Cost = { Aura = "Solar Flare", Count = 1 },
+		Pets = { { "Glacier Fox", 45 }, { "Aurora Owl", 35 }, { "Frost Dragon", 17 }, { "Polar Spirit", 3 } } },
+
+	-- EMBER ISLE (rebirth 2)
+	{ Key = "CinderEgg", Name = "Cinder Egg", Island = "Ember", Slot = 1, Color = rgb(120, 80, 70),
+		Cost = { Aura = "Frostmoon", Count = 2 },
+		Pets = { { "Ember Blob", 50 }, { "Magma Fish", 32 }, { "Cinder Cat", 15 }, { "Phoenix Chick", 3 } } },
+	{ Key = "MagmaEgg", Name = "Magma Egg", Island = "Ember", Slot = 2, Color = rgb(255, 110, 40),
+		Cost = { Aura = "Starfall", Count = 1 },
+		Pets = { { "Magma Fish", 45 }, { "Cinder Cat", 35 }, { "Phoenix Chick", 17 }, { "Lava Dragon", 3 } } },
+	{ Key = "PhoenixEgg", Name = "Phoenix Egg", Island = "Ember", Slot = 3, Color = rgb(255, 200, 60),
+		Cost = { Aura = "Supernova", Count = 1 },
+		Pets = { { "Cinder Cat", 45 }, { "Phoenix Chick", 35 }, { "Lava Dragon", 17 }, { "Inferno Spirit", 3 } } },
+
+	-- NEON NEXUS (rebirth 3)
+	{ Key = "PixelEgg", Name = "Pixel Egg", Island = "Nexus", Slot = 1, Color = rgb(60, 230, 255),
+		Cost = { Aura = "Quasar", Count = 1 },
+		Pets = { { "Pixel Blob", 50 }, { "Synth Fish", 32 }, { "Neon Jelly", 15 }, { "Cyber Dragon", 3 } } },
+	{ Key = "SynthEgg", Name = "Synth Egg", Island = "Nexus", Slot = 2, Color = rgb(255, 70, 220),
+		Cost = { Aura = "Celestial", Count = 1 },
+		Pets = { { "Synth Fish", 45 }, { "Neon Jelly", 35 }, { "Cyber Dragon", 17 }, { "Hologram Star", 3 } } },
+	{ Key = "OvermindEgg", Name = "Overmind Egg", Island = "Nexus", Slot = 3, Color = rgb(200, 120, 255),
+		Cost = { Aura = "Black Hole", Count = 1 },
+		Pets = { { "Neon Jelly", 45 }, { "Cyber Dragon", 35 }, { "Hologram Star", 17 }, { "Nexus Overmind", 3 } } },
+}
+
+PetData.ByName = {}
+for index, pet in ipairs(PetData.List) do
+	pet.Index = index
+	PetData.ByName[pet.Name] = pet
+end
+PetData.EggByKey = {}
+for _, egg in ipairs(PetData.Eggs) do
+	PetData.EggByKey[egg.Key] = egg
+	local total = 0
+	for _, entry in ipairs(egg.Pets) do
+		total += entry[2]
+	end
+	egg.TotalWeight = total
+end
+
+function PetData.Get(name)
+	return PetData.ByName[name]
+end
+
+function PetData.RarityOf(name)
+	local pet = PetData.ByName[name]
+	return pet and PetData.Rarities[pet.Rarity]
+end
+
+-- Picks a pet from an egg
+function PetData.Hatch(egg, rng)
+	rng = rng or Random.new()
+	local pick = rng:NextNumber() * egg.TotalWeight
+	for _, entry in ipairs(egg.Pets) do
+		pick -= entry[2]
+		if pick <= 0 then
+			return entry[1]
+		end
+	end
+	return egg.Pets[1][1]
+end
+
+-- Chance text for an egg entry, e.g. "17%"
+function PetData.ChanceText(egg, weight)
+	local percent = weight / egg.TotalWeight * 100
+	if percent < 1 then
+		return ("%.1f%%"):format(percent)
+	end
+	return ("%d%%"):format(math.floor(percent + 0.5))
+end
+
+-- Luck from a list of equipped pet names: 1 + sum of their Luck
+function PetData.LuckFrom(names)
+	local total = 1
+	for _, name in ipairs(names or {}) do
+		local pet = PetData.ByName[name]
+		if pet then
+			total += pet.Luck
+		end
+	end
+	return total
+end
+
+-- "A,B,C" <-> { "A", "B", "C" } (pets are shared with everyone as a player attribute)
+function PetData.Split(text)
+	local list = {}
+	if type(text) == "string" then
+		for name in text:gmatch("[^,]+") do
+			table.insert(list, name)
+		end
+	end
+	return list
+end
+
+return PetData
+]]></string>
+      </Properties>
+    </Item>
+    <Item class="ModuleScript" referent="8">
       <Properties>
         <string name="Name">Rebirth</string>
         <string name="Source"><![CDATA[-- Rebirth (ModuleScript in ReplicatedStorage)
@@ -1873,7 +2187,7 @@ return Rebirth
 ]]></string>
       </Properties>
     </Item>
-    <Item class="ModuleScript" referent="8">
+    <Item class="ModuleScript" referent="9">
       <Properties>
         <string name="Name">SoundFX</string>
         <string name="Source"><![CDATA[-- SoundFX (ModuleScript in ReplicatedStorage) - used by LocalScripts only
@@ -2327,7 +2641,7 @@ return SoundFX
 ]]></string>
       </Properties>
     </Item>
-    <Item class="ModuleScript" referent="9">
+    <Item class="ModuleScript" referent="10">
       <Properties>
         <string name="Name">UIKit</string>
         <string name="Source"><![CDATA[-- UIKit (ModuleScript in ReplicatedStorage) - used by LocalScripts only
@@ -2625,11 +2939,265 @@ return UIKit
       </Properties>
     </Item>
   </Item>
-  <Item class="ServerScriptService" referent="10">
+  <Item class="ServerScriptService" referent="11">
     <Properties>
       <string name="Name">ServerScriptService</string>
     </Properties>
-    <Item class="Script" referent="11">
+    <Item class="Script" referent="12">
+      <Properties>
+        <string name="Name">DropService</string>
+        <token name="RunContext">0</token>
+        <string name="Source"><![CDATA[-- DropService (Script in ServerScriptService)
+-- THE COSMIC DROP: every 15 minutes (Config.Drop) a Cosmic Roll appears
+-- somewhere on the main island or Lucky Isle. The first player to touch it
+-- gets x50 luck on their NEXT roll (one use, saved until used).
+-- Everyone sees the countdown at the top of the screen (DropClient).
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
+
+local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
+
+local DROP = Config.Drop
+local INTERVAL = DROP.IntervalMinutes * 60
+local PICKUP_RANGE = 7
+local rand = Random.new()
+
+local remotes = ReplicatedStorage:WaitForChild("CosmicRemotes")
+local AnnounceRemote = remotes:WaitForChild("Announce")
+
+-- RollService listens to this to hand out the Cosmic Roll
+local events = ServerStorage:FindFirstChild("CosmicServerEvents")
+if not events then
+	events = Instance.new("Folder")
+	events.Name = "CosmicServerEvents"
+	events.Parent = ServerStorage
+end
+local grant = events:FindFirstChild("GrantBoostRoll")
+if not grant then
+	grant = Instance.new("BindableEvent")
+	grant.Name = "GrantBoostRoll"
+	grant.Parent = events
+end
+
+---------------------------------------------------------------------
+-- Where can it land?
+---------------------------------------------------------------------
+local P = Config.Places
+local AVOID = { -- big builds the drop shouldn't land inside
+	{ Vector3.zero, 10 }, { P.Core, 13 }, { P.Board, 9 }, { P.PortalPlaza, 13 }, { P.Pond, 12 },
+	{ P.RebirthGate, 14 }, { P.Hatchery, 20 },
+}
+
+local function pickSpot()
+	if rand:NextNumber() < DROP.LuckyIsleChance then
+		local lucky = Config.LuckyIsland
+		local a = rand:NextNumber(0, math.pi * 2)
+		local r = rand:NextNumber(16, lucky.Radius - 12)
+		return lucky.Center + Vector3.new(math.cos(a) * r, 3.5, math.sin(a) * r), "Lucky Isle"
+	end
+	for _ = 1, 50 do
+		local a = rand:NextNumber(0, math.pi * 2)
+		local r = rand:NextNumber(14, Config.MainIslandRadius - 10)
+		local spot = Vector3.new(math.cos(a) * r, 0, math.sin(a) * r)
+		local ok = math.abs(spot.X) > 7 or spot.Z < 40 -- not on the duel bridge path
+		for _, zone in ipairs(AVOID) do
+			if (spot - Vector3.new(zone[1].X, 0, zone[1].Z)).Magnitude < zone[2] then
+				ok = false
+			end
+		end
+		if ok then
+			return spot + Vector3.new(0, 3.5, 0), "Cosmic Island"
+		end
+	end
+	return Vector3.new(0, 3.5, -20), "Cosmic Island"
+end
+
+---------------------------------------------------------------------
+-- The drop itself: a glowing spinning die under a beam of light
+---------------------------------------------------------------------
+local current -- { Model, Position }
+
+local function part(props, parent)
+	local p = Instance.new("Part")
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	for key, value in pairs(props) do
+		p[key] = value
+	end
+	p.Parent = parent
+	return p
+end
+
+local GOLD = Color3.fromRGB(255, 215, 90)
+local PURPLE = Color3.fromRGB(170, 110, 255)
+
+local function buildDrop(position)
+	local model = Instance.new("Model")
+	model.Name = "CosmicDrop"
+	local die = part({
+		Name = "Die",
+		Size = Vector3.one * 2.6,
+		CFrame = CFrame.new(position),
+		Color = Color3.fromRGB(255, 250, 235),
+		Material = Enum.Material.Neon,
+	}, model)
+	-- dots on every face
+	local faces = {
+		{ Vector3.new(0, 0, -1), { Vector2.new(0, 0) } },
+		{ Vector3.new(0, 0, 1), { Vector2.new(-0.5, -0.5), Vector2.new(0.5, 0.5) } },
+		{ Vector3.new(1, 0, 0), { Vector2.new(-0.5, -0.5), Vector2.new(0, 0), Vector2.new(0.5, 0.5) } },
+		{ Vector3.new(-1, 0, 0), { Vector2.new(-0.5, -0.5), Vector2.new(0.5, -0.5), Vector2.new(-0.5, 0.5), Vector2.new(0.5, 0.5) } },
+		{ Vector3.new(0, 1, 0), { Vector2.new(-0.5, -0.5), Vector2.new(0.5, -0.5), Vector2.new(0, 0), Vector2.new(-0.5, 0.5), Vector2.new(0.5, 0.5) } },
+		{ Vector3.new(0, -1, 0), { Vector2.new(-0.5, -0.6), Vector2.new(0.5, -0.6), Vector2.new(-0.5, 0), Vector2.new(0.5, 0), Vector2.new(-0.5, 0.6), Vector2.new(0.5, 0.6) } },
+	}
+	for _, face in ipairs(faces) do
+		local normal = face[1]
+		local right = (math.abs(normal.Y) > 0.5) and Vector3.new(1, 0, 0) or Vector3.new(0, 1, 0):Cross(normal)
+		local up = normal:Cross(right)
+		for _, dot in ipairs(face[2]) do
+			part({
+				Name = "Dot",
+				Shape = Enum.PartType.Ball,
+				Size = Vector3.one * 0.45,
+				CFrame = CFrame.new(position + normal * 1.3 + right * dot.X * 1.3 + up * dot.Y * 1.3),
+				Color = PURPLE,
+				Material = Enum.Material.Neon,
+			}, model)
+		end
+	end
+	local glow = part({
+		Name = "Glow",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.one * 5,
+		CFrame = CFrame.new(position),
+		Color = GOLD,
+		Material = Enum.Material.Neon,
+		Transparency = 0.75,
+	}, model)
+	local light = Instance.new("PointLight")
+	light.Color = GOLD
+	light.Range = 30
+	light.Brightness = 4
+	light.Parent = glow
+	local sparkle = Instance.new("ParticleEmitter")
+	sparkle.Texture = Config.Textures.Sparkle
+	sparkle.Rate = 30
+	sparkle.Lifetime = NumberRange.new(1, 2)
+	sparkle.Speed = NumberRange.new(2, 6)
+	sparkle.SpreadAngle = Vector2.new(180, 180)
+	sparkle.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.6), NumberSequenceKeypoint.new(1, 0) })
+	sparkle.LightEmission = 1
+	sparkle.Color = ColorSequence.new(GOLD, PURPLE)
+	sparkle.Parent = glow
+	-- a beam of light so everybody can find it from far away
+	part({
+		Name = "Beam",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(400, 2.4, 2.4),
+		CFrame = CFrame.new(position + Vector3.new(0, 200, 0)) * CFrame.Angles(0, 0, math.rad(90)),
+		Color = GOLD,
+		Material = Enum.Material.Neon,
+		Transparency = 0.45,
+	}, model)
+	part({
+		Name = "GroundRing",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.2, 9, 9),
+		CFrame = CFrame.new(position - Vector3.new(0, 3.2, 0)) * CFrame.Angles(0, 0, math.rad(90)),
+		Color = PURPLE,
+		Material = Enum.Material.Neon,
+		Transparency = 0.3,
+	}, model)
+	local gui = Instance.new("BillboardGui")
+	gui.Size = UDim2.fromOffset(260, 60)
+	gui.StudsOffset = Vector3.new(0, 4.5, 0)
+	gui.AlwaysOnTop = true
+	gui.MaxDistance = 500
+	gui.LightInfluence = 0
+	gui.Parent = die
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.fromScale(1, 1)
+	label.Font = Enum.Font.FredokaOne
+	label.TextScaled = true
+	label.Text = ("🎲 COSMIC ROLL\nx%d LUCK"):format(DROP.BoostMultiplier)
+	label.TextColor3 = GOLD
+	label.Parent = gui
+	local outline = Instance.new("UIStroke")
+	outline.Thickness = 2.5
+	outline.Parent = label
+	model.PrimaryPart = die
+	model:SetAttribute("DropCenter", position)
+	model.Parent = workspace
+	return model
+end
+
+local function clearDrop()
+	if current then
+		current.Model:Destroy()
+		current = nil
+	end
+	ReplicatedStorage:SetAttribute("DropActive", false)
+end
+
+local function spawnDrop()
+	clearDrop()
+	local position, where = pickSpot()
+	current = { Model = buildDrop(position), Position = position }
+	ReplicatedStorage:SetAttribute("DropPosition", position)
+	ReplicatedStorage:SetAttribute("DropWhere", where)
+	ReplicatedStorage:SetAttribute("DropActive", true)
+	AnnounceRemote:FireAllClients({ Type = "DropSpawned", Where = where })
+end
+
+local function grab(player)
+	if not current then
+		return
+	end
+	local position = current.Position
+	clearDrop()
+	grant:Fire(player, 1)
+	AnnounceRemote:FireAllClients({ Type = "DropGrabbed", PlayerName = player.DisplayName, UserId = player.UserId, Position = position })
+end
+
+---------------------------------------------------------------------
+-- The clock
+---------------------------------------------------------------------
+ReplicatedStorage:SetAttribute("DropActive", false)
+ReplicatedStorage:SetAttribute("DropNextAt", workspace:GetServerTimeNow() + INTERVAL)
+
+task.spawn(function()
+	while true do
+		task.wait(0.15)
+		local now = workspace:GetServerTimeNow()
+		local nextAt = ReplicatedStorage:GetAttribute("DropNextAt") or now
+		if now >= nextAt then
+			ReplicatedStorage:SetAttribute("DropNextAt", nextAt + INTERVAL)
+			spawnDrop()
+		end
+		if current then
+			for _, player in ipairs(Players:GetPlayers()) do
+				local character = player.Character
+				local root = character and character:FindFirstChild("HumanoidRootPart")
+				local humanoid = character and character:FindFirstChildOfClass("Humanoid")
+				if root and humanoid and humanoid.Health > 0 and not character:GetAttribute("InDuel")
+					and (root.Position - current.Position).Magnitude < PICKUP_RANGE then
+					grab(player)
+					break
+				end
+			end
+		end
+	end
+end)
+]]></string>
+      </Properties>
+    </Item>
+    <Item class="Script" referent="13">
       <Properties>
         <string name="Name">DuelService</string>
         <token name="RunContext">0</token>
@@ -3806,6 +4374,10 @@ local function usePower(fighter, aim)
 		if fighter.Duel and fighter.Duel.State == "Fight" and fighter.Root and fighter.Root.Parent then
 			-- re-aim at the moment of release (aim assist still applies)
 			handler(fighter, power, resolveAim(fighter, direction))
+			-- attack powers can also heal you over time (Heal powers do it themselves)
+			if power.Regen and power.Type ~= "Heal" then
+				regen(fighter, power.Regen)
+			end
 		end
 	end)
 end
@@ -4163,7 +4735,7 @@ end)
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="12">
+    <Item class="Script" referent="14">
       <Properties>
         <string name="Name">Leaderboard</string>
         <token name="RunContext">0</token>
@@ -4317,7 +4889,7 @@ end
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="13">
+    <Item class="Script" referent="15">
       <Properties>
         <string name="Name">LuckyIsland</string>
         <token name="RunContext">0</token>
@@ -5043,7 +5615,7 @@ end)
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="14">
+    <Item class="Script" referent="16">
       <Properties>
         <string name="Name">Movement</string>
         <token name="RunContext">0</token>
@@ -5113,7 +5685,7 @@ end
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="15">
+    <Item class="Script" referent="17">
       <Properties>
         <string name="Name">Parkour</string>
         <token name="RunContext">0</token>
@@ -5683,7 +6255,7 @@ end
 -- start pad on the island edge + a little gateway behind it
 local function islandStart(course, model, info, color3)
 	local C = info.Center
-	local start = C + Vector3.new(0, 0, 62)
+	local start = C + Vector3.new(0, 0, info.Radius - 8)
 	startPad(course, model, start, color3)
 	course.OnGround = islandGround(info)
 	for _, side in ipairs({ -1, 1 }) do
@@ -6074,7 +6646,7 @@ end
 
 local function onMainIslandGround(position)
 	local flat = Vector3.new(position.X, 0, position.Z)
-	return flat.Magnitude < 64 and position.Y < 8 and position.Y > -2
+	return flat.Magnitude < Config.MainIslandRadius - 6 and position.Y < 8 and position.Y > -2
 end
 
 task.spawn(function()
@@ -6158,7 +6730,241 @@ end)
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="16">
+    <Item class="Script" referent="18">
+      <Properties>
+        <string name="Name">PetWorld</string>
+        <token name="RunContext">0</token>
+        <string name="Source"><![CDATA[-- PetWorld (Script in ServerScriptService)
+-- Builds a HATCHERY on the main island and on every rebirth island:
+-- 3 giant eggs on pedestals. Walk up and press E to open the egg
+-- (PetClient shows the odds and the Hatch button; RollService does the
+-- hatching and takes the auras).
+
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
+local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
+
+local old = workspace:FindFirstChild("PetHatcheries")
+if old then
+	old:Destroy()
+end
+local root = Instance.new("Folder")
+root.Name = "PetHatcheries"
+
+local FLAT = CFrame.Angles(0, 0, math.rad(90))
+
+local function part(props, parent)
+	local p = Instance.new(props.ClassName or "Part")
+	p.Anchored = true
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	for key, value in pairs(props) do
+		if key ~= "ClassName" then
+			p[key] = value
+		end
+	end
+	p.Parent = parent
+	return p
+end
+
+local function addLight(target, color3, range, brightness)
+	local light = Instance.new("PointLight")
+	light.Color = color3
+	light.Range = range
+	light.Brightness = brightness
+	light.Parent = target
+end
+
+local function billboard(target, text, offset, size, maxDistance)
+	local gui = Instance.new("BillboardGui")
+	gui.Size = size
+	gui.StudsOffset = offset
+	gui.MaxDistance = maxDistance or 80
+	gui.LightInfluence = 0
+	gui.Parent = target
+	local label = Instance.new("TextLabel")
+	label.BackgroundTransparency = 1
+	label.Size = UDim2.fromScale(1, 1)
+	label.Font = Enum.Font.FredokaOne
+	label.TextScaled = true
+	label.RichText = true
+	label.Text = text
+	label.TextColor3 = Color3.new(1, 1, 1)
+	label.Parent = gui
+	local outline = Instance.new("UIStroke")
+	outline.Thickness = 2
+	outline.Transparency = 0.2
+	outline.Parent = label
+	return gui
+end
+
+-- one giant egg on a pedestal
+local function eggStand(parent, egg, position, facing, theme)
+	local stand = Instance.new("Model")
+	stand.Name = egg.Key
+	stand.Parent = parent
+	part({
+		Name = "Pedestal",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(2.2, 6.4, 6.4),
+		CFrame = CFrame.new(position + Vector3.new(0, 1.1, 0)) * FLAT,
+		Color = theme.Stone,
+		Material = theme.StoneMaterial,
+	}, stand)
+	part({
+		Name = "PedestalRim",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.4, 6.9, 6.9),
+		CFrame = CFrame.new(position + Vector3.new(0, 2.1, 0)) * FLAT,
+		Color = egg.Color,
+		Material = Enum.Material.Neon,
+		CanCollide = false,
+	}, stand)
+	local eggPart = part({
+		Name = "Egg",
+		Shape = Enum.PartType.Ball,
+		Size = Vector3.new(4.6, 6, 4.6),
+		CFrame = CFrame.new(position + Vector3.new(0, 5.4, 0)),
+		Color = egg.Color,
+		Material = Enum.Material.SmoothPlastic,
+	}, stand)
+	eggPart:SetAttribute("EggKey", egg.Key)
+	eggPart:SetAttribute("FX_EggBob", true)
+	-- glowing spots on the egg
+	for k = 1, 7 do
+		local a = k * 2.4
+		local y = math.sin(k * 1.7) * 1.8
+		local r = 2.3 * math.sqrt(math.max(0.2, 1 - (y / 3) ^ 2))
+		part({
+			Name = "EggSpot",
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.one * (0.5 + (k % 3) * 0.25),
+			CFrame = CFrame.new(position + Vector3.new(math.cos(a) * r, 5.4 + y, math.sin(a) * r)),
+			Color = egg.Color:Lerp(Color3.new(1, 1, 1), 0.6),
+			Material = Enum.Material.Neon,
+			CanCollide = false,
+		}, stand)
+	end
+	addLight(eggPart, egg.Color, 16, 1.5)
+	local sparkles = Instance.new("ParticleEmitter")
+	sparkles.Texture = Config.Textures.Sparkle
+	sparkles.Rate = 4
+	sparkles.Lifetime = NumberRange.new(1.5, 2.5)
+	sparkles.Speed = NumberRange.new(0.5, 1.5)
+	sparkles.SpreadAngle = Vector2.new(180, 180)
+	sparkles.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(0.5, 0.4), NumberSequenceKeypoint.new(1, 0) })
+	sparkles.LightEmission = 1
+	sparkles.Color = ColorSequence.new(egg.Color, Color3.new(1, 1, 1))
+	sparkles.Parent = eggPart
+
+	-- name, price and odds
+	local lines = { ("<b>%s</b>"):format(egg.Name:upper()),
+		("<font color='#ffd76a'>Costs %dx %s</font>"):format(egg.Cost.Count, egg.Cost.Aura) }
+	for _, entry in ipairs(egg.Pets) do
+		local pet = PetData.Get(entry[1])
+		local color = PetData.Rarities[pet.Rarity].Color
+		table.insert(lines, ("<font color='#%s'>%s %s</font>"):format(color:ToHex(), entry[1], PetData.ChanceText(egg, entry[2])))
+	end
+	billboard(eggPart, table.concat(lines, "\n"), Vector3.new(0, 6.6, 0), UDim2.fromOffset(220, 150))
+
+	local prompt = Instance.new("ProximityPrompt")
+	prompt.Name = "HatchPrompt"
+	prompt.ActionText = "Open Egg"
+	prompt.ObjectText = egg.Name
+	prompt.HoldDuration = 0
+	prompt.MaxActivationDistance = 12
+	prompt.RequiresLineOfSight = false
+	prompt.Parent = eggPart
+	return stand
+end
+
+local THEMES = {
+	Main = { Stone = Color3.fromRGB(70, 60, 110), StoneMaterial = Enum.Material.Marble, Floor = Color3.fromRGB(45, 38, 75), Trim = Color3.fromRGB(255, 170, 120), Title = "🥚 COSMIC HATCHERY" },
+	Frostfall = { Stone = Color3.fromRGB(150, 200, 240), StoneMaterial = Enum.Material.Ice, Floor = Color3.fromRGB(200, 225, 250), Trim = Color3.fromRGB(140, 230, 255), Title = "🥚 FROST HATCHERY" },
+	Ember = { Stone = Color3.fromRGB(45, 30, 30), StoneMaterial = Enum.Material.Basalt, Floor = Color3.fromRGB(60, 42, 40), Trim = Color3.fromRGB(255, 120, 40), Title = "🥚 EMBER HATCHERY" },
+	Nexus = { Stone = Color3.fromRGB(30, 20, 55), StoneMaterial = Enum.Material.Glass, Floor = Color3.fromRGB(22, 14, 40), Trim = Color3.fromRGB(255, 70, 220), Title = "🥚 NEXUS HATCHERY" },
+}
+
+local function hatchery(islandKey, center, islandCenter, needRebirths)
+	local theme = THEMES[islandKey]
+	local model = Instance.new("Model")
+	model.Name = islandKey .. "Hatchery"
+	model.ModelStreamingMode = Enum.ModelStreamingMode.Persistent
+	model.Parent = root
+	-- floor
+	part({
+		Name = "HatcheryFloor",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.6, 34, 34),
+		CFrame = CFrame.new(center + Vector3.new(0, 0.3, 0)) * FLAT,
+		Color = theme.Floor,
+		Material = theme.StoneMaterial,
+	}, model)
+	part({
+		Name = "HatcheryRim",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(0.4, 35, 35),
+		CFrame = CFrame.new(center + Vector3.new(0, 0.2, 0)) * FLAT,
+		Color = theme.Trim,
+		Material = Enum.Material.Neon,
+		CanCollide = false,
+	}, model)
+	-- the eggs stand in an arc on the far side, facing the island's middle
+	local toMiddle = Vector3.new(islandCenter.X - center.X, 0, islandCenter.Z - center.Z)
+	toMiddle = toMiddle.Magnitude > 0.1 and toMiddle.Unit or Vector3.new(0, 0, -1)
+	local side = Vector3.new(-toMiddle.Z, 0, toMiddle.X)
+	for _, egg in ipairs(PetData.Eggs) do
+		if egg.Island == islandKey then
+			local offset = (egg.Slot - 2)
+			local position = center - toMiddle * (5 + math.abs(offset) * -2.5) + side * offset * 9.5
+			eggStand(model, egg, position, toMiddle, theme)
+		end
+	end
+	-- an arch with the hatchery's name behind the eggs
+	local back = center - toMiddle * 13
+	local archCF = CFrame.lookAt(back, back + toMiddle)
+	for _, s in ipairs({ -1, 1 }) do
+		part({ Name = "ArchPillar", Size = Vector3.new(1.4, 12, 1.4), CFrame = archCF * CFrame.new(s * 14, 6, 0), Color = theme.Stone, Material = theme.StoneMaterial }, model)
+		local orb = part({ Name = "ArchOrb", Shape = Enum.PartType.Ball, Size = Vector3.one * 1.8, CFrame = archCF * CFrame.new(s * 14, 12.9, 0), Color = theme.Trim, Material = Enum.Material.Neon, CanCollide = false }, model)
+		addLight(orb, theme.Trim, 18, 1.4)
+	end
+	local beam = part({ Name = "ArchBeam", Size = Vector3.new(30, 1.4, 1.6), CFrame = archCF * CFrame.new(0, 12.4, 0), Color = theme.Stone, Material = theme.StoneMaterial }, model)
+	local title = theme.Title
+	if needRebirths > 0 then
+		title ..= ("\n<font size='40' color='#bfb4e1'>Rebirth %d island</font>"):format(needRebirths)
+	end
+	billboard(beam, title, Vector3.new(0, 3.2, 0), UDim2.fromOffset(380, 80), 160)
+	-- a little "how it works" sign
+	local sign = part({ Name = "InfoSign", Size = Vector3.new(8, 3.6, 0.4), CFrame = CFrame.lookAt(center + toMiddle * 13 + side * 10 + Vector3.new(0, 2.6, 0), center + side * 10 + Vector3.new(0, 2.6, 0)) * CFrame.Angles(0, math.pi, 0), Color = theme.Stone, Material = theme.StoneMaterial }, model)
+	local gui = Instance.new("SurfaceGui")
+	gui.Face = Enum.NormalId.Front
+	gui.LightInfluence = 0
+	gui.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
+	gui.PixelsPerStud = 40
+	gui.Parent = sign
+	local text = Instance.new("TextLabel")
+	text.BackgroundTransparency = 1
+	text.Size = UDim2.fromScale(1, 1)
+	text.Font = Enum.Font.FredokaOne
+	text.TextScaled = true
+	text.Text = "🐾 Pay with AURAS!\nPets give you luck."
+	text.TextColor3 = theme.Trim
+	text.Parent = gui
+end
+
+hatchery("Main", Config.Places.Hatchery, Vector3.zero, 0)
+for _, info in ipairs(Config.RebirthIslands) do
+	if info.Hatchery then
+		hatchery(info.Key, info.Center + info.Hatchery, info.Center, info.Rebirths)
+	end
+end
+
+root.Parent = workspace
+]]></string>
+      </Properties>
+    </Item>
+    <Item class="Script" referent="19">
       <Properties>
         <string name="Name">RebirthIslands</string>
         <token name="RunContext">0</token>
@@ -6425,6 +7231,7 @@ local function makeIsland(info, style)
 
 	local C = info.Center
 	local R = info.Radius
+	local D = R - 70 -- how much bigger than the original 70-stud island
 	local function at(x, y, z)
 		return C + Vector3.new(x, y, z)
 	end
@@ -6437,11 +7244,14 @@ local function makeIsland(info, style)
 		if flat.Magnitude < 13 + margin then
 			return false -- the core
 		end
-		if math.abs(x) < 10 + margin and z < -32 then
+		if math.abs(x) < 10 + margin and z < -12 then
 			return false -- portal + arrival path
 		end
-		if math.abs(x) < 10 + margin and z > 36 then
-			return false -- parkour start
+		if math.abs(x) < 10 + margin and z > 12 then
+			return false -- path to the parkour start
+		end
+		if info.Hatchery and (flat - Vector3.new(info.Hatchery.X, 0, info.Hatchery.Z)).Magnitude < 19 + margin then
+			return false -- pet eggs
 		end
 		for _, zone in ipairs(style.Reserved or {}) do
 			if (flat - zone[1]).Magnitude < zone[2] + margin then
@@ -6478,8 +7288,8 @@ local function makeIsland(info, style)
 	end
 
 	-- return portal (behind where you arrive)
-	local portalCF = CFrame.lookAt(at(0, 6, -56), at(0, 6, -80)) -- faces away from the island
-	disc("PortalStep", at(0, 0, -55), 8, 0.6, C.Y + 0.3, style.Accent2, style.TrimMaterial or Enum.Material.Slate)
+	local portalCF = CFrame.lookAt(at(0, 6, -56 - D), at(0, 6, -80 - D)) -- faces away from the island
+	disc("PortalStep", at(0, 0, -55 - D), 8, 0.6, C.Y + 0.3, style.Accent2, style.TrimMaterial or Enum.Material.Slate)
 	portalRing("ReturnPortalRing", portalCF, 4.6, 36, 0.7, style.Edge)
 	local outer = portalRing("ReturnPortalRingOuter", portalCF, 5.6, 40, 0.35, style.Accent)
 	fx(outer, { FX_Spin = Vector3.new(0, 0, 0.6) })
@@ -6508,7 +7318,7 @@ local function makeIsland(info, style)
 	local signPost = part({
 		Name = "WelcomeSign",
 		Size = Vector3.new(10, 4, 0.6),
-		CFrame = CFrame.lookAt(at(-11, 5, -40), at(-11, 5, -60)),
+		CFrame = CFrame.lookAt(at(-11, 5, -40 - D), at(-11, 5, -60 - D)),
 		Color = style.RockDark,
 		Material = style.RockMaterial,
 	})
@@ -6545,7 +7355,7 @@ local function makeIsland(info, style)
 		Free = free,
 		RandomSpot = randomSpot,
 		ReturnZone = zone,
-		Arrival = CFrame.lookAt(at(0, 4, -44), at(0, 4, 0)),
+		Arrival = CFrame.lookAt(at(0, 4, -44 - D), at(0, 4, 0)),
 	}
 end
 
@@ -6597,7 +7407,7 @@ end
 -- lantern posts along the arrival path
 local function pathLanterns(island, style)
 	for _, side in ipairs({ -1, 1 }) do
-		for _, z in ipairs({ -40, -28, -16 }) do
+		for z = -16, -(island.Radius - 30), -12 do
 			local p = island.At(side * 6.5, 0, z)
 			part({
 				Name = "LanternPost",
@@ -6618,7 +7428,7 @@ local function pathLanterns(island, style)
 		end
 	end
 	-- path tiles from the portal to the core
-	for z = -50, -12, 3 do
+	for z = -(island.Radius - 20), -12, 3 do
 		part({
 			Name = "PathTile",
 			Size = Vector3.new(5 + rand:NextNumber(-0.3, 0.3), 0.3, 2.8),
@@ -6628,7 +7438,7 @@ local function pathLanterns(island, style)
 		})
 	end
 	-- and from the core to the parkour start
-	for z = 13, 42, 3 do
+	for z = 13, island.Radius - 13, 3 do
 		part({
 			Name = "PathTile",
 			Size = Vector3.new(4.2 + rand:NextNumber(-0.3, 0.3), 0.3, 2.8),
@@ -6827,8 +7637,8 @@ do
 		addLight(star, ICE, 10, 0.8)
 	end
 	local pines = 0
-	for _ = 1, 80 do
-		if pines >= 18 then
+	for _ = 1, 160 do
+		if pines >= 32 then
 			break
 		end
 		local x, z = island.RandomSpot(18, info.Radius - 7, 3)
@@ -6860,9 +7670,11 @@ do
 	snowman(-14, -24, Vector3.new(0.5, 0, -1))
 	snowman(20, 22, Vector3.new(-1, 0, -0.3))
 	snowman(-44, 30, Vector3.new(1, 0, -0.5))
+	snowman(-62, -40, Vector3.new(1, 0, 0.4))
+	snowman(70, -10, Vector3.new(-1, 0, 0))
 
 	-- ice crystal spikes
-	for _ = 1, 9 do
+	for _ = 1, 15 do
 		local x, z = island.RandomSpot(20, info.Radius - 8, 2)
 		if x then
 			for k = 1, rand:NextInteger(3, 5) do
@@ -6972,7 +7784,7 @@ do
 	pathLanterns(island, style)
 
 	-- cracked lava patches in the ground
-	for _ = 1, 10 do
+	for _ = 1, 18 do
 		local x, z = island.RandomSpot(16, info.Radius - 8, 1)
 		if x then
 			disc("LavaCrack", at(x, 0, z), rand:NextNumber(2.5, 5), 0.2, C.Y + 0.1, Color3.fromRGB(200, 90, 40), Enum.Material.CrackedLava)
@@ -7040,7 +7852,7 @@ do
 	billboard(crater, "🌋 MOUNT EMBER", LAVA_HOT, Vector3.new(0, 12, 0), UDim2.fromOffset(300, 50))
 
 	-- lava pools with rock rims
-	for _ = 1, 3 do
+	for _ = 1, 5 do
 		local x, z = island.RandomSpot(22, info.Radius - 12, 5)
 		if x then
 			local p = at(x, 0, z)
@@ -7053,7 +7865,7 @@ do
 	end
 
 	-- geysers: vents that blast fire every few seconds (timed in IslandFX)
-	for g = 1, 4 do
+	for g = 1, 7 do
 		local x, z = island.RandomSpot(16, info.Radius - 9, 3)
 		if x then
 			local p = at(x, 0, z)
@@ -7075,7 +7887,7 @@ do
 	end
 
 	-- obsidian spikes
-	for _ = 1, 10 do
+	for _ = 1, 17 do
 		local x, z = island.RandomSpot(18, info.Radius - 7, 2)
 		if x then
 			for k = 1, rand:NextInteger(2, 4) do
@@ -7086,7 +7898,7 @@ do
 	end
 
 	-- burnt trees with glowing ember tips
-	for _ = 1, 9 do
+	for _ = 1, 15 do
 		local x, z = island.RandomSpot(18, info.Radius - 7, 3)
 		if x then
 			local base = at(x, 0, z)
@@ -7154,7 +7966,7 @@ do
 	local at = island.At
 
 	-- neon grid floor (lines clipped to the circle)
-	for i = -6, 6 do
+	for i = -9, 9 do
 		local d = i * 10
 		local half = math.sqrt(math.max(0, (info.Radius - 1) ^ 2 - d * d))
 		if half > 2 then
@@ -7186,7 +7998,7 @@ do
 	pathLanterns(island, style)
 
 	-- holo towers
-	local towerSpots = { { 30, -30 }, { 44, 8 }, { -44, -12 }, { -30, 30 }, { 22, 40 }, { -48, 16 } }
+	local towerSpots = { { 30, -30 }, { 44, 8 }, { -44, -12 }, { -30, 30 }, { 22, 40 }, { -48, 16 }, { -70, -45 }, { 75, 30 }, { -72, 50 }, { 40, 72 }, { -20, -70 } }
 	for i, spot in ipairs(towerSpots) do
 		local x, z = spot[1], spot[2]
 		if island.Free(x, z, 2) then
@@ -7216,7 +8028,7 @@ do
 	end
 
 	-- neon palm trees
-	for _ = 1, 8 do
+	for _ = 1, 15 do
 		local x, z = island.RandomSpot(16, info.Radius - 8, 3)
 		if x then
 			local base = at(x, 0, z)
@@ -7241,9 +8053,9 @@ do
 	end
 
 	-- floating cubes
-	for i = 1, 12 do
-		local a = (i / 12) * math.pi * 2
-		local r = rand:NextNumber(22, 55)
+	for i = 1, 20 do
+		local a = (i / 20) * math.pi * 2
+		local r = rand:NextNumber(22, 85)
 		local s = rand:NextNumber(1.5, 3)
 		local cube = decor({
 			Name = "FloatCube",
@@ -7546,7 +8358,7 @@ end)
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="17">
+    <Item class="Script" referent="20">
       <Properties>
         <string name="Name">RollService</string>
         <token name="RunContext">0</token>
@@ -7566,6 +8378,7 @@ local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
 local AuraData = require(ReplicatedStorage:WaitForChild("AuraData"))
 local Luck = require(ReplicatedStorage:WaitForChild("Luck"))
 local Rebirth = require(ReplicatedStorage:WaitForChild("Rebirth"))
+local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
 
 ---------------------------------------------------------------------
 -- Remotes (created here so you don't have to make them by hand)
@@ -7595,6 +8408,8 @@ local AnnounceRemote = getRemote("RemoteEvent", "Announce")
 local RollFXRemote = getRemote("RemoteEvent", "RollFX") -- server -> everyone: show roll effects
 local RevealRemote = getRemote("RemoteEvent", "Reveal") -- roller -> server: "my reveal animation finished"
 local RebirthRemote = getRemote("RemoteFunction", "Rebirth") -- player asks to rebirth
+local HatchRemote = getRemote("RemoteFunction", "HatchEgg") -- player hatches an egg
+local PetRemote = getRemote("RemoteFunction", "PetAction") -- equip / unequip pets
 
 ---------------------------------------------------------------------
 -- Data saving
@@ -7629,6 +8444,11 @@ local function newData()
 		Rebirths = 0,
 		RebirthRolls = 0, -- rolls since your last rebirth
 		RebirthBest = 0, -- rarest aura (chance) rolled since your last rebirth
+		Pets = {}, -- [petName] = how many you own
+		EquippedPets = {}, -- list of pet names (max PetData.MaxEquipped)
+		BoostRolls = 0, -- Cosmic Rolls waiting (x50 luck on the next roll)
+		PermanentLuck = 1, -- from the Limited Offer
+		LimitedBought = "", -- which Limited Offer pack this player bought
 		Receipts = {}, -- recent purchase IDs, so nothing is granted twice
 	}
 end
@@ -7729,6 +8549,8 @@ local function snapshot(data)
 		Inventory = data.Inventory,
 		Equipped = data.Equipped,
 		BestChance = data.BestChance,
+		Pets = data.Pets,
+		EquippedPets = data.EquippedPets,
 	}
 end
 
@@ -7756,6 +8578,11 @@ local function refreshStats(player)
 	player:SetAttribute("Rebirths", data.Rebirths or 0)
 	player:SetAttribute("RebirthRolls", data.RebirthRolls or 0)
 	player:SetAttribute("RebirthBest", data.RebirthBest or 0)
+	player:SetAttribute("PetLuck", PetData.LuckFrom(data.EquippedPets))
+	player:SetAttribute("EquippedPets", table.concat(data.EquippedPets or {}, ","))
+	player:SetAttribute("BoostRolls", data.BoostRolls or 0)
+	player:SetAttribute("PermanentLuck", data.PermanentLuck or 1)
+	player:SetAttribute("LimitedBought", data.LimitedBought or "")
 	-- perks that unlock passes
 	for key in pairs(Config.GamePasses) do
 		if rebirthGrants(player, key) and not player:GetAttribute("Pass_" .. key) then
@@ -7790,6 +8617,11 @@ RollRemote.OnServerInvoke = function(player)
 	local rollNumber = data.Rolls + 1
 	local lucky = rollNumber % Luck.LuckyEvery(player) == 0
 	local luck = Luck.Get(player) * (lucky and Config.LuckyRollMultiplier or 1)
+	-- a Cosmic Roll (from the Cosmic Drop) is used up by this roll
+	local boosted = (data.BoostRolls or 0) > 0
+	if boosted then
+		data.BoostRolls -= 1
+	end
 	local count = hasPass(player, "MultiRoll") and Config.MultiRollCount or 1
 
 	local results = {}
@@ -7836,6 +8668,7 @@ RollRemote.OnServerInvoke = function(player)
 		Results = results,
 		Rolls = data.Rolls,
 		Lucky = lucky,
+		Boosted = boosted,
 		Luck = luck,
 		IsNewBest = isNewBest,
 		IsFirstTime = data.Inventory[best.Name] == 1,
@@ -7916,6 +8749,197 @@ RebirthRemote.OnServerInvoke = function(player)
 	return { Rebirths = data.Rebirths, Unlocked = unlocked }
 end
 
+
+---------------------------------------------------------------------
+-- PETS: hatch eggs by paying with auras, equip up to 3 for luck
+---------------------------------------------------------------------
+local hatchBusy = {}
+
+-- the egg stand the player is hatching from must be close by
+local function nearEgg(player, eggKey)
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local hatcheries = workspace:FindFirstChild("PetHatcheries")
+	if not root or not hatcheries then
+		return false
+	end
+	for _, item in ipairs(hatcheries:GetDescendants()) do
+		if item:IsA("BasePart") and item:GetAttribute("EggKey") == eggKey then
+			if (item.Position - root.Position).Magnitude < 24 then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+local function islandRebirths(islandKey)
+	for _, info in ipairs(Config.RebirthIslands) do
+		if info.Key == islandKey then
+			return info.Rebirths
+		end
+	end
+	return 0
+end
+
+local function removeAura(player, data, auraName, count)
+	data.Inventory[auraName] = (data.Inventory[auraName] or 0) - count
+	if data.Inventory[auraName] <= 0 then
+		data.Inventory[auraName] = nil
+		if data.Equipped == auraName then
+			data.Equipped = "" -- you just spent your last one
+			applyAuraToCharacter(player)
+		end
+	end
+end
+
+local function givePet(data, petName)
+	data.Pets = data.Pets or {}
+	data.Pets[petName] = (data.Pets[petName] or 0) + 1
+end
+
+HatchRemote.OnServerInvoke = function(player, eggKey)
+	local data = sessions[player]
+	local egg = type(eggKey) == "string" and PetData.EggByKey[eggKey]
+	if not data or not egg then
+		return { Error = "Unknown" }
+	end
+	if hatchBusy[player] then
+		return { Error = "Busy" }
+	end
+	if (data.Rebirths or 0) < islandRebirths(egg.Island) then
+		return { Error = "Locked" }
+	end
+	if not nearEgg(player, eggKey) then
+		return { Error = "TooFar" }
+	end
+	local have = data.Inventory[egg.Cost.Aura] or 0
+	if have < egg.Cost.Count then
+		return { Error = "NotEnough", Have = have }
+	end
+	hatchBusy[player] = true
+	removeAura(player, data, egg.Cost.Aura, egg.Cost.Count)
+	local petName = PetData.Hatch(egg, rng)
+	givePet(data, petName)
+	-- auto-equip if there's a free slot
+	data.EquippedPets = data.EquippedPets or {}
+	if #data.EquippedPets < PetData.MaxEquipped then
+		table.insert(data.EquippedPets, petName)
+	end
+	refreshStats(player)
+	DataUpdatedRemote:FireClient(player, snapshot(data))
+	local pet = PetData.Get(petName)
+	if pet and PetData.Rarities[pet.Rarity].Order >= 5 then
+		AnnounceRemote:FireAllClients({ Type = "Pet", PlayerName = player.DisplayName, UserId = player.UserId, Pet = petName })
+	end
+	task.delay(0.5, function()
+		hatchBusy[player] = nil
+	end)
+	return { Pet = petName, Pets = data.Pets, EquippedPets = data.EquippedPets }
+end
+
+local function ownedCount(data, petName)
+	return (data.Pets or {})[petName] or 0
+end
+
+local function equippedCount(data, petName)
+	local n = 0
+	for _, name in ipairs(data.EquippedPets) do
+		if name == petName then
+			n += 1
+		end
+	end
+	return n
+end
+
+PetRemote.OnServerInvoke = function(player, action, petName)
+	local data = sessions[player]
+	if not data or type(action) ~= "string" then
+		return nil
+	end
+	data.EquippedPets = data.EquippedPets or {}
+	if action == "Equip" and type(petName) == "string" and PetData.Get(petName) then
+		if #data.EquippedPets < PetData.MaxEquipped and equippedCount(data, petName) < ownedCount(data, petName) then
+			table.insert(data.EquippedPets, petName)
+		end
+	elseif action == "Unequip" and type(petName) == "string" then
+		local index = table.find(data.EquippedPets, petName)
+		if index then
+			table.remove(data.EquippedPets, index)
+		end
+	elseif action == "EquipBest" then
+		-- the luckiest pets you own
+		local owned = {}
+		for name, count in pairs(data.Pets or {}) do
+			if PetData.Get(name) then
+				for _ = 1, count do
+					table.insert(owned, name)
+				end
+			end
+		end
+		table.sort(owned, function(a, b)
+			return PetData.Get(a).Luck > PetData.Get(b).Luck
+		end)
+		data.EquippedPets = {}
+		for i = 1, math.min(PetData.MaxEquipped, #owned) do
+			table.insert(data.EquippedPets, owned[i])
+		end
+	elseif action == "UnequipAll" then
+		data.EquippedPets = {}
+	end
+	refreshStats(player)
+	return { Pets = data.Pets, EquippedPets = data.EquippedPets }
+end
+
+---------------------------------------------------------------------
+-- Cosmic Drop: the DropService tells us who grabbed the Cosmic Roll
+---------------------------------------------------------------------
+do
+	local events = ServerStorage:FindFirstChild("CosmicServerEvents")
+	if not events then
+		events = Instance.new("Folder")
+		events.Name = "CosmicServerEvents"
+		events.Parent = ServerStorage
+	end
+	local grant = events:FindFirstChild("GrantBoostRoll")
+	if not grant then
+		grant = Instance.new("BindableEvent")
+		grant.Name = "GrantBoostRoll"
+		grant.Parent = events
+	end
+	grant.Event:Connect(function(player, amount)
+		local data = sessions[player]
+		if data then
+			data.BoostRolls = (data.BoostRolls or 0) + (amount or 1)
+			refreshStats(player)
+		end
+	end)
+end
+
+---------------------------------------------------------------------
+-- LIMITED OFFER: when does the 7-day window end?
+---------------------------------------------------------------------
+task.spawn(function()
+	local offer = Config.LimitedOffer
+	local start = offer.StartTime
+	if not start or start <= 0 then
+		start = os.time()
+		if store and not RunService:IsStudio() then
+			-- the first live server ever remembers when the game launched
+			local ok, result = pcall(function()
+				local globalStore = DataStoreService:GetDataStore(Config.DataStoreName .. "_Global")
+				return globalStore:UpdateAsync("LimitedOfferStart", function(old)
+					return old or os.time()
+				end)
+			end)
+			if ok and type(result) == "number" then
+				start = result
+			end
+		end
+	end
+	ReplicatedStorage:SetAttribute("LimitedOfferEnds", start + offer.Days * 24 * 60 * 60)
+end)
+
 ---------------------------------------------------------------------
 -- Developer products (luck potions, server luck)
 ---------------------------------------------------------------------
@@ -7941,6 +8965,44 @@ local function grantProduct(player, data, key)
 			PlayerName = player.DisplayName,
 			UserId = player.UserId,
 		})
+		return true
+	elseif key == "LimitedAura" or key == "LimitedLuck" or key == "LimitedPet" then
+		local function addPotion(minutes)
+			local from = math.max(now, data.PersonalLuckEnd or 0)
+			data.PersonalLuckEnd = from + minutes * 60
+			player:SetAttribute("PersonalLuckEnd", data.PersonalLuckEnd)
+		end
+		if key == "LimitedAura" then
+			for _, auraName in ipairs({ "Cosmic Rift", "Black Hole" }) do
+				data.Inventory[auraName] = (data.Inventory[auraName] or 0) + 1
+				local aura = AuraData.Get(auraName)
+				if aura and aura.Chance > data.BestChance then
+					data.BestChance = aura.Chance
+				end
+			end
+			data.Equipped = "Cosmic Rift"
+			applyAuraToCharacter(player)
+			addPotion(120)
+		elseif key == "LimitedLuck" then
+			data.PermanentLuck = math.max(data.PermanentLuck or 1, 2)
+			data.BoostRolls = (data.BoostRolls or 0) + 5
+			addPotion(60)
+		else
+			givePet(data, "Cosmic Overlord")
+			givePet(data, "Void Wisp")
+			data.EquippedPets = data.EquippedPets or {}
+			-- the new pets go straight into your best slots
+			table.insert(data.EquippedPets, 1, "Void Wisp")
+			table.insert(data.EquippedPets, 1, "Cosmic Overlord")
+			while #data.EquippedPets > PetData.MaxEquipped do
+				table.remove(data.EquippedPets)
+			end
+			data.BoostRolls = (data.BoostRolls or 0) + 3
+		end
+		data.LimitedBought = key
+		refreshStats(player)
+		DataUpdatedRemote:FireClient(player, snapshot(data))
+		AnnounceRemote:FireAllClients({ Type = "Limited", PlayerName = player.DisplayName, UserId = player.UserId, Pack = key })
 		return true
 	end
 	return false
@@ -8068,6 +9130,7 @@ Players.PlayerRemoving:Connect(function(player)
 	lastRollTime[player] = nil
 	pendingReveal[player] = nil
 	rebirthBusy[player] = nil
+	hatchBusy[player] = nil
 end)
 
 game:BindToClose(function()
@@ -8102,7 +9165,7 @@ end)
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="18">
+    <Item class="Script" referent="21">
       <Properties>
         <string name="Name">SkyDecor</string>
         <token name="RunContext">0</token>
@@ -8112,7 +9175,9 @@ end)
 --   * a slowly turning spiral galaxy
 --   * little floating islets with crystals, trees and light waterfalls
 --   * a big planet or sun for each rebirth island and Lucky Isle
---   * a cosmic sky whale that swims around the main island
+--   * big sky isles with tiny temples, trees and waterfalls of light
+--   * lots of sky creatures: whales, manta rays, jellyfish, fish schools,
+--     space turtles, koi, star sprites and long sky serpents
 -- Everything here is just scenery (no collisions). Things marked with FX_
 -- attributes are animated by the SkyFX script on each player's screen.
 
@@ -8487,38 +9552,347 @@ end
 ---------------------------------------------------------------------
 -- One themed sky around an island
 ---------------------------------------------------------------------
+-- A BIG sky isle: a chunky floating island with trees, crystals, a tiny
+-- temple and a waterfall of light
+local function bigIsle(parent, position, theme)
+	local model = newModel("SkyIsle", parent)
+	local radius = rand:NextNumber(18, 26)
+	part({ Name = "IsleTop", Shape = Enum.PartType.Cylinder, Size = Vector3.new(2, radius * 2, radius * 2), CFrame = CFrame.new(position) * FLAT, Color = theme.Top, Material = theme.TopMaterial, Parent = model })
+	part({ Name = "IsleRim", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.6, radius * 2 + 1, radius * 2 + 1), CFrame = CFrame.new(position - Vector3.new(0, 0.6, 0)) * FLAT, Color = theme.Glow, Material = Enum.Material.Neon, Parent = model })
+	local y, r = -1, radius
+	for layer = 1, 6 do
+		local h = 3 + layer * 1.2
+		r *= 0.74
+		part({ Name = "IsleRock", Shape = Enum.PartType.Cylinder, Size = Vector3.new(h, r * 2, r * 2), CFrame = CFrame.new(position + Vector3.new(rand:NextNumber(-1, 1), y - h / 2, rand:NextNumber(-1, 1))) * FLAT,
+			Color = (layer % 2 == 0) and theme.Rock or theme.RockDark, Material = theme.RockMaterial, Parent = model })
+		y -= h
+	end
+	local tip = part({ Name = "IsleTip", Size = Vector3.new(3, 9, 3), CFrame = CFrame.new(position + Vector3.new(0, y - 3.5, 0)) * CFrame.Angles(0, math.rad(45), 0), Color = theme.Glow, Material = Enum.Material.Neon, Parent = model })
+	addLight(tip, theme.Glow, 40, 2)
+	-- a tiny temple in the middle
+	local top = position + Vector3.new(0, 1, 0)
+	for k = 0, 3 do
+		local a = k * math.pi / 2 + math.pi / 4
+		part({ Name = "TemplePillar", Size = Vector3.new(1.2, 8, 1.2), CFrame = CFrame.new(top + Vector3.new(math.cos(a) * 5, 4, math.sin(a) * 5)), Color = theme.Rock, Material = theme.RockMaterial, Parent = model })
+	end
+	part({ Name = "TempleRoof", Shape = Enum.PartType.Cylinder, Size = Vector3.new(1.2, 15, 15), CFrame = CFrame.new(top + Vector3.new(0, 8.6, 0)) * FLAT, Color = theme.RockDark, Material = theme.RockMaterial, Parent = model })
+	local orb = part({ Name = "TempleOrb", Shape = Enum.PartType.Ball, Size = Vector3.one * 2.4, CFrame = CFrame.new(top + Vector3.new(0, 3.5, 0)), Color = theme.Glow, Material = Enum.Material.Neon, Parent = model })
+	orb:SetAttribute("FX_Twinkle", rand:NextNumber(0, 6))
+	addLight(orb, theme.Glow, 24, 2)
+	-- trees and crystals around the edge
+	for k = 1, rand:NextInteger(5, 8) do
+		local a = rand:NextNumber(0, math.pi * 2)
+		local d = rand:NextNumber(9, radius - 3)
+		local spot = top + Vector3.new(math.cos(a) * d, 0, math.sin(a) * d)
+		if k % 2 == 0 then
+			local h = rand:NextNumber(5, 9)
+			part({ Name = "Trunk", Size = Vector3.new(1, h, 1), CFrame = CFrame.new(spot + Vector3.new(0, h / 2, 0)), Color = theme.Trunk, Material = Enum.Material.Wood, Parent = model })
+			part({ Name = "Leaves", Shape = Enum.PartType.Ball, Size = Vector3.one * rand:NextNumber(4, 6), CFrame = CFrame.new(spot + Vector3.new(0, h + 1, 0)), Color = theme.Leaves, Material = theme.LeavesMaterial or Enum.Material.Neon, Parent = model })
+		else
+			local h = rand:NextNumber(4, 8)
+			part({ Name = "Crystal", Size = Vector3.new(h * 0.25, h, h * 0.25), CFrame = CFrame.new(spot + Vector3.new(0, h * 0.4, 0)) * CFrame.Angles(rand:NextNumber(-0.3, 0.3), rand:NextNumber(0, 3), rand:NextNumber(-0.3, 0.3)), Color = theme.Glow, Material = Enum.Material.Neon, Parent = model })
+		end
+	end
+	-- waterfall of light
+	local a = rand:NextNumber(0, math.pi * 2)
+	local edge = position + Vector3.new(math.cos(a) * (radius - 1), 0, math.sin(a) * (radius - 1))
+	local fall = part({ Name = "LightFall", Size = Vector3.new(4, 60, 0.4), CFrame = CFrame.lookAt(edge + Vector3.new(0, -30, 0), position + Vector3.new(0, -30, 0)), Color = theme.Fall, Material = Enum.Material.Neon, Transparency = 0.5, Parent = model })
+	local mist = sparkles(fall, theme.Fall, 10, 1, 1.5)
+	mist.Acceleration = Vector3.new(0, -6, 0)
+	model:SetAttribute("FX_Bob", rand:NextNumber(2, 4))
+	model:SetAttribute("FX_SpinY", rand:NextNumber(-0.02, 0.02))
+	model.WorldPivot = CFrame.new(position)
+	return model
+end
+
+---------------------------------------------------------------------
+-- SKY CREATURES
+-- Every creature is built facing -Z around (0, 0, 0) and then moved by
+-- SkyFX each frame, using these attributes:
+--   Motion = "Orbit" (circles), "Figure8", "Hover" (floats + spins),
+--            "Wave" (circles with big ups and downs + banking), "Serpent"
+--   Center, Radius, Height, Speed, Phase, Bob, Spin
+---------------------------------------------------------------------
+local creatureCount = 0
+local function creatureModel(kind, parent)
+	creatureCount += 1
+	local model = newModel(kind, parent)
+	model:SetAttribute("FX_Creature", true)
+	return model
+end
+
+local function finishCreature(model, motion)
+	model.WorldPivot = CFrame.new()
+	for key, value in pairs(motion) do
+		model:SetAttribute(key, value)
+	end
+	-- park it at its first spot (SkyFX takes over from there)
+	local a = motion.Phase or 0
+	local start = motion.Center + Vector3.new(math.cos(a) * (motion.Radius or 0), motion.Height or 0, math.sin(a) * (motion.Radius or 0))
+	model:PivotTo(CFrame.new(start))
+	return model
+end
+
+local function glowSpot(model, position, size, color3)
+	local spot = part({ Name = "GlowSpot", Shape = Enum.PartType.Ball, Size = Vector3.one * size, CFrame = CFrame.new(position), Color = color3, Material = Enum.Material.Neon, Parent = model })
+	spot:SetAttribute("FX_Twinkle", rand:NextNumber(0, 6))
+	return spot
+end
+
+-- WHALE: big, slow, glowing spots and a sparkle trail
+local function whale(parent, colors, scale)
+	local model = creatureModel("SkyWhale", parent)
+	local sizes = { 13, 16, 17, 16, 14, 11, 8, 6, 4.5 }
+	for i, s in ipairs(sizes) do
+		s *= scale
+		local z = (i - 3) * 6.5 * scale
+		part({ Name = "Body", Shape = Enum.PartType.Ball, Size = Vector3.new(s * 1.05, s * 0.85, s * 1.1), CFrame = CFrame.new(0, 0, z), Color = colors.Body, Material = Enum.Material.SmoothPlastic, Parent = model })
+		part({ Name = "Belly", Shape = Enum.PartType.Ball, Size = Vector3.new(s * 0.8, s * 0.55, s), CFrame = CFrame.new(0, -s * 0.2, z), Color = colors.Belly, Material = Enum.Material.SmoothPlastic, Parent = model })
+		if i >= 2 and i <= 7 then
+			for _, side in ipairs({ -1, 1 }) do
+				glowSpot(model, Vector3.new(side * s * 0.47, s * 0.12, z), s * 0.12, colors.Glow)
+			end
+		end
+	end
+	for _, side in ipairs({ -1, 1 }) do
+		part({ Name = "Eye", Shape = Enum.PartType.Ball, Size = Vector3.one * 1.6 * scale, CFrame = CFrame.new(side * 5.6 * scale, 1 * scale, -17 * scale), Color = Color3.new(1, 1, 1), Material = Enum.Material.Neon, Parent = model })
+		part({ ClassName = "WedgePart", Name = "Fin", Size = Vector3.new(1, 3, 12) * scale, CFrame = CFrame.new(side * 11 * scale, -3 * scale, -6 * scale) * CFrame.Angles(0, side * 0.5, side * 0.4), Color = colors.Body, Material = Enum.Material.SmoothPlastic, Parent = model })
+		part({ ClassName = "WedgePart", Name = "Tail", Size = Vector3.new(1, 2, 10) * scale, CFrame = CFrame.new(side * 5 * scale, 0, 43 * scale) * CFrame.Angles(0, math.pi + side * 0.6, 0) * CFrame.Angles(0, 0, math.rad(90)), Color = colors.Body, Material = Enum.Material.SmoothPlastic, Parent = model })
+	end
+	local tailGlow = part({ Name = "TailGlow", Shape = Enum.PartType.Ball, Size = Vector3.one * 3 * scale, CFrame = CFrame.new(0, 0, 40 * scale), Color = colors.Glow, Material = Enum.Material.Neon, Transparency = 0.3, Parent = model })
+	local trail = sparkles(tailGlow, colors.Glow, 25, 1.2 * scale, 0.3)
+	trail.Lifetime = NumberRange.new(4, 6)
+	addLight(tailGlow, colors.Glow, 40, 2)
+	return model
+end
+
+-- MANTA RAY: flat and wide, glowing wing edges
+local function manta(parent, colors, scale)
+	local model = creatureModel("SkyManta", parent)
+	part({ Name = "Body", Shape = Enum.PartType.Ball, Size = Vector3.new(7, 1.6, 9) * scale, CFrame = CFrame.new(), Color = colors.Body, Material = Enum.Material.SmoothPlastic, Parent = model })
+	for _, side in ipairs({ -1, 1 }) do
+		part({ ClassName = "WedgePart", Name = "Wing", Size = Vector3.new(0.6, 9, 8) * scale, CFrame = CFrame.new(side * 6.5 * scale, 0, 0.5 * scale) * CFrame.Angles(0, 0, side * math.rad(90)) * CFrame.Angles(0, math.pi, 0), Color = colors.Body, Material = Enum.Material.SmoothPlastic, Parent = model })
+		part({ Name = "WingEdge", Size = Vector3.new(9, 0.3, 0.3) * scale, CFrame = CFrame.new(side * 7 * scale, 0, -2.5 * scale) * CFrame.Angles(0, side * 0.35, 0), Color = colors.Glow, Material = Enum.Material.Neon, Parent = model })
+		part({ Name = "Horn", Size = Vector3.new(0.5, 0.5, 2.5) * scale, CFrame = CFrame.new(side * 1.6 * scale, 0, -4.8 * scale), Color = colors.Body, Material = Enum.Material.SmoothPlastic, Parent = model })
+		glowSpot(model, Vector3.new(side * 1.2, 0.7, -3) * scale, 0.6 * scale, colors.Glow)
+	end
+	local tail = part({ Name = "Tail", Size = Vector3.new(0.3, 0.3, 10) * scale, CFrame = CFrame.new(0, 0, 9 * scale), Color = colors.Glow, Material = Enum.Material.Neon, Parent = model })
+	sparkles(tail, colors.Glow, 6, 0.6 * scale, 0.2)
+	return model
+end
+
+-- JELLYFISH: see-through dome with long glowing tentacles
+local function jelly(parent, colors, scale)
+	local model = creatureModel("SkyJelly", parent)
+	local dome = part({ Name = "Dome", Shape = Enum.PartType.Ball, Size = Vector3.new(8, 5.5, 8) * scale, CFrame = CFrame.new(), Color = colors.Body, Material = Enum.Material.Neon, Transparency = 0.45, Parent = model })
+	part({ Name = "Core", Shape = Enum.PartType.Ball, Size = Vector3.one * 3 * scale, CFrame = CFrame.new(0, 0.3 * scale, 0), Color = colors.Glow, Material = Enum.Material.Neon, Parent = model })
+	part({ Name = "Skirt", Shape = Enum.PartType.Cylinder, Size = Vector3.new(0.4, 8.4, 8.4) * scale, CFrame = CFrame.new(0, -1.4 * scale, 0) * FLAT, Color = colors.Glow, Material = Enum.Material.Neon, Transparency = 0.3, Parent = model })
+	for k = 1, 8 do
+		local a = k / 8 * math.pi * 2
+		local length = rand:NextNumber(8, 14) * scale
+		part({ Name = "Tentacle", Size = Vector3.new(0.25 * scale, length, 0.25 * scale), CFrame = CFrame.new(math.cos(a) * 2.6 * scale, -1.5 * scale - length / 2, math.sin(a) * 2.6 * scale) * CFrame.Angles(math.sin(a) * 0.12, 0, math.cos(a) * 0.12),
+			Color = (k % 2 == 0) and colors.Glow or colors.Body, Material = Enum.Material.Neon, Transparency = 0.2, Parent = model })
+	end
+	addLight(dome, colors.Glow, 30 * scale, 1.5)
+	sparkles(dome, colors.Glow, 3, 0.5 * scale, 0.3)
+	return model
+end
+
+-- FISH SCHOOL: a bunch of small fish swimming together
+local function school(parent, colors, count)
+	local model = creatureModel("SkySchool", parent)
+	for i = 1, count do
+		local offset = Vector3.new(rand:NextNumber(-7, 7), rand:NextNumber(-3, 3), rand:NextNumber(-8, 8))
+		local s = rand:NextNumber(0.8, 1.3)
+		local color = (i % 3 == 0) and colors.Glow or colors.Body
+		part({ Name = "FishBody", Shape = Enum.PartType.Ball, Size = Vector3.new(1, 1.3, 2.4) * s, CFrame = CFrame.new(offset), Color = color, Material = Enum.Material.Neon, Parent = model })
+		part({ ClassName = "WedgePart", Name = "FishTail", Size = Vector3.new(0.15, 1.2, 1) * s, CFrame = CFrame.new(offset + Vector3.new(0, 0, 1.6 * s)), Color = colors.Glow, Material = Enum.Material.Neon, Parent = model })
+	end
+	return model
+end
+
+-- SPACE TURTLE: shell with glowing hexagon plates, slow flippers
+local function turtle(parent, colors, scale)
+	local model = creatureModel("SkyTurtle", parent)
+	part({ Name = "Shell", Shape = Enum.PartType.Ball, Size = Vector3.new(12, 5, 14) * scale, CFrame = CFrame.new(0, 0.6 * scale, 0), Color = colors.Body, Material = Enum.Material.SmoothPlastic, Parent = model })
+	part({ Name = "Belly", Shape = Enum.PartType.Ball, Size = Vector3.new(11, 3, 13) * scale, CFrame = CFrame.new(0, -0.6 * scale, 0), Color = colors.Belly, Material = Enum.Material.SmoothPlastic, Parent = model })
+	for k = 0, 6 do
+		local a = k / 7 * math.pi * 2
+		local spot = (k == 0) and Vector3.new(0, 3.2, 0) or Vector3.new(math.cos(a) * 3.6, 2.5, math.sin(a) * 4.2)
+		glowSpot(model, spot * scale, 1.6 * scale, colors.Glow)
+	end
+	part({ Name = "Head", Shape = Enum.PartType.Ball, Size = Vector3.new(3, 2.6, 3.4) * scale, CFrame = CFrame.new(0, 0.3 * scale, -8.4 * scale), Color = colors.Belly, Material = Enum.Material.SmoothPlastic, Parent = model })
+	for _, side in ipairs({ -1, 1 }) do
+		part({ Name = "Eye", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.7 * scale, CFrame = CFrame.new(side * 1 * scale, 0.9 * scale, -9.6 * scale), Color = Color3.new(0.05, 0.05, 0.1), Material = Enum.Material.SmoothPlastic, Parent = model })
+		part({ Name = "Flipper", Size = Vector3.new(7, 0.5, 2.6) * scale, CFrame = CFrame.new(side * 7 * scale, -0.4 * scale, -3.5 * scale) * CFrame.Angles(0, side * -0.4, side * -0.2), Color = colors.Belly, Material = Enum.Material.SmoothPlastic, Parent = model })
+		part({ Name = "Flipper", Size = Vector3.new(4.5, 0.5, 2) * scale, CFrame = CFrame.new(side * 5.5 * scale, -0.4 * scale, 5 * scale) * CFrame.Angles(0, side * 0.5, 0), Color = colors.Belly, Material = Enum.Material.SmoothPlastic, Parent = model })
+	end
+	return model
+end
+
+-- KOI: long fish with flowing glowing fins
+local function koi(parent, colors, scale)
+	local model = creatureModel("SkyKoi", parent)
+	local sizes = { 3, 3.6, 3.4, 2.8, 2, 1.3 }
+	for i, s in ipairs(sizes) do
+		part({ Name = "Body", Shape = Enum.PartType.Ball, Size = Vector3.new(s, s * 0.9, s * 1.3) * scale, CFrame = CFrame.new(0, 0, (i - 2) * 1.9 * scale), Color = (i % 2 == 0) and colors.Body or colors.Belly, Material = Enum.Material.SmoothPlastic, Parent = model })
+	end
+	for _, side in ipairs({ -1, 1 }) do
+		part({ ClassName = "WedgePart", Name = "Fin", Size = Vector3.new(0.15, 1.6, 2.6) * scale, CFrame = CFrame.new(side * 1.9 * scale, -0.6 * scale, -0.4 * scale) * CFrame.Angles(0, 0, side * 1.1), Color = colors.Glow, Material = Enum.Material.Neon, Transparency = 0.25, Parent = model })
+		part({ Name = "Eye", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.5 * scale, CFrame = CFrame.new(side * 1.1 * scale, 0.4 * scale, -3.3 * scale), Color = Color3.new(0.05, 0.05, 0.1), Material = Enum.Material.SmoothPlastic, Parent = model })
+		part({ ClassName = "WedgePart", Name = "TailFin", Size = Vector3.new(0.15, 2.4, 3.2) * scale, CFrame = CFrame.new(side * 0.6 * scale, 0, 9.2 * scale) * CFrame.Angles(0, side * 0.35, 0), Color = colors.Glow, Material = Enum.Material.Neon, Transparency = 0.2, Parent = model })
+	end
+	part({ ClassName = "WedgePart", Name = "Dorsal", Size = Vector3.new(0.15, 1.5, 4) * scale, CFrame = CFrame.new(0, 1.7 * scale, 1 * scale), Color = colors.Glow, Material = Enum.Material.Neon, Parent = model })
+	return model
+end
+
+-- STAR SPRITE: a spinning five-pointed star that leaves sparkles
+local function starSprite(parent, colors, scale)
+	local model = creatureModel("SkyStar", parent)
+	local core = part({ Name = "Core", Shape = Enum.PartType.Ball, Size = Vector3.one * 1.6 * scale, CFrame = CFrame.new(), Color = Color3.new(1, 1, 1), Material = Enum.Material.Neon, Parent = model })
+	for k = 0, 4 do
+		part({ ClassName = "WedgePart", Name = "Point", Size = Vector3.new(0.6, 2.4, 1.6) * scale, CFrame = CFrame.Angles(0, 0, k * math.pi * 2 / 5) * CFrame.new(0, 1.8 * scale, 0), Color = (k % 2 == 0) and colors.Glow or colors.Body, Material = Enum.Material.Neon, Parent = model })
+	end
+	sparkles(core, colors.Glow, 8, 0.5 * scale, 1)
+	addLight(core, colors.Glow, 20 * scale, 1.5)
+	return model
+end
+
+-- SKY SERPENT: a long glowing dragon made of segments that follow each other
+local function serpent(parent, colors, segments, scale)
+	local model = creatureModel("SkySerpent", parent)
+	for i = 1, segments do
+		local f = (i - 1) / (segments - 1)
+		local size = (i == 1) and 5.5 or (5 - f * 3.4)
+		local seg = part({ Name = "Seg" .. i, Shape = Enum.PartType.Ball, Size = Vector3.one * size * scale, CFrame = CFrame.new(0, 0, (i - 1) * 3.6 * scale),
+			Color = (i % 2 == 0) and colors.Body or colors.Belly, Material = Enum.Material.SmoothPlastic, Parent = model })
+		seg:SetAttribute("Segment", i)
+		if i > 1 and i % 2 == 1 then
+			local spine = part({ ClassName = "WedgePart", Name = "Spine", Size = Vector3.new(0.4, 1.6, 1.6) * scale, CFrame = CFrame.new(0, size * 0.5 * scale + 0.6 * scale, (i - 1) * 3.6 * scale), Color = colors.Glow, Material = Enum.Material.Neon, Parent = model })
+			spine:SetAttribute("Segment", i)
+		end
+	end
+	-- the head gets horns, eyes and whiskers
+	for _, side in ipairs({ -1, 1 }) do
+		local horn = part({ ClassName = "WedgePart", Name = "Horn", Size = Vector3.new(0.5, 3, 1.6) * scale, CFrame = CFrame.new(side * 1.6 * scale, 2.8 * scale, 0.8 * scale) * CFrame.Angles(-0.5, 0, side * 0.3), Color = colors.Glow, Material = Enum.Material.Neon, Parent = model })
+		horn:SetAttribute("Segment", 1)
+		local eye = part({ Name = "Eye", Shape = Enum.PartType.Ball, Size = Vector3.one * 1.1 * scale, CFrame = CFrame.new(side * 1.7 * scale, 0.8 * scale, -1.8 * scale), Color = colors.Glow, Material = Enum.Material.Neon, Parent = model })
+		eye:SetAttribute("Segment", 1)
+		local whisker = part({ Name = "Whisker", Size = Vector3.new(0.2, 0.2, 5) * scale, CFrame = CFrame.new(side * 2.2 * scale, -0.6 * scale, -1 * scale) * CFrame.Angles(0, side * 0.7, 0), Color = colors.Glow, Material = Enum.Material.Neon, Parent = model })
+		whisker:SetAttribute("Segment", 1)
+	end
+	local head = model:FindFirstChild("Seg1")
+	addLight(head, colors.Glow, 40, 2)
+	sparkles(model:FindFirstChild("Seg" .. segments), colors.Glow, 20, 0.8 * scale, 0.3).Lifetime = NumberRange.new(3, 5)
+	model:SetAttribute("Segments", segments)
+	model:SetAttribute("Spacing", 3.6 * scale)
+	return model
+end
+
+local BUILD = {
+	Whale = function(parent, colors) return whale(parent, colors, rand:NextNumber(0.8, 1.1)) end,
+	Manta = function(parent, colors) return manta(parent, colors, rand:NextNumber(1.2, 1.8)) end,
+	Jelly = function(parent, colors) return jelly(parent, colors, rand:NextNumber(0.7, 1.3)) end,
+	School = function(parent, colors) return school(parent, colors, rand:NextInteger(7, 11)) end,
+	Turtle = function(parent, colors) return turtle(parent, colors, rand:NextNumber(0.9, 1.3)) end,
+	Koi = function(parent, colors) return koi(parent, colors, rand:NextNumber(1.2, 1.8)) end,
+	Star = function(parent, colors) return starSprite(parent, colors, rand:NextNumber(1, 1.8)) end,
+	Serpent = function(parent, colors) return serpent(parent, colors, 16, rand:NextNumber(1, 1.3)) end,
+}
+-- how each kind likes to move
+local MOTION = {
+	Whale = { "Orbit", 0.035, 0.05 },
+	Manta = { "Wave", 0.06, 0.1 },
+	Jelly = { "Hover", 0, 0 },
+	School = { "Figure8", 0.08, 0.14 },
+	Turtle = { "Orbit", 0.025, 0.04 },
+	Koi = { "Figure8", 0.05, 0.09 },
+	Star = { "Hover", 0, 0 },
+	Serpent = { "Serpent", 0.05, 0.07 },
+}
+
+-- spawns a set of creatures around a center
+local function populate(folder, center, list, colorsList, ring, heights)
+	for _, entry in ipairs(list) do
+		local kind, count = entry[1], entry[2]
+		for i = 1, count do
+			local colors = colorsList[((i - 1) % #colorsList) + 1]
+			local model = BUILD[kind](folder, colors)
+			local motion = MOTION[kind]
+			local radius = rand:NextNumber(ring[1], ring[2])
+			local height = rand:NextNumber(heights[1], heights[2])
+			local direction = (rand:NextNumber() < 0.5) and -1 or 1
+			local settings = {
+				Motion = motion[1],
+				Center = center,
+				Radius = radius,
+				Height = height,
+				Speed = rand:NextNumber(motion[2], motion[3]) * direction * (180 / radius),
+				Phase = rand:NextNumber(0, math.pi * 2),
+				Bob = rand:NextNumber(3, 8),
+			}
+			if motion[1] == "Hover" then
+				-- hoverers float in one spot and spin
+				local a = rand:NextNumber(0, math.pi * 2)
+				settings.Center = center + Vector3.new(math.cos(a) * radius, 0, math.sin(a) * radius)
+				settings.Radius = 0
+				settings.Spin = (kind == "Star") and rand:NextNumber(1, 2.2) * direction or rand:NextNumber(0.1, 0.3) * direction
+			end
+			finishCreature(model, settings)
+		end
+	end
+end
+
+---------------------------------------------------------------------
+-- One themed sky around an island
+---------------------------------------------------------------------
 local function decorate(name, center, theme)
 	local folder = Instance.new("Folder")
 	folder.Name = name
 	folder.Parent = root
 
+	local function blocked(offset)
+		if theme.KeepLaneClear and math.abs(offset.X) < 80 and offset.Z > 40 then
+			return true -- the rebirth island parkour heads out this way
+		end
+		return theme.Exclude ~= nil and theme.Exclude(offset)
+	end
+
 	-- nebulae, far out in different directions
 	for i = 1, theme.Nebulae do
 		local a = (i / theme.Nebulae) * math.pi * 2 + rand:NextNumber(-0.3, 0.3)
-		local dist = rand:NextNumber(380, 520)
-		nebula(folder, center + Vector3.new(math.cos(a) * dist, rand:NextNumber(120, 260), math.sin(a) * dist), theme.Nebula, rand:NextNumber(0.8, 1.2))
+		local dist = rand:NextNumber(420, 560)
+		nebula(folder, center + Vector3.new(math.cos(a) * dist, rand:NextNumber(140, 280), math.sin(a) * dist), theme.Nebula, rand:NextNumber(0.9, 1.3))
 	end
 
 	-- a spiral galaxy
 	local ga = rand:NextNumber(0, math.pi * 2)
-	galaxy(folder, center + Vector3.new(math.cos(ga) * 450, 300, math.sin(ga) * 450), theme.Galaxy, 160,
+	galaxy(folder, center + Vector3.new(math.cos(ga) * 480, 320, math.sin(ga) * 480), theme.Galaxy, 170,
 		CFrame.Angles(math.rad(rand:NextNumber(25, 55)), 0, math.rad(rand:NextNumber(-20, 20))))
 
-	-- floating islets in a loose ring around the island
+	-- small floating islets in a loose ring around the island
+	local near, far = theme.IsletRing[1], theme.IsletRing[2]
 	for i = 1, theme.Islets do
 		local a = (i / theme.Islets) * math.pi * 2 + rand:NextNumber(-0.2, 0.2)
-		local dist = rand:NextNumber(120, 175)
-		local spot = center + Vector3.new(math.cos(a) * dist, rand:NextNumber(-15, 45), math.sin(a) * dist)
-		-- keep the parkour lane (straight out along +Z) clear on rebirth islands
-		local offset = spot - center
-		local blocked = theme.KeepLaneClear and math.abs(offset.X) < 60 and offset.Z > 40
-		if theme.Exclude and theme.Exclude(offset) then
-			blocked = true
-		end
-		if not blocked then
+		local dist = rand:NextNumber(near, far)
+		local spot = center + Vector3.new(math.cos(a) * dist, rand:NextNumber(-20, 50), math.sin(a) * dist)
+		if not blocked(spot - center) then
 			islet(folder, spot, theme.Islet)
 		end
 	end
+
+	-- big sky isles further out
+	for i = 1, theme.BigIsles do
+		local a = (i / theme.BigIsles) * math.pi * 2 + rand:NextNumber(-0.4, 0.4)
+		local dist = rand:NextNumber(far + 40, far + 110)
+		local spot = center + Vector3.new(math.cos(a) * dist, rand:NextNumber(30, 90), math.sin(a) * dist)
+		if not blocked(spot - center) then
+			bigIsle(folder, spot, theme.Islet)
+		end
+	end
+
+	-- creatures
+	populate(folder, center, theme.Creatures, theme.CreatureColors, theme.CreatureRing, theme.CreatureHeight)
 
 	if theme.Extra then
 		theme.Extra(folder, center)
@@ -8526,17 +9900,25 @@ local function decorate(name, center, theme)
 end
 
 local MAIN = Vector3.new(0, 0, 0)
+local MAIN_R = Config.MainIslandRadius
+
+-- creature color sets
+local function palette(body, belly, glow)
+	return { Body = body, Belly = belly, Glow = glow }
+end
 
 -- MAIN ISLAND: violet, teal and pink
 decorate("MainSky", MAIN, {
-	Nebulae = 4,
+	Nebulae = 5,
 	Nebula = { Color3.fromRGB(150, 90, 255), Color3.fromRGB(80, 200, 255), Color3.fromRGB(255, 110, 210) },
 	Galaxy = { Color3.fromRGB(160, 140, 255), Color3.fromRGB(120, 220, 255) },
-	Islets = 9,
+	Islets = 14,
+	IsletRing = { MAIN_R + 45, MAIN_R + 115 },
+	BigIsles = 5,
 	-- keep clear of the Starstep Trail (west) and the Duel Island bridge (south)
 	Exclude = function(offset)
 		local angle = math.deg(math.atan2(offset.Z, offset.X)) % 360
-		return (angle > 165 and angle < 245) or (math.abs(offset.X) < 75 and offset.Z > 30)
+		return (angle > 165 and angle < 245) or (math.abs(offset.X) < 80 and offset.Z > 30)
 	end,
 	Islet = {
 		Top = Color3.fromRGB(80, 70, 120), TopMaterial = Enum.Material.Slate,
@@ -8544,57 +9926,40 @@ decorate("MainSky", MAIN, {
 		Glow = Color3.fromRGB(120, 230, 255), Fall = Color3.fromRGB(170, 140, 255),
 		Trunk = Color3.fromRGB(70, 50, 90), Leaves = Color3.fromRGB(255, 120, 220),
 	},
-	Extra = function(folder)
-		-- the sky whale (SkyFX makes it swim around the island)
-		local whale = newModel("SkyWhale", folder)
-		local BODY = Color3.fromRGB(60, 70, 150)
-		local BELLY = Color3.fromRGB(150, 190, 255)
-		local GLOW = Color3.fromRGB(120, 230, 255)
-		local origin = Vector3.new(0, 110, 0)
-		local sizes = { 13, 16, 17, 16, 14, 11, 8, 6, 4.5 }
-		for i, s in ipairs(sizes) do
-			local z = (i - 3) * 6.5 -- head points to -Z
-			part({ Name = "WhaleBody", Shape = Enum.PartType.Ball, Size = Vector3.new(s * 1.05, s * 0.85, s * 1.1), CFrame = CFrame.new(origin + Vector3.new(0, 0, z)), Color = BODY, Material = Enum.Material.SmoothPlastic, Parent = whale })
-			part({ Name = "WhaleBelly", Shape = Enum.PartType.Ball, Size = Vector3.new(s * 0.8, s * 0.55, s * 1.0), CFrame = CFrame.new(origin + Vector3.new(0, -s * 0.2, z)), Color = BELLY, Material = Enum.Material.SmoothPlastic, Parent = whale })
-			if i >= 2 and i <= 7 then
-				for _, side in ipairs({ -1, 1 }) do
-					local spot = part({ Name = "WhaleSpot", Shape = Enum.PartType.Ball, Size = Vector3.one * (s * 0.12), CFrame = CFrame.new(origin + Vector3.new(side * s * 0.47, s * 0.12, z)), Color = GLOW, Material = Enum.Material.Neon, Parent = whale })
-					spot:SetAttribute("FX_Twinkle", i * 0.7)
-				end
-			end
-		end
-		-- eyes
-		for _, side in ipairs({ -1, 1 }) do
-			part({ Name = "WhaleEye", Shape = Enum.PartType.Ball, Size = Vector3.one * 1.6, CFrame = CFrame.new(origin + Vector3.new(side * 5.6, 1, -17)), Color = Color3.new(1, 1, 1), Material = Enum.Material.Neon, Parent = whale })
-		end
-		-- fins + tail
-		for _, side in ipairs({ -1, 1 }) do
-			part({ ClassName = "WedgePart", Name = "WhaleFin", Size = Vector3.new(1, 3, 12), CFrame = CFrame.new(origin + Vector3.new(side * 11, -3, -6)) * CFrame.Angles(0, side * 0.5, side * 0.4), Color = BODY, Material = Enum.Material.SmoothPlastic, Parent = whale })
-			part({ ClassName = "WedgePart", Name = "WhaleTail", Size = Vector3.new(1, 2, 10), CFrame = CFrame.new(origin + Vector3.new(side * 5, 0, 43)) * CFrame.Angles(0, math.pi + side * 0.6, 0) * CFrame.Angles(0, 0, math.rad(90)), Color = BODY, Material = Enum.Material.SmoothPlastic, Parent = whale })
-		end
-		local tailGlow = part({ Name = "WhaleTailGlow", Shape = Enum.PartType.Ball, Size = Vector3.one * 3, CFrame = CFrame.new(origin + Vector3.new(0, 0, 40)), Color = GLOW, Material = Enum.Material.Neon, Transparency = 0.3, Parent = whale })
-		local trail = sparkles(tailGlow, GLOW, 25, 1.2, 0.3)
-		trail.Lifetime = NumberRange.new(4, 6)
-		addLight(tailGlow, GLOW, 40, 2)
-		whale.WorldPivot = CFrame.new(origin)
-		whale:SetAttribute("FX_Whale", true)
-		whale:SetAttribute("OrbitRadius", 190)
-		whale:SetAttribute("OrbitHeight", 105)
-	end,
+	Creatures = { { "Whale", 2 }, { "Manta", 4 }, { "Jelly", 8 }, { "School", 5 }, { "Turtle", 2 }, { "Koi", 4 }, { "Star", 10 }, { "Serpent", 1 } },
+	CreatureColors = {
+		palette(Color3.fromRGB(60, 70, 150), Color3.fromRGB(150, 190, 255), Color3.fromRGB(120, 230, 255)),
+		palette(Color3.fromRGB(120, 60, 160), Color3.fromRGB(240, 170, 255), Color3.fromRGB(255, 120, 220)),
+		palette(Color3.fromRGB(40, 110, 120), Color3.fromRGB(150, 255, 220), Color3.fromRGB(90, 255, 200)),
+		palette(Color3.fromRGB(200, 120, 60), Color3.fromRGB(255, 230, 190), Color3.fromRGB(255, 200, 90)),
+	},
+	CreatureRing = { MAIN_R + 50, MAIN_R + 190 },
+	CreatureHeight = { 75, 150 },
 })
 
 -- LUCKY ISLE: rose and gold, with twin golden moons
-decorate("LuckySky", Config.LuckyIsland.Center, {
-	Nebulae = 3,
+local LUCKY = Config.LuckyIsland
+decorate("LuckySky", LUCKY.Center, {
+	Nebulae = 4,
 	Nebula = { Color3.fromRGB(255, 150, 200), Color3.fromRGB(255, 210, 120), Color3.fromRGB(120, 230, 210) },
 	Galaxy = { Color3.fromRGB(255, 200, 120), Color3.fromRGB(255, 150, 200) },
-	Islets = 6,
+	Islets = 10,
+	IsletRing = { LUCKY.Radius + 40, LUCKY.Radius + 100 },
+	BigIsles = 3,
 	Islet = {
 		Top = Color3.fromRGB(238, 232, 220), TopMaterial = Enum.Material.Marble,
 		Rock = Color3.fromRGB(95, 35, 70), RockDark = Color3.fromRGB(60, 20, 45), RockMaterial = Enum.Material.Slate,
 		Glow = Color3.fromRGB(255, 200, 70), Fall = Color3.fromRGB(255, 180, 210),
 		Trunk = Color3.fromRGB(120, 80, 60), Leaves = Color3.fromRGB(255, 150, 200),
 	},
+	Creatures = { { "Koi", 6 }, { "Manta", 2 }, { "Jelly", 5 }, { "School", 3 }, { "Turtle", 1 }, { "Star", 8 } },
+	CreatureColors = {
+		palette(Color3.fromRGB(255, 120, 60), Color3.fromRGB(255, 245, 235), Color3.fromRGB(255, 200, 80)),
+		palette(Color3.fromRGB(255, 150, 200), Color3.fromRGB(255, 235, 245), Color3.fromRGB(255, 120, 190)),
+		palette(Color3.fromRGB(80, 200, 180), Color3.fromRGB(220, 255, 245), Color3.fromRGB(120, 255, 220)),
+	},
+	CreatureRing = { LUCKY.Radius + 40, LUCKY.Radius + 170 },
+	CreatureHeight = { 60, 130 },
 	Extra = function(folder, center)
 		planet(folder, center + Vector3.new(-260, 200, 300), 55, Color3.fromRGB(255, 205, 110), Color3.fromRGB(255, 240, 190), nil)
 		planet(folder, center + Vector3.new(-150, 260, 380), 26, Color3.fromRGB(255, 160, 200), Color3.fromRGB(255, 220, 235), nil)
@@ -8604,51 +9969,66 @@ decorate("LuckySky", Config.LuckyIsland.Center, {
 -- REBIRTH ISLANDS
 local islandThemes = {
 	Frostfall = {
-		Nebulae = 3,
+		Nebulae = 4,
 		Nebula = { Color3.fromRGB(90, 255, 180), Color3.fromRGB(110, 200, 255), Color3.fromRGB(190, 160, 255) },
 		Galaxy = { Color3.fromRGB(170, 230, 255), Color3.fromRGB(120, 255, 200) },
-		Islets = 7,
+		Islets = 11,
+		BigIsles = 3,
 		Islet = {
 			Top = Color3.fromRGB(236, 244, 255), TopMaterial = Enum.Material.Snow,
 			Rock = Color3.fromRGB(120, 170, 220), RockDark = Color3.fromRGB(70, 105, 160), RockMaterial = Enum.Material.Glacier,
 			Glow = Color3.fromRGB(140, 230, 255), Fall = Color3.fromRGB(200, 240, 255),
 			Trunk = Color3.fromRGB(90, 60, 45), Leaves = Color3.fromRGB(70, 140, 120), LeavesMaterial = Enum.Material.Grass,
 		},
+		Creatures = { { "Whale", 1 }, { "Jelly", 6 }, { "Manta", 3 }, { "School", 4 }, { "Turtle", 1 }, { "Star", 8 } },
+		CreatureColors = {
+			palette(Color3.fromRGB(200, 230, 255), Color3.fromRGB(255, 255, 255), Color3.fromRGB(120, 230, 255)),
+			palette(Color3.fromRGB(110, 200, 255), Color3.fromRGB(230, 250, 255), Color3.fromRGB(90, 255, 190)),
+		},
 		Extra = function(folder, center)
-			-- a frozen ringed planet
 			planet(folder, center + Vector3.new(320, 230, -260), 70, Color3.fromRGB(170, 215, 245), Color3.fromRGB(220, 245, 255),
 				Color3.fromRGB(190, 240, 255), CFrame.Angles(math.rad(18), 0, math.rad(-14)), Enum.Material.Glacier)
 		end,
 	},
 	Ember = {
-		Nebulae = 3,
+		Nebulae = 4,
 		Nebula = { Color3.fromRGB(255, 90, 40), Color3.fromRGB(255, 170, 60), Color3.fromRGB(200, 40, 80) },
 		Galaxy = { Color3.fromRGB(255, 160, 80), Color3.fromRGB(255, 80, 60) },
-		Islets = 7,
+		Islets = 11,
+		BigIsles = 3,
 		Islet = {
 			Top = Color3.fromRGB(70, 52, 48), TopMaterial = Enum.Material.Basalt,
 			Rock = Color3.fromRGB(60, 40, 38), RockDark = Color3.fromRGB(35, 24, 26), RockMaterial = Enum.Material.Basalt,
 			Glow = Color3.fromRGB(255, 120, 40), Fall = Color3.fromRGB(255, 110, 30),
 			Trunk = Color3.fromRGB(35, 25, 22), Leaves = Color3.fromRGB(255, 120, 40),
 		},
+		Creatures = { { "Serpent", 2 }, { "Manta", 3 }, { "School", 5 }, { "Koi", 3 }, { "Star", 8 } },
+		CreatureColors = {
+			palette(Color3.fromRGB(120, 30, 20), Color3.fromRGB(255, 150, 60), Color3.fromRGB(255, 200, 70)),
+			palette(Color3.fromRGB(40, 25, 25), Color3.fromRGB(200, 60, 30), Color3.fromRGB(255, 110, 30)),
+		},
 		Extra = function(folder, center)
-			-- a red dwarf sun burning in the sky
 			sun(folder, center + Vector3.new(-300, 220, -280), 60, Color3.fromRGB(255, 120, 50), Color3.fromRGB(255, 60, 30))
 		end,
 	},
 	Nexus = {
-		Nebulae = 3,
+		Nebulae = 4,
 		Nebula = { Color3.fromRGB(255, 70, 220), Color3.fromRGB(60, 230, 255), Color3.fromRGB(140, 80, 255) },
 		Galaxy = { Color3.fromRGB(255, 90, 230), Color3.fromRGB(80, 230, 255) },
-		Islets = 7,
+		Islets = 11,
+		BigIsles = 3,
 		Islet = {
 			Top = Color3.fromRGB(25, 18, 45), TopMaterial = Enum.Material.Glass,
 			Rock = Color3.fromRGB(35, 22, 60), RockDark = Color3.fromRGB(22, 14, 40), RockMaterial = Enum.Material.SmoothPlastic,
 			Glow = Color3.fromRGB(60, 230, 255), Fall = Color3.fromRGB(255, 70, 220),
 			Trunk = Color3.fromRGB(40, 25, 70), Leaves = Color3.fromRGB(255, 70, 220),
 		},
+		Creatures = { { "Whale", 1 }, { "Jelly", 6 }, { "Manta", 3 }, { "School", 4 }, { "Serpent", 1 }, { "Star", 10 } },
+		CreatureColors = {
+			palette(Color3.fromRGB(30, 20, 60), Color3.fromRGB(60, 230, 255), Color3.fromRGB(255, 70, 220)),
+			palette(Color3.fromRGB(60, 20, 80), Color3.fromRGB(255, 120, 240), Color3.fromRGB(60, 230, 255)),
+		},
 		Extra = function(folder, center)
-			-- a wireframe-looking planet with two neon rings
 			planet(folder, center + Vector3.new(-330, 210, -200), 60, Color3.fromRGB(40, 20, 80), Color3.fromRGB(255, 80, 230),
 				Color3.fromRGB(60, 230, 255), CFrame.Angles(math.rad(70), 0, math.rad(10)), Enum.Material.Glass)
 		end,
@@ -8658,15 +10038,20 @@ for _, info in ipairs(Config.RebirthIslands) do
 	local theme = islandThemes[info.Key]
 	if theme then
 		theme.KeepLaneClear = true
+		theme.IsletRing = { info.Radius + 45, info.Radius + 110 }
+		-- creatures fly high here so they stay above the parkour
+		theme.CreatureRing = { info.Radius + 40, info.Radius + 180 }
+		theme.CreatureHeight = { 110, 170 }
 		decorate(info.Key .. "Sky", info.Center, theme)
 	end
 end
 
+root:SetAttribute("CreatureCount", creatureCount)
 root.Parent = workspace
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="19">
+    <Item class="Script" referent="22">
       <Properties>
         <string name="Name">WorldSetup</string>
         <token name="RunContext">0</token>
@@ -8681,7 +10066,7 @@ local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
 
 local rand = Random.new(42) -- fixed seed = same island every time
 
-local ISLAND_RADIUS = 70
+local ISLAND_RADIUS = Config.MainIslandRadius
 local SPAWN_POSITION = Vector3.new(0, 3, 0)
 
 -- Where the bigger builds go (rocks/crystals keep out of these spots)
@@ -8699,6 +10084,7 @@ local RESERVED = {
 	{ P.StarstepStart, 8 },
 	{ P.VoidTowerStart, 8 },
 	{ P.RebirthGate, 14 },
+	{ P.Hatchery, 20 },
 }
 
 local function isReserved(position, margin)
@@ -8828,11 +10214,11 @@ disc("EdgeGlow", ISLAND_RADIUS + 0.6, 0.6, -0.2, Color3.fromRGB(140, 100, 255), 
 
 -- Stepped underside so it looks like a floating chunk of rock
 local layers = {
-	{ r = ISLAND_RADIUS - 6, y = -4, t = 6 },
-	{ r = ISLAND_RADIUS - 18, y = -10, t = 7 },
-	{ r = ISLAND_RADIUS - 32, y = -17, t = 8 },
-	{ r = ISLAND_RADIUS - 46, y = -25, t = 9 },
-	{ r = ISLAND_RADIUS - 58, y = -34, t = 10 },
+	{ r = ISLAND_RADIUS * 0.92, y = -4, t = 6 },
+	{ r = ISLAND_RADIUS * 0.76, y = -11, t = 8 },
+	{ r = ISLAND_RADIUS * 0.58, y = -20, t = 9 },
+	{ r = ISLAND_RADIUS * 0.4, y = -30, t = 10 },
+	{ r = ISLAND_RADIUS * 0.22, y = -42, t = 12 },
 }
 for i, layer in ipairs(layers) do
 	disc("Underside" .. i, layer.r, layer.t, layer.y, (i % 2 == 0) and ROCK_DARK or ROCK, Enum.Material.Slate,
@@ -8840,9 +10226,9 @@ for i, layer in ipairs(layers) do
 end
 
 -- Glowing veins running down the underside
-for i = 1, 10 do
-	local angle = (i / 10) * math.pi * 2 + rand:NextNumber(-0.2, 0.2)
-	local r = ISLAND_RADIUS - 20 - rand:NextNumber(0, 15)
+for i = 1, 16 do
+	local angle = (i / 16) * math.pi * 2 + rand:NextNumber(-0.2, 0.2)
+	local r = ISLAND_RADIUS * 0.6 - rand:NextNumber(0, 20)
 	part({
 		Name = "Vein",
 		Size = Vector3.new(0.6, rand:NextNumber(10, 22), 0.6),
@@ -8929,8 +10315,8 @@ local function crystalCluster(position, mainColor)
 	end
 end
 
-for i = 1, 12 do
-	local angle = (i / 12) * math.pi * 2 + rand:NextNumber(-0.15, 0.15)
+for i = 1, 20 do
+	local angle = (i / 20) * math.pi * 2 + rand:NextNumber(-0.15, 0.15)
 	local r = ISLAND_RADIUS - rand:NextNumber(6, 14)
 	local position = Vector3.new(math.cos(angle) * r, 0, math.sin(angle) * r)
 	if not isReserved(position, 3) then
@@ -8939,7 +10325,7 @@ for i = 1, 12 do
 end
 
 -- Small rocks scattered on the ground
-for _ = 1, 30 do
+for _ = 1, 70 do
 	local angle = rand:NextNumber(0, math.pi * 2)
 	local r = rand:NextNumber(14, ISLAND_RADIUS - 4)
 	local size = rand:NextNumber(1, 3)
@@ -9035,7 +10421,7 @@ local function rescue(character, player)
 		for _, info in ipairs(Config.RebirthIslands) do
 			local offset = Vector3.new(root.Position.X - info.Center.X, 0, root.Position.Z - info.Center.Z)
 			if offset.Magnitude < info.Radius * 3 then
-				character:PivotTo(CFrame.lookAt(info.Center + Vector3.new(0, 4, -44), info.Center + Vector3.new(0, 4, 0)))
+				character:PivotTo(CFrame.lookAt(info.Center + Vector3.new(0, 4, -(info.Radius - 26)), info.Center + Vector3.new(0, 4, 0)))
 				return
 			end
 		end
@@ -9208,9 +10594,12 @@ ringModel("CoreRing3", ORB_POSITION, 8, 38, 0.3, Color3.fromRGB(255, 110, 210), 
 ---------------------------------------------------------------------
 -- LANTERNS around the plaza (the gems spin, see WorldFX)
 ---------------------------------------------------------------------
-for i = 1, 10 do
-	local a = (i / 10) * math.pi * 2 + 0.3
-	local position = Vector3.new(math.cos(a) * 24, 0, math.sin(a) * 24)
+for i = 1, 26 do
+	-- an inner ring of 10 lanterns and an outer ring of 16
+	local inner = i <= 10
+	local a = inner and ((i / 10) * math.pi * 2 + 0.3) or (((i - 10) / 16) * math.pi * 2 + 0.1)
+	local radius = inner and 24 or 76
+	local position = Vector3.new(math.cos(a) * radius, 0, math.sin(a) * radius)
 	if not isReserved(position, 1) then
 		part({
 			Name = "LanternPost",
@@ -9234,9 +10623,9 @@ end
 ---------------------------------------------------------------------
 -- FLOATING CRYSTALS drifting above the island (bob + spin in WorldFX)
 ---------------------------------------------------------------------
-for i = 1, 12 do
-	local a = (i / 12) * math.pi * 2 + rand:NextNumber(-0.2, 0.2)
-	local r = rand:NextNumber(30, 55)
+for i = 1, 22 do
+	local a = (i / 22) * math.pi * 2 + rand:NextNumber(-0.2, 0.2)
+	local r = rand:NextNumber(30, 95)
 	local height = rand:NextNumber(10, 20)
 	local size = rand:NextNumber(1.6, 3)
 	local floatPosition = Vector3.new(math.cos(a) * r, 0, math.sin(a) * r)
@@ -9476,7 +10865,8 @@ path(toward(PLAZA_POSITION, -PATH_START + PLAZA_POSITION.Magnitude), toward(PLAZ
 path(toward(BOARD_POSITION, -PATH_START + BOARD_POSITION.Magnitude), toward(BOARD_POSITION, 4), 3.4)
 path(toward(P.StarstepStart, -PATH_START + P.StarstepStart.Magnitude), toward(P.StarstepStart, 4), 3.4)
 path(toward(P.VoidTowerStart, -PATH_START + P.VoidTowerStart.Magnitude), toward(P.VoidTowerStart, 4), 3.4)
-path(Vector3.new(0, 0, PATH_START), Vector3.new(0, 0, 66), 5) -- to the Duel Island bridge
+path(Vector3.new(0, 0, PATH_START), Vector3.new(0, 0, ISLAND_RADIUS - 4), 5) -- to the Duel Island bridge
+path(toward(P.Hatchery, -PATH_START + P.Hatchery.Magnitude), toward(P.Hatchery, 18), 4)
 path(toward(P.Pond, -PATH_START + P.Pond.Magnitude), toward(P.Pond, 9), 3)
 path(toward(P.RebirthGate, -PATH_START + P.RebirthGate.Magnitude), toward(P.RebirthGate, 12.5), 4)
 
@@ -9498,10 +10888,11 @@ local signTargets = {
 	{ "🏃 STARSTEP OBBY", P.StarstepStart, Color3.fromRGB(110, 230, 150) },
 	{ "🗼 VOID TOWER", P.VoidTowerStart, Color3.fromRGB(120, 200, 255) },
 	{ "🏆 TOP ROLLERS", BOARD_POSITION, Color3.fromRGB(255, 220, 120) },
+	{ "🥚 PET EGGS", P.Hatchery, Color3.fromRGB(255, 170, 120) },
 	{ "⭐ REBIRTH GATE", P.RebirthGate, Color3.fromRGB(140, 220, 255) },
 }
 for i, target in ipairs(signTargets) do
-	local height = 9.4 - i * 1.05
+	local height = 9.6 - i * 0.98
 	local postTop = SIGN_POST + Vector3.new(0, height, 0)
 	local dest = Vector3.new(target[2].X, height, target[2].Z)
 	local look = CFrame.lookAt(postTop, dest)
@@ -9584,8 +10975,8 @@ local function shroomCluster(position, color3)
 	end
 end
 local placedShrooms = 0
-for _ = 1, 60 do
-	if placedShrooms >= 16 then
+for _ = 1, 140 do
+	if placedShrooms >= 34 then
 		break
 	end
 	local a = rand:NextNumber(0, math.pi * 2)
@@ -9652,7 +11043,7 @@ local function ruins(center)
 	relic.Name = "SpinGem" -- WorldFX spins these
 	addLight(relic, relic.Color, 14, 1.2)
 end
-for _, spot in ipairs({ Vector3.new(-50, 0, -40), Vector3.new(54, 0, 4), Vector3.new(-22, 0, 50) }) do
+for _, spot in ipairs({ Vector3.new(-80, 0, -62), Vector3.new(88, 0, 22), Vector3.new(-30, 0, 82), Vector3.new(30, 0, -92) }) do
 	if not isReserved(spot, -4) then
 		ruins(spot)
 	end
@@ -9713,7 +11104,7 @@ part({
 local bridge = Instance.new("Model")
 bridge.Name = "DuelBridge"
 bridge.Parent = island
-local BRIDGE_START, BRIDGE_END = 64, P.DuelIsland.Z - P.DuelIslandRadius + 4
+local BRIDGE_START, BRIDGE_END = ISLAND_RADIUS - 6, P.DuelIsland.Z - P.DuelIslandRadius + 4
 local bridgeLength = BRIDGE_END - BRIDGE_START
 local bridgeMid = (BRIDGE_START + BRIDGE_END) / 2
 part({
@@ -9945,16 +11336,16 @@ island.Parent = workspace
       </Properties>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="20">
+  <Item class="StarterPlayer" referent="23">
     <Properties>
       <string name="Name">StarterPlayer</string>
       <bool name="EnableMouseLockOption">false</bool>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="21">
+    <Item class="StarterPlayerScripts" referent="24">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="LocalScript" referent="22">
+      <Item class="LocalScript" referent="25">
         <Properties>
           <string name="Name">AuraRenderer</string>
           <string name="Source"><![CDATA[-- AuraRenderer (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -10345,7 +11736,7 @@ local function floatingName(root, aura)
 	Debris:AddItem(holder, 2.2)
 end
 
-local REVEAL_SOUNDS = { "Pop", "Pop", "RevealRare", "RevealEpic", "RevealLegendary", "RevealMythic", "RevealMythic" }
+local REVEAL_SOUNDS = { "Pop", "Pop", "RevealRare", "RevealEpic", "RevealLegendary", "RevealMythic", "RevealMythic", "RevealMythic", "RevealMythic" }
 
 local function revealFX(player, root, aura)
 	local order = AuraData.Tiers[aura.Tier].Order
@@ -10465,7 +11856,208 @@ end
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="23">
+      <Item class="LocalScript" referent="26">
+        <Properties>
+          <string name="Name">DropClient</string>
+          <string name="Source"><![CDATA[-- DropClient (LocalScript in StarterPlayer > StarterPlayerScripts)
+-- The Cosmic Drop on your screen:
+--   * a small timer (top-left, under your stats) counting down to the next drop
+--   * when a drop is out: "find it!" with an arrow pointing the way + distance
+--   * the drop spins and pulses, and a burst when someone grabs it
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+local Debris = game:GetService("Debris")
+
+local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
+local SoundFX = require(ReplicatedStorage:WaitForChild("SoundFX"))
+local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
+
+local player = Players.LocalPlayer
+local camera = workspace.CurrentCamera
+local THEME = UIKit.Theme
+local new, corner, stroke, label = UIKit.new, UIKit.corner, UIKit.stroke, UIKit.label
+
+local remotes = ReplicatedStorage:WaitForChild("CosmicRemotes")
+local AnnounceRemote = remotes:WaitForChild("Announce")
+
+local GOLD = Color3.fromRGB(255, 215, 90)
+
+---------------------------------------------------------------------
+-- The timer pill
+---------------------------------------------------------------------
+local gui = UIKit.screen("CosmicDrop", 4)
+local pill = new("Frame", {
+	Name = "DropTimer",
+	Position = UDim2.new(0, 16, 0, 150),
+	Size = UDim2.fromOffset(260, 38),
+	BackgroundColor3 = THEME.Panel,
+	BackgroundTransparency = 0.25,
+	Parent = gui,
+}, { corner(UDim.new(1, 0)), stroke(GOLD, 1.5, 0.35) })
+UIKit.addAutoScale(pill)
+local icon = label({
+	Position = UDim2.fromOffset(8, 0), Size = UDim2.fromOffset(30, 38), Text = "🎲", TextSize = 22, Parent = pill,
+})
+local text = label({
+	Position = UDim2.fromOffset(40, 0), Size = UDim2.new(1, -80, 1, 0), Text = "", TextSize = 15, RichText = true,
+	TextXAlignment = Enum.TextXAlignment.Left, Parent = pill,
+})
+local arrow = label({
+	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -20, 0.5, 0), Size = UDim2.fromOffset(28, 28),
+	Text = "➤", TextSize = 24, TextColor3 = GOLD, Visible = false, Parent = pill,
+})
+local pillScale = pill:FindFirstChild("ScreenScale")
+
+local lastWhole = -1
+RunService.RenderStepped:Connect(function()
+	-- hide during duels so the fight HUD stays clean
+	pill.Visible = not player:GetAttribute("InDuel")
+	local active = ReplicatedStorage:GetAttribute("DropActive") == true
+	local nextAt = ReplicatedStorage:GetAttribute("DropNextAt")
+	if active then
+		local position = ReplicatedStorage:GetAttribute("DropPosition")
+		local character = player.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		local where = ReplicatedStorage:GetAttribute("DropWhere") or "the island"
+		if typeof(position) == "Vector3" and root then
+			local distance = (position - root.Position).Magnitude
+			text.Text = ("<font color='#ffd76a'><b>COSMIC ROLL</b></font> on %s • %dm"):format(where, math.floor(distance))
+			-- the arrow points where the drop is, relative to where you're looking
+			local look = camera.CFrame.LookVector
+			local flatLook = Vector3.new(look.X, 0, look.Z)
+			local toDrop = Vector3.new(position.X - root.Position.X, 0, position.Z - root.Position.Z)
+			if flatLook.Magnitude > 0.01 and toDrop.Magnitude > 0.01 then
+				flatLook, toDrop = flatLook.Unit, toDrop.Unit
+				local angle = math.atan2(flatLook:Cross(toDrop).Y, flatLook:Dot(toDrop))
+				arrow.Rotation = -math.deg(angle) - 90
+			end
+			arrow.Visible = true
+		else
+			text.Text = "<font color='#ffd76a'><b>COSMIC ROLL</b></font> is out!"
+			arrow.Visible = false
+		end
+		icon.Rotation = (os.clock() * 120) % 360
+	else
+		arrow.Visible = false
+		icon.Rotation = 0
+		local left = math.max(0, (nextAt or 0) - workspace:GetServerTimeNow())
+		local whole = math.floor(left)
+		text.Text = ("Cosmic Drop in <b>%d:%02d</b> <font color='#bfb4e1'>(x%d luck)</font>"):format(
+			whole // 60, whole % 60, Config.Drop.BoostMultiplier)
+		-- the last 10 seconds tick and pulse
+		if whole ~= lastWhole and whole <= 10 and whole > 0 and nextAt then
+			SoundFX.Play("Tick", { Speed = 1.4, Volume = 0.8 })
+			if pillScale then
+				local base = pillScale.Scale
+				pillScale.Scale = base * 1.08
+				task.delay(0.12, function()
+					pillScale.Scale = base
+				end)
+			end
+		end
+		lastWhole = whole
+	end
+end)
+
+---------------------------------------------------------------------
+-- The drop in the world spins and bobs
+---------------------------------------------------------------------
+RunService.RenderStepped:Connect(function()
+	local drop = workspace:FindFirstChild("CosmicDrop")
+	if not drop then
+		return
+	end
+	local center = drop:GetAttribute("DropCenter")
+	local die = drop:FindFirstChild("Die")
+	if typeof(center) ~= "Vector3" or not die then
+		return
+	end
+	local t = os.clock()
+	local target = CFrame.new(center + Vector3.new(0, math.sin(t * 2) * 0.6, 0)) * CFrame.Angles(t * 1.3, t * 1.9, t * 0.7)
+	-- move the die and its dots together
+	local delta = target * die.CFrame:Inverse()
+	for _, child in ipairs(drop:GetChildren()) do
+		if child:IsA("BasePart") and (child.Name == "Die" or child.Name == "Dot") then
+			child.CFrame = delta * child.CFrame
+		end
+	end
+	local glow = drop:FindFirstChild("Glow")
+	if glow then
+		glow.Size = Vector3.one * (5 + math.sin(t * 3) * 0.6)
+		glow.CFrame = CFrame.new(center + Vector3.new(0, math.sin(t * 2) * 0.6, 0))
+	end
+end)
+
+---------------------------------------------------------------------
+-- Messages
+---------------------------------------------------------------------
+local function burstAt(position)
+	local holder = Instance.new("Part")
+	holder.Anchored = true
+	holder.CanCollide = false
+	holder.CanQuery = false
+	holder.Transparency = 1
+	holder.Size = Vector3.one
+	holder.CFrame = CFrame.new(position)
+	holder.Parent = workspace
+	Debris:AddItem(holder, 3)
+	local e = Instance.new("ParticleEmitter")
+	e.Texture = Config.Textures.Sparkle
+	e.Rate = 0
+	e.Lifetime = NumberRange.new(1, 2)
+	e.Speed = NumberRange.new(15, 30)
+	e.SpreadAngle = Vector2.new(180, 180)
+	e.Drag = 3
+	e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0) })
+	e.LightEmission = 1
+	e.Color = ColorSequence.new(GOLD, Color3.fromRGB(170, 110, 255))
+	e.Parent = holder
+	e:Emit(80)
+	local ring = Instance.new("Part")
+	ring.Anchored = true
+	ring.CanCollide = false
+	ring.CanQuery = false
+	ring.Shape = Enum.PartType.Cylinder
+	ring.Material = Enum.Material.Neon
+	ring.Color = GOLD
+	ring.Size = Vector3.new(0.3, 2, 2)
+	ring.CFrame = CFrame.new(position - Vector3.new(0, 3, 0)) * CFrame.Angles(0, 0, math.rad(90))
+	ring.Parent = workspace
+	TweenService:Create(ring, TweenInfo.new(0.8, Enum.EasingStyle.Quart), { Size = Vector3.new(0.3, 30, 30), Transparency = 1 }):Play()
+	Debris:AddItem(ring, 1)
+end
+
+AnnounceRemote.OnClientEvent:Connect(function(info)
+	if type(info) ~= "table" then
+		return
+	end
+	if info.Type == "DropSpawned" then
+		SoundFX.Chime(1.2, 4)
+		local scale = pill:FindFirstChild("ScreenScale")
+		if scale then
+			local base = scale.Scale
+			scale.Scale = base * 1.25
+			TweenService:Create(scale, TweenInfo.new(0.5, Enum.EasingStyle.Back), { Scale = base }):Play()
+		end
+	elseif info.Type == "DropGrabbed" then
+		if typeof(info.Position) == "Vector3" then
+			burstAt(info.Position)
+		end
+		if info.UserId == player.UserId then
+			SoundFX.Jingle("Victory")
+			UIKit.confetti({ GOLD, THEME.Accent, THEME.Accent2 }, 90)
+			UIKit.burst({ GOLD, Color3.new(1, 1, 1) }, 40, 1.4)
+			UIKit.toast(("🎲 You got the COSMIC ROLL! Your next roll has x%d luck!"):format(Config.Drop.BoostMultiplier), GOLD)
+		end
+	end
+end)
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="LocalScript" referent="27">
         <Properties>
           <string name="Name">DuelClient</string>
           <string name="Source"><![CDATA[-- DuelClient (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -11534,7 +13126,7 @@ end
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="24">
+      <Item class="LocalScript" referent="28">
         <Properties>
           <string name="Name">DuelFX</string>
           <string name="Source"><![CDATA[-- DuelFX (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -12732,7 +14324,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="25">
+      <Item class="LocalScript" referent="29">
         <Properties>
           <string name="Name">IslandFX</string>
           <string name="Source"><![CDATA[-- IslandFX (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -12965,7 +14557,233 @@ end
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="26">
+      <Item class="LocalScript" referent="30">
+        <Properties>
+          <string name="Name">LimitedOffer</string>
+          <string name="Source"><![CDATA[-- LimitedOffer (LocalScript in StarterPlayer > StarterPlayerScripts)
+-- The 🔥 LIMITED button + panel: 3 super strong packs (pick ONE), only on
+-- sale for the first 7 days after release. Shows a live countdown, opens
+-- itself once when you join, and disappears when the offer ends or you buy.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local MarketplaceService = game:GetService("MarketplaceService")
+
+local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
+local SoundFX = require(ReplicatedStorage:WaitForChild("SoundFX"))
+local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
+
+local player = Players.LocalPlayer
+local THEME = UIKit.Theme
+local TITLE_FONT = UIKit.TitleFont
+local new, corner, stroke, textStroke, tween, label =
+	UIKit.new, UIKit.corner, UIKit.stroke, UIKit.textStroke, UIKit.tween, UIKit.label
+
+local OFFER = Config.LimitedOffer
+local HOT = Color3.fromRGB(255, 120, 60)
+local remotes = ReplicatedStorage:WaitForChild("CosmicRemotes")
+local TestProductRemote = remotes:WaitForChild("TestProduct")
+
+local function secondsLeft()
+	local ends = ReplicatedStorage:GetAttribute("LimitedOfferEnds")
+	if not ends then
+		return nil
+	end
+	return ends - os.time()
+end
+
+local function available()
+	local left = secondsLeft()
+	return left ~= nil and left > 0 and (player:GetAttribute("LimitedBought") or "") == ""
+end
+
+local function formatLeft(seconds)
+	seconds = math.max(0, math.floor(seconds))
+	local days = seconds // 86400
+	local hours = (seconds % 86400) // 3600
+	local minutes = (seconds % 3600) // 60
+	if days > 0 then
+		return ("%dd %dh %dm"):format(days, hours, minutes)
+	end
+	return ("%dh %dm %ds"):format(hours, minutes, seconds % 60)
+end
+
+---------------------------------------------------------------------
+-- Side menu button
+---------------------------------------------------------------------
+local menuGui = player:WaitForChild("PlayerGui"):WaitForChild("CosmicMenu", 30)
+local sideMenu = menuGui and menuGui:WaitForChild("SideMenu", 10)
+local button, buttonTime
+if sideMenu then
+	button = new("TextButton", {
+		Name = "LIMITED", LayoutOrder = -1, Size = UDim2.fromOffset(84, 84), BackgroundColor3 = Color3.fromRGB(60, 20, 20),
+		BackgroundTransparency = 0.05, AutoButtonColor = false, Text = "", Visible = false, Parent = sideMenu,
+	}, { corner(UDim.new(0, 18)), stroke(HOT, 3, 0) })
+	label({ Size = UDim2.new(1, 0, 0, 40), Position = UDim2.fromOffset(0, 4), Text = "🔥", TextSize = 32, Parent = button })
+	local text = label({ Position = UDim2.fromOffset(0, 42), Size = UDim2.new(1, 0, 0, 18), Text = "LIMITED", Font = TITLE_FONT, TextSize = 15, TextColor3 = Color3.fromRGB(255, 220, 150), Parent = button })
+	textStroke(1.2).Parent = text
+	buttonTime = label({ Position = UDim2.fromOffset(0, 60), Size = UDim2.new(1, 0, 0, 16), Text = "", TextSize = 11, Parent = button })
+	textStroke(1).Parent = buttonTime
+	UIKit.addButtonFeel(button)
+end
+
+---------------------------------------------------------------------
+-- Panel
+---------------------------------------------------------------------
+local gui = UIKit.screen("CosmicLimited", 3)
+local holder = new("Frame", {
+	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.48), Size = UDim2.fromOffset(780, 500),
+	BackgroundTransparency = 1, Visible = false, Parent = gui,
+})
+UIKit.addAutoScale(holder, 820)
+local panel = new("Frame", {
+	Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.fromRGB(26, 12, 22), BackgroundTransparency = 0.03, ClipsDescendants = true, Parent = holder,
+}, { corner(UDim.new(0, 20)), stroke(HOT, 3, 0) })
+local shine = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = HOT, BackgroundTransparency = 0.88, Parent = panel }, {
+	new("UIGradient", { Name = "Shine", Rotation = 30, Transparency = NumberSequence.new({
+		NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(0.45, 1), NumberSequenceKeypoint.new(0.5, 0.1),
+		NumberSequenceKeypoint.new(0.55, 1), NumberSequenceKeypoint.new(1, 1),
+	}) }),
+})
+local title = label({
+	Position = UDim2.fromOffset(24, 12), Size = UDim2.new(1, -90, 0, 44), Text = "🔥 LIMITED LAUNCH OFFER 🔥", Font = TITLE_FONT,
+	TextSize = 36, TextXAlignment = Enum.TextXAlignment.Left, Parent = panel,
+})
+UIKit.gradient(Color3.fromRGB(255, 230, 120), HOT, 0).Parent = title
+textStroke(2).Parent = title
+local subtitle = label({
+	Position = UDim2.fromOffset(24, 56), Size = UDim2.new(1, -48, 0, 24), Text = "", TextSize = 17, RichText = true,
+	TextColor3 = THEME.SubText, TextXAlignment = Enum.TextXAlignment.Left, Parent = panel,
+})
+local closeButton = new("TextButton", {
+	AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 14), Size = UDim2.fromOffset(42, 42),
+	BackgroundColor3 = THEME.Bad, Text = "X", Font = TITLE_FONT, TextSize = 24, TextColor3 = THEME.Text, AutoButtonColor = false, Parent = panel,
+}, { corner(UDim.new(0, 10)), textStroke(1.5) })
+UIKit.addButtonFeel(closeButton)
+
+local cards = new("Frame", {
+	Position = UDim2.fromOffset(20, 96), Size = UDim2.new(1, -40, 1, -112), BackgroundTransparency = 1, Parent = panel,
+}, { new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 14), HorizontalAlignment = Enum.HorizontalAlignment.Center }) })
+
+local function buy(pack)
+	local id = Config.Products[pack.Key]
+	if id and id ~= 0 then
+		MarketplaceService:PromptProductPurchase(player, id)
+	elseif Config.FreePassesInStudio and RunService:IsStudio() then
+		TestProductRemote:FireServer(pack.Key)
+		UIKit.toast("(Studio test) " .. pack.Name .. " given for free", THEME.Gold)
+	else
+		UIKit.toast("This pack isn't set up yet (CosmicConfig.Products)", THEME.Bad)
+	end
+end
+
+for index, pack in ipairs(OFFER.Packs) do
+	local card = new("Frame", {
+		LayoutOrder = index, Size = UDim2.fromOffset(234, 380), BackgroundColor3 = Color3.fromRGB(40, 20, 36), Parent = cards,
+	}, { corner(UDim.new(0, 16)), stroke(pack.Color, 2.5, 0) })
+	local badge = label({ Position = UDim2.fromOffset(0, 10), Size = UDim2.new(1, 0, 0, 60), Text = pack.Icon, TextSize = 52, Parent = card })
+	task.spawn(function()
+		while badge.Parent do
+			tween(badge, 0.8, { Rotation = 8 }, Enum.EasingStyle.Sine)
+			task.wait(0.8)
+			tween(badge, 0.8, { Rotation = -8 }, Enum.EasingStyle.Sine)
+			task.wait(0.8)
+		end
+	end)
+	local name = label({ Position = UDim2.fromOffset(8, 72), Size = UDim2.new(1, -16, 0, 30), Text = pack.Name, Font = TITLE_FONT, TextSize = 22, TextColor3 = UIKit.readable(pack.Color, 0.85), Parent = card })
+	textStroke(1.5).Parent = name
+	local list = {}
+	for _, line in ipairs(pack.Gives) do
+		table.insert(list, "✔ " .. line)
+	end
+	label({
+		Position = UDim2.fromOffset(14, 110), Size = UDim2.new(1, -28, 0, 170), Text = table.concat(list, "\n\n"), TextSize = 15,
+		TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, Parent = card,
+	})
+	local buyButton = new("TextButton", {
+		AnchorPoint = Vector2.new(0.5, 1), Position = UDim2.new(0.5, 0, 1, -14), Size = UDim2.new(1, -28, 0, 52),
+		BackgroundColor3 = pack.Color, Text = ("R$ %s"):format(OFFER.PriceText), Font = TITLE_FONT, TextSize = 26,
+		TextColor3 = THEME.Text, AutoButtonColor = false, Parent = card,
+	}, { corner(UDim.new(0, 12)), textStroke(2) })
+	UIKit.addButtonFeel(buyButton)
+	buyButton.Activated:Connect(function()
+		buy(pack)
+	end)
+end
+
+local open = false
+local function setOpen(value)
+	if value == open then
+		return
+	end
+	open = value and available()
+	if open then
+		UIKit.announcePanel("Limited")
+		holder.Visible = true
+		UIKit.popIn(panel)
+		SoundFX.Chime(1, 4)
+	else
+		holder.Visible = false
+	end
+end
+if button then
+	button.Activated:Connect(function()
+		setOpen(not open)
+	end)
+end
+closeButton.Activated:Connect(function()
+	setOpen(false)
+end)
+UIKit.PanelOpened:Connect(function(name)
+	if name ~= "Limited" then
+		setOpen(false)
+	end
+end)
+
+-- countdown + pulsing button
+RunService.RenderStepped:Connect(function()
+	local isOn = available()
+	if button then
+		button.Visible = isOn
+		if isOn then
+			buttonTime.Text = formatLeft(secondsLeft())
+			local pulse = (math.sin(os.clock() * 4) + 1) / 2
+			button.BackgroundColor3 = Color3.fromRGB(60, 20, 20):Lerp(Color3.fromRGB(120, 40, 20), pulse)
+		end
+	end
+	if open then
+		if not isOn then
+			setOpen(false)
+			return
+		end
+		subtitle.Text = ("Pick <b>ONE</b> pack • super strong • ends in <font color='#ffb46a'><b>%s</b></font>"):format(formatLeft(secondsLeft()))
+		local g = shine:FindFirstChild("Shine")
+		if g then
+			g.Offset = Vector2.new(((os.clock() * 0.3) % 2) - 1, 0)
+		end
+	end
+end)
+
+-- show it once, a little after joining
+task.delay(9, function()
+	if available() then
+		setOpen(true)
+	end
+end)
+
+player:GetAttributeChangedSignal("LimitedBought"):Connect(function()
+	if (player:GetAttribute("LimitedBought") or "") ~= "" then
+		setOpen(false)
+		SoundFX.Jingle("Victory")
+		UIKit.confetti({ HOT, THEME.Gold, Color3.new(1, 1, 1) }, 120)
+		UIKit.toast("🔥 Limited pack unlocked! Thank you!", THEME.Gold)
+	end
+end)
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="LocalScript" referent="31">
         <Properties>
           <string name="Name">ParkourClient</string>
           <string name="Source"><![CDATA[-- ParkourClient (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -13198,7 +15016,867 @@ end
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="27">
+      <Item class="LocalScript" referent="32">
+        <Properties>
+          <string name="Name">PetClient</string>
+          <string name="Source"><![CDATA[-- PetClient (LocalScript in StarterPlayer > StarterPlayerScripts)
+-- Pets on your screen:
+--   * 🐾 PETS button + panel: your pets (3D previews), equip up to 3
+--   * egg panel when you press E at an egg: price, odds, HATCH button
+--   * the hatching animation (egg wobbles, cracks, pet pops out)
+--   * everyone's equipped pets float behind them, each kind moving in its
+--     own way (wings flap, fish wiggle, stars spin, wisps orbit...)
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
+local AuraData = require(ReplicatedStorage:WaitForChild("AuraData"))
+local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
+local SoundFX = require(ReplicatedStorage:WaitForChild("SoundFX"))
+local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
+
+local player = Players.LocalPlayer
+local THEME = UIKit.Theme
+local TITLE_FONT = UIKit.TitleFont
+local new, corner, stroke, textStroke, tween, label =
+	UIKit.new, UIKit.corner, UIKit.stroke, UIKit.textStroke, UIKit.tween, UIKit.label
+
+local remotes = ReplicatedStorage:WaitForChild("CosmicRemotes")
+local HatchRemote = remotes:WaitForChild("HatchEgg")
+local PetRemote = remotes:WaitForChild("PetAction")
+local GetDataRemote = remotes:WaitForChild("GetData")
+local DataUpdatedRemote = remotes:WaitForChild("DataUpdated")
+
+local myData = { Inventory = {}, Pets = {}, EquippedPets = {} }
+
+---------------------------------------------------------------------
+-- BUILDING A PET (used for followers AND the 3D previews)
+---------------------------------------------------------------------
+local function piece(model, props)
+	local p = Instance.new(props.ClassName or "Part")
+	p.Anchored = true
+	p.CanCollide = false
+	p.CanQuery = false
+	p.CanTouch = false
+	p.CastShadow = false
+	p.Massless = true
+	p.TopSurface = Enum.SurfaceType.Smooth
+	p.BottomSurface = Enum.SurfaceType.Smooth
+	for key, value in pairs(props) do
+		if key ~= "ClassName" and key ~= "Offset" and key ~= "Role" then
+			p[key] = value
+		end
+	end
+	p:SetAttribute("Role", props.Role or "Body")
+	p.CFrame = props.Offset or CFrame.new()
+	p.Parent = model
+	return p
+end
+
+local function eyes(model, z, y, spread, size)
+	for _, side in ipairs({ -1, 1 }) do
+		piece(model, { Name = "Eye", Shape = Enum.PartType.Ball, Size = Vector3.one * size, Color = Color3.new(1, 1, 1), Material = Enum.Material.SmoothPlastic,
+			Offset = CFrame.new(side * spread, y, z) })
+		piece(model, { Name = "Pupil", Shape = Enum.PartType.Ball, Size = Vector3.one * size * 0.55, Color = Color3.fromRGB(20, 20, 30), Material = Enum.Material.SmoothPlastic,
+			Offset = CFrame.new(side * spread, y, z - size * 0.3) })
+	end
+end
+
+local BUILDERS = {}
+
+BUILDERS.Blob = function(model, c1, c2)
+	piece(model, { Name = "Body", Shape = Enum.PartType.Ball, Size = Vector3.new(2.2, 1.8, 2.2), Color = c1, Material = Enum.Material.SmoothPlastic })
+	piece(model, { Name = "Shine", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.5, Color = c2, Material = Enum.Material.Neon, Offset = CFrame.new(0.5, 0.55, -0.6) })
+	eyes(model, -0.95, 0.15, 0.4, 0.45)
+end
+
+BUILDERS.Cat = function(model, c1, c2)
+	piece(model, { Name = "Body", Shape = Enum.PartType.Ball, Size = Vector3.one * 1.9, Color = c1, Material = Enum.Material.SmoothPlastic })
+	for _, side in ipairs({ -1, 1 }) do
+		piece(model, { ClassName = "WedgePart", Name = "Ear", Size = Vector3.new(0.25, 0.8, 0.6), Color = c2, Material = Enum.Material.SmoothPlastic,
+			Offset = CFrame.new(side * 0.55, 1, -0.1) * CFrame.Angles(0, math.pi / 2, 0) })
+	end
+	piece(model, { Name = "Tail", Size = Vector3.new(0.25, 0.25, 1.4), Color = c2, Material = Enum.Material.Neon, Role = "Tail",
+		Offset = CFrame.new(0, 0.2, 1.3) * CFrame.Angles(0.6, 0, 0) })
+	eyes(model, -0.82, 0.2, 0.38, 0.42)
+end
+
+BUILDERS.Bunny = function(model, c1, c2)
+	piece(model, { Name = "Body", Shape = Enum.PartType.Ball, Size = Vector3.one * 1.8, Color = c1, Material = Enum.Material.SmoothPlastic })
+	for _, side in ipairs({ -1, 1 }) do
+		piece(model, { Name = "Ear", Size = Vector3.new(0.35, 1.5, 0.2), Color = c1, Material = Enum.Material.SmoothPlastic, Role = "Ear",
+			Offset = CFrame.new(side * 0.4, 1.4, 0) * CFrame.Angles(0, 0, -side * 0.2) })
+		piece(model, { Name = "EarInside", Size = Vector3.new(0.18, 1.1, 0.05), Color = c2, Material = Enum.Material.Neon, Role = "Ear",
+			Offset = CFrame.new(side * 0.4, 1.4, -0.11) * CFrame.Angles(0, 0, -side * 0.2) })
+	end
+	piece(model, { Name = "Tail", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.6, Color = Color3.new(1, 1, 1), Material = Enum.Material.SmoothPlastic, Offset = CFrame.new(0, -0.3, 0.9) })
+	eyes(model, -0.78, 0.15, 0.35, 0.4)
+end
+
+BUILDERS.Bird = function(model, c1, c2)
+	piece(model, { Name = "Body", Shape = Enum.PartType.Ball, Size = Vector3.new(1.6, 1.7, 1.8), Color = c1, Material = Enum.Material.SmoothPlastic })
+	piece(model, { Name = "Belly", Shape = Enum.PartType.Ball, Size = Vector3.new(1.2, 1.3, 1.2), Color = c2, Material = Enum.Material.SmoothPlastic, Offset = CFrame.new(0, -0.15, -0.35) })
+	piece(model, { ClassName = "WedgePart", Name = "Beak", Size = Vector3.new(0.35, 0.3, 0.6), Color = Color3.fromRGB(255, 190, 60), Material = Enum.Material.SmoothPlastic,
+		Offset = CFrame.new(0, 0.05, -1.05) * CFrame.Angles(0, math.pi, 0) })
+	for _, side in ipairs({ -1, 1 }) do
+		piece(model, { Name = "Wing", Size = Vector3.new(1.4, 0.15, 0.9), Color = c2, Material = Enum.Material.Neon, Role = side < 0 and "WingL" or "WingR",
+			Offset = CFrame.new(side * 1.2, 0.2, 0.1) })
+	end
+	eyes(model, -0.75, 0.35, 0.33, 0.35)
+end
+
+BUILDERS.Fish = function(model, c1, c2)
+	piece(model, { Name = "Body", Shape = Enum.PartType.Ball, Size = Vector3.new(1.2, 1.5, 2.3), Color = c1, Material = Enum.Material.SmoothPlastic })
+	piece(model, { ClassName = "WedgePart", Name = "Tail", Size = Vector3.new(0.15, 1.3, 1), Color = c2, Material = Enum.Material.Neon, Role = "Tail",
+		Offset = CFrame.new(0, 0, 1.5) })
+	piece(model, { ClassName = "WedgePart", Name = "Fin", Size = Vector3.new(0.12, 0.7, 0.9), Color = c2, Material = Enum.Material.Neon, Offset = CFrame.new(0, 0.85, 0.2) })
+	eyes(model, -0.85, 0.2, 0.42, 0.36)
+end
+
+BUILDERS.Jelly = function(model, c1, c2)
+	piece(model, { Name = "Body", Shape = Enum.PartType.Ball, Size = Vector3.new(2, 1.5, 2), Color = c1, Material = Enum.Material.Neon, Transparency = 0.25 })
+	for k = 1, 5 do
+		local a = k / 5 * math.pi * 2
+		piece(model, { Name = "Tentacle", Size = Vector3.new(0.15, 1.6, 0.15), Color = c2, Material = Enum.Material.Neon, Role = "Tentacle",
+			Offset = CFrame.new(math.cos(a) * 0.55, -1.2, math.sin(a) * 0.55) })
+	end
+	eyes(model, -0.8, 0.1, 0.35, 0.35)
+end
+
+BUILDERS.Dragon = function(model, c1, c2)
+	piece(model, { Name = "Body", Shape = Enum.PartType.Ball, Size = Vector3.new(1.7, 1.6, 2.2), Color = c1, Material = Enum.Material.SmoothPlastic })
+	piece(model, { Name = "Head", Shape = Enum.PartType.Ball, Size = Vector3.one * 1.3, Color = c1, Material = Enum.Material.SmoothPlastic, Offset = CFrame.new(0, 0.7, -1.2) })
+	for _, side in ipairs({ -1, 1 }) do
+		piece(model, { ClassName = "WedgePart", Name = "Horn", Size = Vector3.new(0.2, 0.6, 0.4), Color = c2, Material = Enum.Material.Neon,
+			Offset = CFrame.new(side * 0.35, 1.45, -1.05) })
+		piece(model, { ClassName = "WedgePart", Name = "Wing", Size = Vector3.new(0.12, 1.2, 1.6), Color = c2, Material = Enum.Material.Neon, Role = side < 0 and "WingL" or "WingR",
+			Offset = CFrame.new(side * 1.2, 0.6, 0.2) * CFrame.Angles(0, 0, side * 1.2) })
+	end
+	piece(model, { Name = "Tail", Size = Vector3.new(0.35, 0.35, 1.6), Color = c1, Material = Enum.Material.SmoothPlastic, Role = "Tail", Offset = CFrame.new(0, -0.1, 1.6) })
+	piece(model, { Name = "TailTip", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.5, Color = c2, Material = Enum.Material.Neon, Role = "Tail", Offset = CFrame.new(0, -0.1, 2.4) })
+	eyes(model, -1.75, 0.85, 0.3, 0.3)
+end
+
+BUILDERS.Star = function(model, c1, c2)
+	piece(model, { Name = "Body", Shape = Enum.PartType.Ball, Size = Vector3.one * 1.1, Color = c2, Material = Enum.Material.Neon })
+	for k = 0, 4 do
+		piece(model, { ClassName = "WedgePart", Name = "Point", Size = Vector3.new(0.4, 1.3, 0.9), Color = c1, Material = Enum.Material.Neon,
+			Offset = CFrame.Angles(0, 0, k * math.pi * 2 / 5) * CFrame.new(0, 1, 0) })
+	end
+	eyes(model, -0.5, 0.1, 0.22, 0.28)
+end
+
+BUILDERS.Wisp = function(model, c1, c2)
+	piece(model, { Name = "Body", Shape = Enum.PartType.Ball, Size = Vector3.one * 1.5, Color = c1, Material = Enum.Material.Neon })
+	piece(model, { Name = "Halo", Shape = Enum.PartType.Ball, Size = Vector3.one * 2.3, Color = c2, Material = Enum.Material.Neon, Transparency = 0.7 })
+	for k = 1, 3 do
+		piece(model, { Name = "Orbiter", Shape = Enum.PartType.Ball, Size = Vector3.one * 0.4, Color = c2, Material = Enum.Material.Neon, Role = "Orbit" .. k,
+			Offset = CFrame.new(1.4, 0, 0) })
+	end
+	eyes(model, -0.65, 0.15, 0.27, 0.3)
+end
+
+local function buildPet(petName)
+	local pet = PetData.Get(petName)
+	if not pet then
+		return nil
+	end
+	local model = Instance.new("Model")
+	model.Name = "Pet_" .. petName
+	local builder = BUILDERS[pet.Shape] or BUILDERS.Blob
+	builder(model, pet.Colors[1], pet.Colors[2])
+	-- remember where each piece sits relative to the body
+	for _, p in ipairs(model:GetChildren()) do
+		p:SetAttribute("Offset", p.CFrame)
+	end
+	model.PrimaryPart = model:FindFirstChild("Body")
+	-- rare pets sparkle
+	local order = PetData.Rarities[pet.Rarity].Order
+	if order >= 4 and model.PrimaryPart then
+		local e = Instance.new("ParticleEmitter")
+		e.Texture = Config.Textures.Sparkle
+		e.Rate = order * 2
+		e.Lifetime = NumberRange.new(0.6, 1.2)
+		e.Speed = NumberRange.new(0.3, 1)
+		e.SpreadAngle = Vector2.new(180, 180)
+		e.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.3), NumberSequenceKeypoint.new(1, 0) })
+		e.LightEmission = 1
+		e.Color = ColorSequence.new(pet.Colors[2])
+		e.Parent = model.PrimaryPart
+	end
+	if order >= 5 and model.PrimaryPart then
+		local light = Instance.new("PointLight")
+		light.Color = pet.Colors[2]
+		light.Range = 8
+		light.Brightness = 1
+		light.Parent = model.PrimaryPart
+	end
+	return model
+end
+
+-- moves every piece of a pet: base = where the body goes, t = time
+local function posePet(model, base, t, shape, phase)
+	local pose = base
+	if shape == "Blob" then
+		pose = base * CFrame.new(0, math.abs(math.sin(t * 4 + phase)) * 0.5, 0)
+	elseif shape == "Star" then
+		pose = base * CFrame.Angles(0, 0, t * 2.5)
+	elseif shape == "Fish" then
+		pose = base * CFrame.Angles(0, math.sin(t * 5 + phase) * 0.25, 0)
+	elseif shape == "Jelly" then
+		pose = base * CFrame.new(0, math.sin(t * 1.5 + phase) * 0.4, 0)
+	elseif shape == "Bunny" then
+		pose = base * CFrame.new(0, math.abs(math.sin(t * 3 + phase)) * 0.8, 0)
+	end
+	for _, p in ipairs(model:GetChildren()) do
+		if p:IsA("BasePart") then
+			local offset = p:GetAttribute("Offset") or CFrame.new()
+			local role = p:GetAttribute("Role")
+			local extra = CFrame.new()
+			if role == "WingL" then
+				extra = CFrame.Angles(0, 0, math.sin(t * 10 + phase) * 0.6)
+			elseif role == "WingR" then
+				extra = CFrame.Angles(0, 0, -math.sin(t * 10 + phase) * 0.6)
+			elseif role == "Tail" then
+				extra = CFrame.Angles(0, math.sin(t * 4 + phase) * 0.35, 0)
+			elseif role == "Tentacle" then
+				extra = CFrame.Angles(math.sin(t * 3 + phase + offset.X) * 0.3, 0, math.cos(t * 3 + phase) * 0.2)
+			elseif role == "Ear" then
+				extra = CFrame.Angles(math.sin(t * 2 + phase) * 0.1, 0, 0)
+			elseif role and role:sub(1, 5) == "Orbit" then
+				local k = tonumber(role:sub(6)) or 1
+				local a = t * 3 + k * (math.pi * 2 / 3)
+				p.CFrame = pose * CFrame.new(math.cos(a) * 1.5, math.sin(a * 2) * 0.4, math.sin(a) * 1.5)
+				continue
+			end
+			if role == "WingL" or role == "WingR" or role == "Tail" or role == "Tentacle" or role == "Ear" then
+				-- swing around the joint (the end nearest the body)
+				p.CFrame = pose * offset * extra
+			else
+				p.CFrame = pose * offset
+			end
+		end
+	end
+end
+
+---------------------------------------------------------------------
+-- FOLLOWERS: everyone's pets float behind them
+---------------------------------------------------------------------
+local SLOTS = { CFrame.new(-3.6, 1.2, 3), CFrame.new(3.6, 1.2, 3), CFrame.new(0, 2.6, 4.8) }
+local followers = {} -- [player] = { Names = "A,B", Pets = { { Model, Shape, Phase, Current } } }
+local petFolder = Instance.new("Folder")
+petFolder.Name = "CosmicPets"
+petFolder.Parent = workspace
+
+local function clearFollowers(who)
+	local entry = followers[who]
+	if entry then
+		for _, pet in ipairs(entry.Pets) do
+			pet.Model:Destroy()
+		end
+		followers[who] = nil
+	end
+end
+
+local function syncFollowers(who)
+	local names = who:GetAttribute("EquippedPets") or ""
+	local entry = followers[who]
+	if entry and entry.Names == names then
+		return
+	end
+	clearFollowers(who)
+	entry = { Names = names, Pets = {} }
+	for _, petName in ipairs(PetData.Split(names)) do
+		local model = buildPet(petName)
+		if model then
+			model.Parent = petFolder
+			table.insert(entry.Pets, { Model = model, Shape = PetData.Get(petName).Shape, Phase = math.random() * 6 })
+		end
+	end
+	followers[who] = entry
+end
+
+local function watch(who)
+	who:GetAttributeChangedSignal("EquippedPets"):Connect(function()
+		syncFollowers(who)
+	end)
+	syncFollowers(who)
+end
+Players.PlayerAdded:Connect(watch)
+Players.PlayerRemoving:Connect(clearFollowers)
+for _, who in ipairs(Players:GetPlayers()) do
+	watch(who)
+end
+
+local camera = workspace.CurrentCamera
+RunService.RenderStepped:Connect(function(dt)
+	local t = os.clock()
+	for who, entry in pairs(followers) do
+		local character = who.Character
+		local root = character and character:FindFirstChild("HumanoidRootPart")
+		local hidden = not root or character:GetAttribute("InDuel")
+			or (camera.CFrame.Position - root.Position).Magnitude > 250
+		for index, pet in ipairs(entry.Pets) do
+			for _, p in ipairs(pet.Model:GetChildren()) do
+				if p:IsA("BasePart") then
+					p.LocalTransparencyModifier = hidden and 1 or 0
+				end
+			end
+			if not hidden then
+				local slot = SLOTS[index] or SLOTS[1]
+				local flatLook = root.CFrame.LookVector * Vector3.new(1, 0, 1)
+				local facing = flatLook.Magnitude > 0.01 and CFrame.lookAt(root.Position, root.Position + flatLook) or root.CFrame
+				local target = facing * slot * CFrame.new(0, math.sin(t * 2 + pet.Phase) * 0.35, 0)
+				pet.Current = pet.Current and pet.Current:Lerp(target, math.min(1, dt * 7)) or target
+				posePet(pet.Model, pet.Current, t, pet.Shape, pet.Phase)
+			end
+		end
+	end
+end)
+
+---------------------------------------------------------------------
+-- 3D preview in a ViewportFrame
+---------------------------------------------------------------------
+local function preview(parent, petName, zoom)
+	local viewport = new("ViewportFrame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		Ambient = Color3.fromRGB(200, 200, 220),
+		LightColor = Color3.new(1, 1, 1),
+		LightDirection = Vector3.new(-1, -1, -1),
+		Parent = parent,
+	})
+	local model = buildPet(petName)
+	if model then
+		model.Parent = viewport
+		local cam = Instance.new("Camera")
+		cam.FieldOfView = 40
+		cam.CFrame = CFrame.lookAt(Vector3.new(2.2, 1.4, -5.5) * (zoom or 1), Vector3.zero)
+		cam.Parent = viewport
+		viewport.CurrentCamera = cam
+		posePet(model, CFrame.Angles(0, math.rad(25), 0), 0, PetData.Get(petName).Shape, 0)
+	end
+	return viewport, model
+end
+
+---------------------------------------------------------------------
+-- MENU BUTTON
+---------------------------------------------------------------------
+local menuGui = player:WaitForChild("PlayerGui"):WaitForChild("CosmicMenu", 30)
+local sideMenu = menuGui and menuGui:WaitForChild("SideMenu", 10)
+local menuButton
+if sideMenu then
+	menuButton = new("TextButton", {
+		Name = "PETS", LayoutOrder = 3, Size = UDim2.fromOffset(84, 84), BackgroundColor3 = THEME.Panel,
+		BackgroundTransparency = 0.1, AutoButtonColor = false, Text = "", Parent = sideMenu,
+	}, { corner(UDim.new(0, 18)), stroke(Color3.fromRGB(255, 170, 120), 2.5, 0) })
+	label({ Size = UDim2.new(1, 0, 0, 50), Position = UDim2.fromOffset(0, 6), Text = "🐾", TextSize = 38, Parent = menuButton })
+	local text = label({
+		AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, -6), Size = UDim2.new(1, 0, 0, 20),
+		Text = "PETS", Font = TITLE_FONT, TextSize = 16, Parent = menuButton,
+	})
+	textStroke(1.2).Parent = text
+	UIKit.addButtonFeel(menuButton)
+end
+
+---------------------------------------------------------------------
+-- PETS PANEL
+---------------------------------------------------------------------
+local gui = UIKit.screen("CosmicPets", 2)
+local holder = new("Frame", {
+	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.47), Size = UDim2.fromOffset(660, 520),
+	BackgroundTransparency = 1, Visible = false, Parent = gui,
+})
+UIKit.addAutoScale(holder, 800)
+local panel = new("Frame", {
+	Size = UDim2.fromScale(1, 1), BackgroundColor3 = THEME.Panel, BackgroundTransparency = 0.05, Parent = holder,
+}, { corner(UDim.new(0, 18)), stroke(Color3.fromRGB(255, 170, 120), 2.5, 0) })
+local title = label({
+	Position = UDim2.fromOffset(22, 12), Size = UDim2.new(1, -80, 0, 40), Text = "🐾 YOUR PETS", Font = TITLE_FONT,
+	TextSize = 32, TextXAlignment = Enum.TextXAlignment.Left, Parent = panel,
+})
+UIKit.gradient(Color3.fromRGB(255, 210, 150), Color3.fromRGB(255, 130, 190), 0).Parent = title
+local summary = label({
+	Position = UDim2.fromOffset(22, 52), Size = UDim2.new(1, -44, 0, 22), Text = "", TextSize = 16, RichText = true,
+	TextColor3 = THEME.SubText, TextXAlignment = Enum.TextXAlignment.Left, Parent = panel,
+})
+local closeButton = new("TextButton", {
+	AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 14), Size = UDim2.fromOffset(42, 42),
+	BackgroundColor3 = THEME.Bad, Text = "X", Font = TITLE_FONT, TextSize = 24, TextColor3 = THEME.Text, AutoButtonColor = false, Parent = panel,
+}, { corner(UDim.new(0, 10)), textStroke(1.5) })
+UIKit.addButtonFeel(closeButton)
+
+local function smallButton(text, color, x)
+	local b = new("TextButton", {
+		Position = UDim2.fromOffset(x, 82), Size = UDim2.fromOffset(150, 34), BackgroundColor3 = color,
+		Text = text, Font = TITLE_FONT, TextSize = 17, TextColor3 = THEME.Text, AutoButtonColor = false, Parent = panel,
+	}, { corner(UDim.new(0, 10)), textStroke(1.2) })
+	UIKit.addButtonFeel(b)
+	return b
+end
+local bestButton = smallButton("⭐ EQUIP BEST", THEME.Good, 22)
+local clearButton = smallButton("UNEQUIP ALL", Color3.fromRGB(90, 80, 130), 182)
+
+local grid = new("ScrollingFrame", {
+	Position = UDim2.fromOffset(16, 128), Size = UDim2.new(1, -32, 1, -142), BackgroundTransparency = 1, BorderSizePixel = 0,
+	ScrollBarThickness = 6, ScrollBarImageColor3 = Color3.fromRGB(255, 170, 120), CanvasSize = UDim2.new(),
+	AutomaticCanvasSize = Enum.AutomaticSize.Y, Parent = panel,
+}, {
+	new("UIGridLayout", { CellSize = UDim2.fromOffset(142, 168), CellPadding = UDim2.fromOffset(10, 10), SortOrder = Enum.SortOrder.LayoutOrder }),
+	new("UIPadding", { PaddingTop = UDim.new(0, 4), PaddingLeft = UDim.new(0, 4), PaddingRight = UDim.new(0, 8) }),
+})
+local emptyLabel = label({
+	Position = UDim2.fromOffset(16, 200), Size = UDim2.new(1, -32, 0, 60), TextWrapped = true, Visible = false,
+	Text = "No pets yet! Find the 🥚 Hatchery on each island and pay with your auras to hatch eggs.",
+	TextSize = 18, TextColor3 = THEME.SubText, Parent = panel,
+})
+
+local open = false
+local function equippedList()
+	return PetData.Split(player:GetAttribute("EquippedPets") or "")
+end
+
+local function countIn(list, name)
+	local n = 0
+	for _, v in ipairs(list) do
+		if v == name then
+			n += 1
+		end
+	end
+	return n
+end
+
+local function petAction(action, petName)
+	local ok, result = pcall(function()
+		return PetRemote:InvokeServer(action, petName)
+	end)
+	if ok and type(result) == "table" then
+		myData.Pets = result.Pets or myData.Pets
+		myData.EquippedPets = result.EquippedPets or myData.EquippedPets
+	end
+end
+
+local refreshPanel -- defined below
+local function refreshSoon()
+	task.defer(function()
+		if refreshPanel then
+			refreshPanel()
+		end
+	end)
+end
+
+refreshPanel = function()
+	for _, child in ipairs(grid:GetChildren()) do
+		if child:IsA("GuiObject") then
+			child:Destroy()
+		end
+	end
+	local equipped = equippedList()
+	summary.Text = ("Equipped <b>%d/%d</b>  •  Pet luck <font color='#78ffaa'><b>x%s</b></font>"):format(
+		#equipped, PetData.MaxEquipped, tostring(math.floor(PetData.LuckFrom(equipped) * 100 + 0.5) / 100))
+	local owned = {}
+	for name, count in pairs(myData.Pets or {}) do
+		local pet = PetData.Get(name)
+		if pet and count > 0 then
+			table.insert(owned, pet)
+		end
+	end
+	table.sort(owned, function(a, b)
+		return a.Luck > b.Luck
+	end)
+	emptyLabel.Visible = #owned == 0
+	for order, pet in ipairs(owned) do
+		local rarity = PetData.Rarities[pet.Rarity]
+		local count = myData.Pets[pet.Name]
+		local on = countIn(equipped, pet.Name)
+		local card = new("TextButton", {
+			LayoutOrder = order, BackgroundColor3 = on > 0 and Color3.fromRGB(34, 62, 56) or THEME.PanelLight,
+			Text = "", AutoButtonColor = false, Parent = grid,
+		}, { corner(UDim.new(0, 12)), stroke(rarity.Color, on > 0 and 3 or 1.5, on > 0 and 0 or 0.4) })
+		local view = new("Frame", { Position = UDim2.fromOffset(6, 4), Size = UDim2.new(1, -12, 0, 90), BackgroundTransparency = 1, Parent = card })
+		preview(view, pet.Name)
+		label({ Position = UDim2.fromOffset(4, 94), Size = UDim2.new(1, -8, 0, 20), Text = pet.Name, Font = TITLE_FONT, TextSize = 15, TextColor3 = UIKit.readable(rarity.Color), Parent = card })
+		label({ Position = UDim2.fromOffset(4, 114), Size = UDim2.new(1, -8, 0, 16), Text = ("%s • +%d%% luck"):format(pet.Rarity, math.floor(pet.Luck * 100 + 0.5)), TextSize = 12, TextColor3 = THEME.SubText, Parent = card })
+		label({ Position = UDim2.fromOffset(4, 134), Size = UDim2.new(1, -8, 0, 26), Text = on > 0 and ("✅ EQUIPPED" .. (on > 1 and (" x" .. on) or "")) or ("x" .. count .. "  • tap to equip"), Font = TITLE_FONT, TextSize = 13,
+			TextColor3 = on > 0 and THEME.Good or THEME.Text, Parent = card })
+		UIKit.addButtonFeel(card)
+		card.Activated:Connect(function()
+			if on > 0 then
+				petAction("Unequip", pet.Name)
+			elseif #equipped >= PetData.MaxEquipped then
+				UIKit.toast(("You can equip %d pets - unequip one first"):format(PetData.MaxEquipped), THEME.Bad)
+				return
+			else
+				petAction("Equip", pet.Name)
+			end
+			refreshSoon()
+		end)
+	end
+end
+
+local function setOpen(value)
+	if value == open then
+		return
+	end
+	open = value
+	if open then
+		UIKit.announcePanel("Pets")
+		refreshPanel()
+		holder.Visible = true
+		UIKit.popIn(panel)
+	else
+		holder.Visible = false
+	end
+end
+if menuButton then
+	menuButton.Activated:Connect(function()
+		setOpen(not open)
+	end)
+end
+closeButton.Activated:Connect(function()
+	setOpen(false)
+end)
+bestButton.Activated:Connect(function()
+	petAction("EquipBest")
+	refreshSoon()
+end)
+clearButton.Activated:Connect(function()
+	petAction("UnequipAll")
+	refreshSoon()
+end)
+player:GetAttributeChangedSignal("EquippedPets"):Connect(function()
+	if open then
+		refreshSoon()
+	end
+end)
+
+---------------------------------------------------------------------
+-- EGG PANEL
+---------------------------------------------------------------------
+local eggHolder = new("Frame", {
+	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(520, 430),
+	BackgroundTransparency = 1, Visible = false, Parent = gui,
+})
+UIKit.addAutoScale(eggHolder, 800)
+local eggPanel = new("Frame", {
+	Size = UDim2.fromScale(1, 1), BackgroundColor3 = THEME.Panel, BackgroundTransparency = 0.05, Parent = eggHolder,
+}, { corner(UDim.new(0, 18)) })
+local eggStroke = stroke(THEME.Gold, 2.5, 0)
+eggStroke.Parent = eggPanel
+local eggTitle = label({
+	Position = UDim2.fromOffset(20, 12), Size = UDim2.new(1, -80, 0, 38), Text = "", Font = TITLE_FONT, TextSize = 30,
+	TextXAlignment = Enum.TextXAlignment.Left, Parent = eggPanel,
+})
+textStroke(1.5).Parent = eggTitle
+local eggCost = label({
+	Position = UDim2.fromOffset(20, 50), Size = UDim2.new(1, -40, 0, 24), Text = "", TextSize = 17, RichText = true,
+	TextXAlignment = Enum.TextXAlignment.Left, Parent = eggPanel,
+})
+local eggClose = new("TextButton", {
+	AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 14), Size = UDim2.fromOffset(40, 40),
+	BackgroundColor3 = THEME.Bad, Text = "X", Font = TITLE_FONT, TextSize = 22, TextColor3 = THEME.Text, AutoButtonColor = false, Parent = eggPanel,
+}, { corner(UDim.new(0, 10)), textStroke(1.5) })
+UIKit.addButtonFeel(eggClose)
+local oddsRow = new("Frame", {
+	Position = UDim2.fromOffset(16, 86), Size = UDim2.new(1, -32, 0, 220), BackgroundTransparency = 1, Parent = eggPanel,
+}, { new("UIGridLayout", { CellSize = UDim2.fromOffset(116, 214), CellPadding = UDim2.fromOffset(6, 0), SortOrder = Enum.SortOrder.LayoutOrder }) })
+local hatchButton = new("TextButton", {
+	AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.new(0.5, 0, 0, 318), Size = UDim2.fromOffset(280, 58),
+	BackgroundColor3 = THEME.Good, Text = "🥚 HATCH", Font = TITLE_FONT, TextSize = 30, TextColor3 = THEME.Text,
+	AutoButtonColor = false, Parent = eggPanel,
+}, { corner(UDim.new(0, 14)), textStroke(2) })
+UIKit.addButtonFeel(hatchButton)
+local eggNote = label({
+	Position = UDim2.fromOffset(16, 384), Size = UDim2.new(1, -32, 0, 34), Text = "", TextSize = 13, TextWrapped = true,
+	TextColor3 = THEME.SubText, Parent = eggPanel,
+})
+
+local currentEgg
+local function islandNeeds(islandKey)
+	for _, info in ipairs(Config.RebirthIslands) do
+		if info.Key == islandKey then
+			return info.Rebirths
+		end
+	end
+	return 0
+end
+
+local function refreshEgg()
+	local egg = currentEgg
+	if not egg then
+		return
+	end
+	eggTitle.Text = "🥚 " .. egg.Name
+	eggTitle.TextColor3 = UIKit.readable(egg.Color, 0.8)
+	eggStroke.Color = egg.Color
+	local have = (myData.Inventory or {})[egg.Cost.Aura] or 0
+	local aura = AuraData.Get(egg.Cost.Aura)
+	local tierColor = aura and AuraData.Tiers[aura.Tier].Color or Color3.new(1, 1, 1)
+	eggCost.Text = ("Costs <b>%dx <font color='#%s'>%s</font></b> aura  <font color='#bfb4e1'>(you have %d)</font>"):format(
+		egg.Cost.Count, tierColor:ToHex(), egg.Cost.Aura, have)
+	for _, child in ipairs(oddsRow:GetChildren()) do
+		if child:IsA("GuiObject") then
+			child:Destroy()
+		end
+	end
+	for order, entry in ipairs(egg.Pets) do
+		local pet = PetData.Get(entry[1])
+		local rarity = PetData.Rarities[pet.Rarity]
+		local card = new("Frame", { LayoutOrder = order, BackgroundColor3 = THEME.PanelLight, Parent = oddsRow }, { corner(UDim.new(0, 12)), stroke(rarity.Color, 1.5, 0.3) })
+		local view = new("Frame", { Position = UDim2.fromOffset(4, 4), Size = UDim2.new(1, -8, 0, 100), BackgroundTransparency = 1, Parent = card })
+		preview(view, pet.Name)
+		label({ Position = UDim2.fromOffset(4, 106), Size = UDim2.new(1, -8, 0, 36), Text = pet.Name, Font = TITLE_FONT, TextSize = 15, TextWrapped = true, TextColor3 = UIKit.readable(rarity.Color), Parent = card })
+		label({ Position = UDim2.fromOffset(4, 142), Size = UDim2.new(1, -8, 0, 18), Text = pet.Rarity, TextSize = 12, TextColor3 = rarity.Color, Parent = card })
+		label({ Position = UDim2.fromOffset(4, 160), Size = UDim2.new(1, -8, 0, 18), Text = ("+%d%% luck"):format(math.floor(pet.Luck * 100 + 0.5)), TextSize = 13, TextColor3 = THEME.Good, Parent = card })
+		label({ Position = UDim2.fromOffset(4, 182), Size = UDim2.new(1, -8, 0, 26), Text = PetData.ChanceText(egg, entry[2]), Font = TITLE_FONT, TextSize = 20, Parent = card })
+	end
+	local need = islandNeeds(egg.Island)
+	if (player:GetAttribute("Rebirths") or 0) < need then
+		hatchButton.Text = ("🔒 REBIRTH %d"):format(need)
+		hatchButton.BackgroundColor3 = Color3.fromRGB(70, 66, 90)
+	elseif have < egg.Cost.Count then
+		hatchButton.Text = "NEED MORE AURAS"
+		hatchButton.BackgroundColor3 = Color3.fromRGB(70, 66, 90)
+	else
+		hatchButton.Text = "🥚 HATCH"
+		hatchButton.BackgroundColor3 = THEME.Good
+	end
+	eggNote.Text = ("Hatching uses up %d of your %s auras. If it's the aura you're wearing and it's your last one, you'll take it off."):format(egg.Cost.Count, egg.Cost.Aura)
+end
+
+local function openEgg(egg)
+	currentEgg = egg
+	UIKit.announcePanel("Egg")
+	refreshEgg()
+	eggHolder.Visible = true
+	UIKit.popIn(eggPanel)
+end
+local function closeEgg()
+	eggHolder.Visible = false
+	currentEgg = nil
+end
+eggClose.Activated:Connect(closeEgg)
+UIKit.PanelOpened:Connect(function(name)
+	if name ~= "Pets" then
+		setOpen(false)
+	end
+	if name ~= "Egg" then
+		closeEgg()
+	end
+end)
+
+---------------------------------------------------------------------
+-- HATCH ANIMATION
+---------------------------------------------------------------------
+local fxGui = UIKit.screen("CosmicHatchFX", 46)
+local function hatchAnimation(egg, petName)
+	local pet = PetData.Get(petName)
+	local rarity = PetData.Rarities[pet.Rarity]
+	local dim = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 1, Parent = fxGui })
+	tween(dim, 0.3, { BackgroundTransparency = 0.35 })
+	-- the egg (a 3D egg in a viewport)
+	local eggFrame = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.45), Size = UDim2.fromOffset(300, 300), BackgroundTransparency = 1, Parent = fxGui })
+	local viewport = new("ViewportFrame", { Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, Ambient = Color3.fromRGB(200, 200, 220), LightDirection = Vector3.new(-1, -1, -1), Parent = eggFrame })
+	local eggPart = Instance.new("Part")
+	eggPart.Shape = Enum.PartType.Ball
+	eggPart.Size = Vector3.new(4.6, 6, 4.6)
+	eggPart.Color = egg.Color
+	eggPart.Material = Enum.Material.SmoothPlastic
+	eggPart.CFrame = CFrame.new()
+	eggPart.Parent = viewport
+	for k = 1, 6 do
+		local spot = Instance.new("Part")
+		spot.Shape = Enum.PartType.Ball
+		spot.Size = Vector3.one * 0.7
+		spot.Color = egg.Color:Lerp(Color3.new(1, 1, 1), 0.6)
+		spot.Material = Enum.Material.Neon
+		local a = k * 1.1 - 2.5
+		spot.CFrame = CFrame.new(math.sin(a) * 2.1, math.cos(k * 1.9) * 1.8, -math.cos(a) * 2.1)
+		spot.Parent = viewport
+	end
+	local cam = Instance.new("Camera")
+	cam.FieldOfView = 40
+	cam.CFrame = CFrame.lookAt(Vector3.new(0, 0.5, -12), Vector3.zero)
+	cam.Parent = viewport
+	viewport.CurrentCamera = cam
+	local eggScale = new("UIScale", { Scale = 0.3, Parent = eggFrame })
+	tween(eggScale, 0.35, { Scale = 1 }, Enum.EasingStyle.Back)
+	SoundFX.Play("Whoosh")
+	task.wait(0.4)
+	-- three wobbles, each bigger
+	for wobble = 1, 3 do
+		for _, angle in ipairs({ 12, -12, 8, 0 }) do
+			tween(eggFrame, 0.07, { Rotation = angle * wobble * 0.8 })
+			task.wait(0.07)
+		end
+		SoundFX.Play("Tick", { Speed = 0.8 + wobble * 0.2, Volume = 1 })
+		task.wait(0.3 - wobble * 0.05)
+	end
+	-- crack!
+	local flash = new("Frame", { Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(1, 1, 1), BackgroundTransparency = 0, Parent = fxGui })
+	tween(flash, 0.6, { BackgroundTransparency = 1 })
+	SoundFX.Play("IceShatter", { Volume = 0.6 })
+	eggFrame:Destroy()
+	-- the pet!
+	local petFrame = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.42), Size = UDim2.fromOffset(320, 320), BackgroundTransparency = 1, Parent = fxGui })
+	local glow = new("Frame", { AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromOffset(300, 300), BackgroundColor3 = rarity.Color, BackgroundTransparency = 0.6, Parent = petFrame }, { corner(UDim.new(1, 0)) })
+	local _, petModel = preview(petFrame, petName, 0.8)
+	local petScale = new("UIScale", { Scale = 0.2, Parent = petFrame })
+	tween(petScale, 0.5, { Scale = 1 }, Enum.EasingStyle.Back)
+	local name = label({ AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0.66), Size = UDim2.fromOffset(700, 56), Text = pet.Name, Font = TITLE_FONT, TextSize = 52, TextColor3 = UIKit.readable(rarity.Color, 0.8), Parent = fxGui })
+	textStroke(3).Parent = name
+	local info = label({ AnchorPoint = Vector2.new(0.5, 0), Position = UDim2.fromScale(0.5, 0.66), Size = UDim2.fromOffset(700, 30), Text = ("%s  •  +%d%% luck"):format(pet.Rarity, math.floor(pet.Luck * 100 + 0.5)), Font = TITLE_FONT, TextSize = 26, TextColor3 = THEME.Good, Parent = fxGui })
+	info.Position = UDim2.new(0.5, 0, 0.66, 60)
+	textStroke(2).Parent = info
+	UIKit.burst({ rarity.Color, egg.Color, Color3.new(1, 1, 1) }, 20 + rarity.Order * 8, 0.8 + rarity.Order * 0.15)
+	if rarity.Order >= 5 then
+		UIKit.confetti({ rarity.Color, THEME.Gold, Color3.new(1, 1, 1) }, 80)
+		SoundFX.Jingle("Victory")
+	else
+		SoundFX.Chime(1, 3 + math.min(2, rarity.Order - 1))
+	end
+	-- spin the pet while you admire it
+	local spinStart = os.clock()
+	local spin = RunService.RenderStepped:Connect(function()
+		local t = os.clock() - spinStart
+		glow.Rotation = t * 40
+		if petModel then
+			posePet(petModel, CFrame.Angles(0, t * 1.5, 0), t, pet.Shape, 0)
+		end
+	end)
+	task.wait(2.6)
+	tween(dim, 0.4, { BackgroundTransparency = 1 })
+	tween(name, 0.4, { TextTransparency = 1 })
+	tween(info, 0.4, { TextTransparency = 1 })
+	tween(petScale, 0.4, { Scale = 0 }, Enum.EasingStyle.Back, Enum.EasingDirection.In)
+	task.wait(0.45)
+	spin:Disconnect()
+	for _, item in ipairs({ dim, flash, petFrame, name, info }) do
+		item:Destroy()
+	end
+end
+
+local hatching = false
+hatchButton.Activated:Connect(function()
+	local egg = currentEgg
+	if not egg or hatching then
+		return
+	end
+	hatching = true
+	local ok, result = pcall(function()
+		return HatchRemote:InvokeServer(egg.Key)
+	end)
+	if ok and type(result) == "table" and result.Pet then
+		myData.Pets = result.Pets or myData.Pets
+		closeEgg()
+		hatchAnimation(egg, result.Pet)
+		openEgg(egg) -- straight back to the egg so you can hatch again
+	else
+		local reason = ok and type(result) == "table" and result.Error or "Error"
+		local messages = {
+			NotEnough = ("You need %dx %s to hatch this egg"):format(egg.Cost.Count, egg.Cost.Aura),
+			Locked = "This island's eggs unlock with rebirths!",
+			TooFar = "Walk closer to the egg",
+			Busy = "Hatching...",
+		}
+		UIKit.toast("🥚 " .. (messages[reason] or "Couldn't hatch, try again"), THEME.Bad)
+		SoundFX.Play("Thud")
+	end
+	hatching = false
+end)
+
+-- pressing E at an egg opens its panel
+local function hookPrompts()
+	local hatcheries = workspace:WaitForChild("PetHatcheries", 60)
+	if not hatcheries then
+		return
+	end
+	local function hook(item)
+		if item:IsA("ProximityPrompt") and item.Name == "HatchPrompt" then
+			item.Triggered:Connect(function()
+				local key = item.Parent and item.Parent:GetAttribute("EggKey")
+				local egg = key and PetData.EggByKey[key]
+				if egg then
+					openEgg(egg)
+				end
+			end)
+		end
+	end
+	for _, item in ipairs(hatcheries:GetDescendants()) do
+		hook(item)
+	end
+	hatcheries.DescendantAdded:Connect(hook)
+	-- the eggs gently bob
+	local eggs = {}
+	for _, item in ipairs(hatcheries:GetDescendants()) do
+		if item:IsA("BasePart") and item:GetAttribute("FX_EggBob") then
+			table.insert(eggs, { Part = item, Base = item.CFrame, Phase = math.random() * 6 })
+		end
+	end
+	RunService.RenderStepped:Connect(function()
+		local t = os.clock()
+		for _, e in ipairs(eggs) do
+			if (camera.CFrame.Position - e.Base.Position).Magnitude < 200 then
+				e.Part.CFrame = e.Base * CFrame.new(0, math.sin(t * 1.6 + e.Phase) * 0.35, 0) * CFrame.Angles(0, 0, math.sin(t * 2.2 + e.Phase) * 0.06)
+			end
+		end
+	end)
+end
+task.spawn(hookPrompts)
+
+---------------------------------------------------------------------
+-- DATA
+---------------------------------------------------------------------
+DataUpdatedRemote.OnClientEvent:Connect(function(snapshot)
+	if type(snapshot) == "table" then
+		myData.Inventory = snapshot.Inventory or myData.Inventory
+		myData.Pets = snapshot.Pets or myData.Pets
+		myData.EquippedPets = snapshot.EquippedPets or myData.EquippedPets
+		if open then
+			refreshPanel()
+		end
+		if currentEgg then
+			refreshEgg()
+		end
+	end
+end)
+task.spawn(function()
+	for _ = 1, 30 do
+		local ok, snapshot = pcall(function()
+			return GetDataRemote:InvokeServer()
+		end)
+		if ok and type(snapshot) == "table" then
+			myData.Inventory = snapshot.Inventory or {}
+			myData.Pets = snapshot.Pets or {}
+			myData.EquippedPets = snapshot.EquippedPets or {}
+			return
+		end
+		task.wait(1)
+	end
+end)
+-- rolls change your inventory too: keep the egg panel's "you have" honest
+player:GetAttributeChangedSignal("Rolls"):Connect(function()
+	if not currentEgg then
+		return
+	end
+	task.delay(0.3, function()
+		local ok, snapshot = pcall(function()
+			return GetDataRemote:InvokeServer()
+		end)
+		if ok and type(snapshot) == "table" then
+			myData.Inventory = snapshot.Inventory or myData.Inventory
+			if currentEgg then
+				refreshEgg()
+			end
+		end
+	end)
+end)
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="LocalScript" referent="33">
         <Properties>
           <string name="Name">RebirthClient</string>
           <string name="Source"><![CDATA[-- RebirthClient (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -13991,7 +16669,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="28">
+      <Item class="LocalScript" referent="34">
         <Properties>
           <string name="Name">RollUI</string>
           <string name="Source"><![CDATA[-- RollUI (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -14010,6 +16688,7 @@ local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
 local AuraData = require(ReplicatedStorage:WaitForChild("AuraData"))
 local Luck = require(ReplicatedStorage:WaitForChild("Luck"))
 local Rebirth = require(ReplicatedStorage:WaitForChild("Rebirth"))
+local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
 local SoundFX = require(ReplicatedStorage:WaitForChild("SoundFX"))
 local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
 
@@ -14495,7 +17174,7 @@ end
 ---------------------------------------------------------------------
 -- LUCK LINE + STATS
 ---------------------------------------------------------------------
-local BONUS_ICONS = { ["2x Luck"] = "🍀", VIP = "👑", Potion = "🧪", Server = "🌌", Event = "☄️", ["Lucky Isle"] = "🏝", Parkour = "🏃", Rebirth = "⭐" }
+local BONUS_ICONS = { ["2x Luck"] = "🍀", VIP = "👑", Potion = "🧪", Server = "🌌", Event = "☄️", ["Lucky Isle"] = "🏝", Parkour = "🏃", Rebirth = "⭐", Pets = "🐾", Forever = "♾", ["Cosmic Roll"] = "🎲" }
 
 local function updateInfo()
 	local total = Luck.Get(player)
@@ -14703,7 +17382,10 @@ local function playRollAnimation(result, fast)
 	popScale.Scale = 0.6
 	tween(popScale, 0.2, { Scale = 1 }, Enum.EasingStyle.Back)
 
-	if result.Lucky then
+	if result.Boosted then
+		UIKit.toast(("🎲 COSMIC ROLL! x%d luck on this roll!"):format(Config.Drop.BoostMultiplier), THEME.Gold)
+		SoundFX.Chime(1, 5)
+	elseif result.Lucky then
 		UIKit.toast("✨ LUCKY ROLL! x" .. Luck.Format(Config.LuckyRollMultiplier) .. " luck", THEME.Gold)
 	end
 
@@ -15209,6 +17891,28 @@ AnnounceRemote.OnClientEvent:Connect(function(info)
 		SoundFX.Play("Pop", { Volume = 0.7 })
 		return
 	end
+	if info.Type == "DropSpawned" then
+		showBanner(("🎲 A <font color='#ffd76a'><b>COSMIC ROLL</b></font> landed on %s! First to grab it gets x%d luck!"):format(
+			tostring(info.Where or "the island"), Config.Drop.BoostMultiplier), THEME.Gold)
+		return
+	end
+	if info.Type == "DropGrabbed" then
+		showBanner(("🎲 <b>%s</b> grabbed the <font color='#ffd76a'><b>COSMIC ROLL</b></font>!"):format(info.PlayerName), THEME.Gold)
+		return
+	end
+	if info.Type == "Pet" then
+		local pet = PetData.Get(info.Pet or "")
+		if pet then
+			local color = PetData.Rarities[pet.Rarity].Color
+			showBanner(("🥚 <b>%s</b> hatched a <font color='#%s'><b>%s</b></font> pet (%s)!"):format(
+				info.PlayerName, color:ToHex(), pet.Name, pet.Rarity), color)
+		end
+		return
+	end
+	if info.Type == "Limited" then
+		showBanner(("🔥 <b>%s</b> grabbed the <font color='#ff8c5a'><b>LIMITED OFFER</b></font>!"):format(info.PlayerName), Color3.fromRGB(255, 140, 90))
+		return
+	end
 	if info.Type == "Rebirth" then
 		local color = Rebirth.Color(info.Rebirths)
 		showBanner(("⭐ <b>%s</b> just <font color='#%s'><b>REBIRTHED</b></font>! (Rebirth %d)"):format(
@@ -15325,7 +18029,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="29">
+      <Item class="LocalScript" referent="35">
         <Properties>
           <string name="Name">SkyFX</string>
           <string name="Source"><![CDATA[-- SkyFX (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -15335,7 +18039,9 @@ end)
 --   * every island has its own sky colors, and they blend smoothly
 --   * a secret roll can take over the sky for a few seconds (RollUI)
 --   * animates the sky scenery from SkyDecor: twinkling stars, turning
---     galaxies, bobbing islets, glowing suns and the swimming sky whale
+--     galaxies, bobbing islets and sky isles, glowing suns, and all the
+--     sky creatures (whales, mantas, jellyfish, fish, turtles, koi, stars,
+--     serpents), each with its own way of moving
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -15503,8 +18209,7 @@ if not decor then
 	return
 end
 
-local twinklers, spinners, bobbers, breathers = {}, {}, {}, {}
-local whale
+local twinklers, spinners, bobbers, breathers, creatures = {}, {}, {}, {}, {}
 for _, item in ipairs(decor:GetDescendants()) do
 	if item:IsA("BasePart") then
 		local twinkle = item:GetAttribute("FX_Twinkle")
@@ -15516,8 +18221,36 @@ for _, item in ipairs(decor:GetDescendants()) do
 			table.insert(breathers, { Part = item, Phase = breathe, Base = item.Size, BaseT = item.Transparency })
 		end
 	elseif item:IsA("Model") then
-		if item:GetAttribute("FX_Whale") then
-			whale = { Model = item, Radius = item:GetAttribute("OrbitRadius") or 190, Height = item:GetAttribute("OrbitHeight") or 105 }
+		if item:GetAttribute("FX_Creature") then
+			local entry = {
+				Model = item,
+				Motion = item:GetAttribute("Motion") or "Orbit",
+				Center = item:GetAttribute("Center") or Vector3.zero,
+				Radius = item:GetAttribute("Radius") or 0,
+				Height = item:GetAttribute("Height") or 0,
+				Speed = item:GetAttribute("Speed") or 0.05,
+				Phase = item:GetAttribute("Phase") or 0,
+				Bob = item:GetAttribute("Bob") or 4,
+				Spin = item:GetAttribute("Spin") or 0,
+			}
+			if entry.Motion == "Serpent" then
+				-- remember how every piece sits on its body segment
+				entry.Segments = {}
+				local count = item:GetAttribute("Segments") or 0
+				for i = 1, count do
+					entry.Segments[i] = { Part = item:FindFirstChild("Seg" .. i), Extras = {} }
+				end
+				for _, p in ipairs(item:GetChildren()) do
+					local index = p:GetAttribute("Segment")
+					if p:IsA("BasePart") and index and entry.Segments[index] and p ~= entry.Segments[index].Part then
+						table.insert(entry.Segments[index].Extras, { Part = p, Offset = entry.Segments[index].Part.CFrame:ToObjectSpace(p.CFrame) })
+					end
+				end
+				-- time gap between segments so they sit one body-length apart on the path
+				local spacing = item:GetAttribute("Spacing") or 4
+				entry.SegmentGap = spacing / math.max(math.abs(entry.Speed) * entry.Radius, 1)
+			end
+			table.insert(creatures, entry)
 		elseif item:GetAttribute("FX_SpinLocal") then
 			table.insert(spinners, { Model = item, Base = item:GetPivot(), Speed = item:GetAttribute("FX_SpinLocal") })
 		elseif item:GetAttribute("FX_Bob") then
@@ -15530,6 +18263,53 @@ for _, item in ipairs(decor:GetDescendants()) do
 			})
 		end
 	end
+end
+
+-- where a moving creature is at time t
+local function pathAt(c, t)
+	local a = c.Phase + t * c.Speed
+	if c.Motion == "Figure8" then
+		return c.Center + Vector3.new(math.sin(a) * c.Radius, c.Height + math.sin(t * 0.5 + c.Phase) * c.Bob, math.sin(a) * math.cos(a) * c.Radius * 1.2)
+	elseif c.Motion == "Wave" then
+		return c.Center + Vector3.new(math.cos(a) * c.Radius, c.Height + math.sin(a * 4) * c.Bob * 2.5, math.sin(a) * c.Radius)
+	elseif c.Motion == "Serpent" then
+		return c.Center + Vector3.new(math.cos(a) * c.Radius, c.Height + math.sin(a * 5) * 14 + math.sin(a * 2) * 10, math.sin(a) * (c.Radius * 0.75 + math.sin(a * 3) * 25))
+	end
+	return c.Center + Vector3.new(math.cos(a) * c.Radius, c.Height + math.sin(t * 0.4 + c.Phase) * c.Bob, math.sin(a) * c.Radius)
+end
+
+local function moveCreature(c, t)
+	if c.Motion == "Hover" then
+		local position = c.Center + Vector3.new(0, c.Height + math.sin(t * 0.7 + c.Phase) * c.Bob, 0)
+		c.Model:PivotTo(CFrame.new(position) * CFrame.Angles(math.sin(t * 0.5 + c.Phase) * 0.15, t * c.Spin + c.Phase, math.cos(t * 0.4 + c.Phase) * 0.15))
+		return
+	end
+	if c.Motion == "Serpent" then
+		local dt = c.SegmentGap or 0.3
+		for i, seg in ipairs(c.Segments) do
+			if seg.Part then
+				local here = pathAt(c, t - (i - 1) * dt)
+				local ahead = pathAt(c, t - (i - 1) * dt + 0.2)
+				local cf = CFrame.lookAt(here, ahead)
+				seg.Part.CFrame = cf
+				for _, extra in ipairs(seg.Extras) do
+					extra.Part.CFrame = cf * extra.Offset
+				end
+			end
+		end
+		return
+	end
+	local here = pathAt(c, t)
+	local ahead = pathAt(c, t + 0.5)
+	local cf = CFrame.lookAt(here, ahead)
+	-- lean into turns (and mantas sway their wings)
+	local bank = (c.Speed > 0 and -1 or 1) * 0.25
+	if c.Motion == "Wave" then
+		bank += math.sin(t * 1.6 + c.Phase) * 0.35
+	elseif c.Motion == "Figure8" then
+		bank = math.cos(c.Phase + t * c.Speed) * 0.4
+	end
+	c.Model:PivotTo(cf * CFrame.Angles(0, 0, bank))
 end
 
 local FAR = 1100 -- sky things are big, so animate them from further away
@@ -15552,6 +18332,13 @@ RunService.RenderStepped:Connect(function(dt)
 		b.Part.Transparency = math.clamp(b.BaseT + wave * 0.05, 0, 0.98)
 	end
 
+	-- creatures near you move every frame
+	for _, c in ipairs(creatures) do
+		if near(c.Center, 800) then
+			moveCreature(c, t)
+		end
+	end
+
 	-- slow things only need updating every other frame
 	if frame % 2 == 0 then
 		for _, s in ipairs(spinners) do
@@ -15560,27 +18347,16 @@ RunService.RenderStepped:Connect(function(dt)
 			end
 		end
 		for _, b in ipairs(bobbers) do
-			if near(b.Base.Position, 600) then
+			if near(b.Base.Position, 700) then
 				b.Model:PivotTo(b.Base * CFrame.new(0, math.sin(t * 0.5 + b.Phase) * b.Bob, 0) * CFrame.Angles(0, t * b.Spin, 0))
 			end
 		end
-	end
-
-	-- the sky whale glides around the main island, gently rising and falling
-	if whale and near(Vector3.new(0, whale.Height, 0), 900) then
-		local speed = (math.pi * 2) / 140
-		local angle = t * speed
-		local position = Vector3.new(math.cos(angle) * whale.Radius, whale.Height + math.sin(t * 0.35) * 10, math.sin(angle) * whale.Radius)
-		local ahead = Vector3.new(math.cos(angle + 0.05) * whale.Radius, whale.Height + math.sin((t + 0.4) * 0.35) * 10, math.sin(angle + 0.05) * whale.Radius)
-		local look = CFrame.lookAt(position, ahead)
-		-- leans into the turn and sways a little as it swims
-		whale.Model:PivotTo(look * CFrame.Angles(0, math.sin(t * 0.8) * 0.06, math.rad(-12) + math.sin(t * 0.6) * 0.05))
 	end
 end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="30">
+      <Item class="LocalScript" referent="36">
         <Properties>
           <string name="Name">Sprint</string>
           <string name="Source"><![CDATA[-- Sprint (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -15822,7 +18598,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="31">
+      <Item class="LocalScript" referent="37">
         <Properties>
           <string name="Name">StoreUI</string>
           <string name="Source"><![CDATA[-- StoreUI (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -15857,11 +18633,17 @@ local menu = new("Frame", {
 	Name = "SideMenu",
 	AnchorPoint = Vector2.new(0, 0.5),
 	Position = UDim2.new(0, 16, 0.5, 0),
-	Size = UDim2.fromOffset(84, 286), -- 3 buttons (the REBIRTH button is added by RebirthUI)
+	-- 2 columns: other scripts add DUEL, REBIRTH, PETS and LIMITED buttons here
+	Size = UDim2.fromOffset(178, 290),
 	BackgroundTransparency = 1,
 	Parent = gui,
 }, {
-	new("UIListLayout", { Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder }),
+	new("UIGridLayout", {
+		CellSize = UDim2.fromOffset(84, 84),
+		CellPadding = UDim2.fromOffset(10, 10),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+	}),
 })
 UIKit.addAutoScale(menu)
 
@@ -15889,7 +18671,7 @@ local function menuButton(order, icon, text, color)
 end
 
 local storeButton, storeIcon = menuButton(1, "🛒", "STORE", THEME.Gold)
-local soundButton, soundIcon, soundText = menuButton(3, "🔊", "SOUND", THEME.Accent2)
+local soundButton, soundIcon, soundText = menuButton(9, "🔊", "SOUND", THEME.Accent2)
 
 -- the store icon gently wiggles to draw attention
 task.spawn(function()
@@ -16173,7 +18955,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="32">
+      <Item class="LocalScript" referent="38">
         <Properties>
           <string name="Name">WorldFX</string>
           <string name="Source"><![CDATA[-- WorldFX (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -16482,7 +19264,7 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="33">
+  <Item class="Workspace" referent="39">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>

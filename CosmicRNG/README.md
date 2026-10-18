@@ -25,7 +25,8 @@ game pass IDs in `CosmicConfig`).
 - Lucky roll every 10th roll (every 5th with Lucky Charm).
 
 ### Auras
-- 20 auras in 7 tiers, each with layered 3D effects and a duel power.
+- 27 auras in 9 tiers, each with layered 3D effects and a duel power.
+- The rarest tiers are **Divine** (Stellar Phoenix 1 in 10M, Chronos 1 in 25M, Nebula Leviathan 1 in 50M) and **Transcendent** (Astral Dragon 1 in 100M, Singularity 1 in 250M, Omniverse 1 in 500M, Genesis 1 in 1 billion).
 - Aura pictures (see "Adding the aura pictures" below) show:
   - above the reveal card, flicking through pictures while you roll and spinning in on the reveal
   - on every inventory card (undiscovered auras show a "?")
@@ -37,8 +38,38 @@ game pass IDs in `CosmicConfig`).
 - Chat tags: `[VIP]` and your equipped aura in its tier color.
 - Server-wide banners and chat messages for rolls of 1 in 1,000 or rarer. Secret rolls change the sky for everyone.
 
+### Cosmic Drop
+- A small timer under your stats (top-left) counts down **15 minutes**.
+- At 0:00 a glowing **Cosmic Roll** die lands somewhere on the main island or Lucky Isle, under a tall beam of light. Everyone gets a banner, and the timer turns into an arrow pointing at it, with the distance.
+- The **first player to touch it** gets **x50 luck on their next roll** (one use, saved even if you leave). It shows in your luck line as 🎲 Cosmic Roll.
+- Then the timer starts again. Settings: `Config.Drop`.
+
+### Pets
+- Every island has a **🥚 Hatchery** with 3 eggs. There are **no coins**: you pay for eggs with **auras** from your inventory.
+- The first egg on an island costs a few weak auras, the second a better aura, the third an even better one. Rebirth islands have pricier eggs with much better pets:
+
+  | Island | Egg 1 | Egg 2 | Egg 3 | Best pet |
+  |---|---|---|---|---|
+  | Cosmic Island | 4x Stardust | 2x Comet | 1x Nebula | Void Wisp (+100% luck) |
+  | ❄️ Frostfall | 3x Aurora | 2x Pulsar | 1x Solar Flare | Polar Spirit (+150%) |
+  | 🔥 Ember Isle | 2x Frostmoon | 1x Starfall | 1x Supernova | Inferno Spirit (+250%) |
+  | 💠 Neon Nexus | 1x Quasar | 1x Celestial | 1x Black Hole | Nexus Overmind (+400%) |
+
+- Press **E** at an egg to see the price, the pets, their chances and a 3D preview. Hatching plays an animation: the egg wobbles, cracks and the pet pops out.
+- Equip up to **3 pets** in the **🐾 PETS** menu (or press EQUIP BEST). Every equipped pet adds luck.
+- Pets float behind you, and everyone can see them. Each kind moves its own way: wings flap, fish wiggle, stars spin, wisps have orbiting lights, and blobs and bunnies bounce.
+- Rare hatches (Legendary and up) are announced to the server. Everything is in the `PetData` module.
+
+### Limited Offer
+- A flashing **🔥 LIMITED** button with a countdown. It's on sale for **7 days after the game goes live**, and opens itself once when you join.
+- Pick **ONE** of 3 very strong packs:
+  - **Legend Aura Pack**: Cosmic Rift and Black Hole auras, plus a 2-hour x2 luck potion.
+  - **Infinite Luck Pack**: x2 luck forever, 5 Cosmic Rolls (x50 each) and a 1-hour potion.
+  - **Overlord Pet Pack**: the exclusive Cosmic Overlord pet (+300% luck), a Void Wisp and 3 Cosmic Rolls.
+- The 7 days start automatically the first time a live server starts. You can also set `Config.LimitedOffer.StartTime` yourself.
+
 ### Store
-Side menu with **STORE** and **SOUND** (mute) buttons.
+Side menu (2 columns) with **LIMITED**, **DUEL**, **STORE**, **REBIRTH**, **PETS** and **SOUND** buttons.
 
 | Game pass | What it does |
 |---|---|
@@ -55,15 +86,29 @@ Side menu with **STORE** and **SOUND** (mute) buttons.
 | Server Luck | x2 luck for everyone for 15 min (stacks) |
 
 ### Map
-- **Cosmic Island** (start):
-  - Paved glowing paths from the spawn to every area, with a signpost pointing the way.
+- **Cosmic Island** (start, now much bigger: radius 115):
+  - Paved glowing paths from the spawn to every area (including the **Pet Hatchery**), with a signpost pointing the way.
+  - Two rings of lantern gems, more crystals, rocks, mushrooms, ruins and floating crystals to fill the bigger island.
   - The **Cosmic Core** altar with spinning rings.
   - The **Top Rollers** board.
   - Benches, glow mushrooms, old marble ruins, a cosmic pool with lily lights, floating crystals and lantern gems.
   - A giant ringed planet, a moon and shooting stars in the sky.
 - **The sky changes mood** on the main island every ~70 seconds, blending slowly between violet dusk, teal nebula, rose galaxy and deep indigo. Lucky Isle, Duel Island and each rebirth island have their own sky colors, and the sky blends smoothly when you travel.
 - **Sky scenery around every island**, each in its own colors: glowing nebula clouds, a slowly turning spiral galaxy, and floating islets with crystals, little trees, shrines and waterfalls of light.
-  - A **sky whale** with glowing spots swims slowly around the main island.
+  - **Big sky isles** further out, each with a tiny temple, trees, crystals and a long waterfall of light.
+  - **Sky creatures** everywhere, in each island's colors, each moving its own way:
+
+    | Creature | How it moves |
+    |---|---|
+    | Whales with glowing spots | Slow circles, leaving a sparkle trail |
+    | Manta rays | Swooping up and down, swaying their wings |
+    | Jellyfish | Floating and slowly spinning |
+    | Fish schools | Figure-eights |
+    | Space turtles | Slow circles |
+    | Koi | Figure-eights |
+    | Star sprites | Spinning fast |
+    | Long sky serpents | Their bodies follow the head in waves |
+- The **rebirth islands are bigger** too (radius 100), with more trees, spikes, geysers, towers and palms.
   - Lucky Isle has twin golden moons, Frostfall a frozen ringed planet, Ember Isle a burning red sun and Neon Nexus a neon-ringed planet.
 - **Lucky Isle portal**: walk into the portal (or press **E**) to travel to **Lucky Isle**. It's white marble, gold, rose and teal, and gives **x2 luck** while you stand on it. The sky turns pink and gold while you're there, and a return portal takes you back.
   - Open to everyone. Set `Config.LuckyIsland.RequireVIP = true` to make it VIP-only.
@@ -197,9 +242,9 @@ All sounds are made from Roblox's built-in sound files, so they always work:
 
 | Where in Studio | Type | Name |
 |---|---|---|
-| ReplicatedStorage | ModuleScript | `CosmicConfig`, `AuraData`, `AuraImages`, `AuraEffects`, `CombatAnim`, `Luck`, `Rebirth`, `SoundFX`, `UIKit` |
-| ServerScriptService | Script | `RollService`, `WorldSetup`, `LuckyIsland`, `RebirthIslands`, `SkyDecor`, `Parkour`, `DuelService`, `Movement`, `Leaderboard` |
-| StarterPlayer > StarterPlayerScripts | LocalScript | `AuraRenderer`, `RollUI`, `StoreUI`, `WorldFX`, `ParkourClient`, `DuelClient`, `DuelFX`, `Sprint`, `RebirthClient`, `IslandFX`, `SkyFX` |
+| ReplicatedStorage | ModuleScript | `CosmicConfig`, `AuraData`, `AuraImages`, `AuraEffects`, `CombatAnim`, `Luck`, `Rebirth`, `PetData`, `SoundFX`, `UIKit` |
+| ServerScriptService | Script | `RollService`, `WorldSetup`, `LuckyIsland`, `RebirthIslands`, `SkyDecor`, `PetWorld`, `DropService`, `Parkour`, `DuelService`, `Movement`, `Leaderboard` |
+| StarterPlayer > StarterPlayerScripts | LocalScript | `AuraRenderer`, `RollUI`, `StoreUI`, `WorldFX`, `ParkourClient`, `DuelClient`, `DuelFX`, `Sprint`, `RebirthClient`, `IslandFX`, `SkyFX`, `PetClient`, `DropClient`, `LimitedOffer` |
 
 ## Adding the aura pictures
 Roblox can only show pictures that are uploaded to Roblox, so this is a one-time step:
@@ -213,7 +258,7 @@ Any aura still set to `0` just shows without a picture.
 1. Publish the game: **File > Publish to Roblox**.
 2. Go to the Creator Dashboard, open your experience, then **Monetization**:
    - **Passes**: create the 6 passes.
-   - **Developer Products**: create "Luck Potion" and "Server Luck".
+   - **Developer Products**: create "Luck Potion" and "Server Luck", plus the 3 Limited Offer packs ("Legend Aura Pack", "Infinite Luck Pack", "Overlord Pet Pack") at **399 Robux** or more each.
 3. Paste each ID into `CosmicConfig` (`Config.GamePasses` and `Config.Products`).
 
 While an ID is `0`, that item is free in Studio so you can test it. In the
@@ -237,9 +282,11 @@ Enable Studio Access to API Services**.
 - Press **R** to roll on PC.
 - In Studio all passes are free, so Studio luck shows **x2.5** (2x Luck + VIP), or **x5** on Lucky Isle. Boost buttons in the Store activate for free in Studio too.
 - To test player-vs-player duels in Studio: **Test > Clients and Servers**, pick 2 players, then **Start**.
+- To test the Cosmic Drop fast, set `Config.Drop.IntervalMinutes = 0.5`.
+- To test pets, temporarily set `Config.BaseLuck = 50` to collect auras quickly.
 - To test rebirths fast, temporarily set `Config.Rebirth.BaseRolls = 5` and `Config.Rebirth.BaseRarity = 2`.
 - To test as a non-VIP, set `Config.FreePassesInStudio = false`.
 
 ## Coming in later parts
 - Cosmic events (Meteor Shower, Eclipse, Solar Flare)
-- Index rewards, more auras (when you say so)
+- Index rewards

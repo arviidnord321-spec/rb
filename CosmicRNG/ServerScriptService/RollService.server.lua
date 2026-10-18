@@ -14,6 +14,7 @@ local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
 local AuraData = require(ReplicatedStorage:WaitForChild("AuraData"))
 local Luck = require(ReplicatedStorage:WaitForChild("Luck"))
 local Rebirth = require(ReplicatedStorage:WaitForChild("Rebirth"))
+local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
 
 ---------------------------------------------------------------------
 -- Remotes (created here so you don't have to make them by hand)
@@ -43,6 +44,8 @@ local AnnounceRemote = getRemote("RemoteEvent", "Announce")
 local RollFXRemote = getRemote("RemoteEvent", "RollFX") -- server -> everyone: show roll effects
 local RevealRemote = getRemote("RemoteEvent", "Reveal") -- roller -> server: "my reveal animation finished"
 local RebirthRemote = getRemote("RemoteFunction", "Rebirth") -- player asks to rebirth
+local HatchRemote = getRemote("RemoteFunction", "HatchEgg") -- player hatches an egg
+local PetRemote = getRemote("RemoteFunction", "PetAction") -- equip / unequip pets
 
 ---------------------------------------------------------------------
 -- Data saving
@@ -77,6 +80,11 @@ local function newData()
 		Rebirths = 0,
 		RebirthRolls = 0, -- rolls since your last rebirth
 		RebirthBest = 0, -- rarest aura (chance) rolled since your last rebirth
+		Pets = {}, -- [petName] = how many you own
+		EquippedPets = {}, -- list of pet names (max PetData.MaxEquipped)
+		BoostRolls = 0, -- Cosmic Rolls waiting (x50 luck on the next roll)
+		PermanentLuck = 1, -- from the Limited Offer
+		LimitedBought = "", -- which Limited Offer pack this player bought
 		Receipts = {}, -- recent purchase IDs, so nothing is granted twice
 	}
 end
@@ -177,6 +185,8 @@ local function snapshot(data)
 		Inventory = data.Inventory,
 		Equipped = data.Equipped,
 		BestChance = data.BestChance,
+		Pets = data.Pets,
+		EquippedPets = data.EquippedPets,
 	}
 end
 
@@ -204,6 +214,11 @@ local function refreshStats(player)
 	player:SetAttribute("Rebirths", data.Rebirths or 0)
 	player:SetAttribute("RebirthRolls", data.RebirthRolls or 0)
 	player:SetAttribute("RebirthBest", data.RebirthBest or 0)
+	player:SetAttribute("PetLuck", PetData.LuckFrom(data.EquippedPets))
+	player:SetAttribute("EquippedPets", table.concat(data.EquippedPets or {}, ","))
+	player:SetAttribute("BoostRolls", data.BoostRolls or 0)
+	player:SetAttribute("PermanentLuck", data.PermanentLuck or 1)
+	player:SetAttribute("LimitedBought", data.LimitedBought or "")
 	-- perks that unlock passes
 	for key in pairs(Config.GamePasses) do
 		if rebirthGrants(player, key) and not player:GetAttribute("Pass_" .. key) then
@@ -238,6 +253,11 @@ RollRemote.OnServerInvoke = function(player)
 	local rollNumber = data.Rolls + 1
 	local lucky = rollNumber % Luck.LuckyEvery(player) == 0
 	local luck = Luck.Get(player) * (lucky and Config.LuckyRollMultiplier or 1)
+	-- a Cosmic Roll (from the Cosmic Drop) is used up by this roll
+	local boosted = (data.BoostRolls or 0) > 0
+	if boosted then
+		data.BoostRolls -= 1
+	end
 	local count = hasPass(player, "MultiRoll") and Config.MultiRollCount or 1
 
 	local results = {}
@@ -284,6 +304,7 @@ RollRemote.OnServerInvoke = function(player)
 		Results = results,
 		Rolls = data.Rolls,
 		Lucky = lucky,
+		Boosted = boosted,
 		Luck = luck,
 		IsNewBest = isNewBest,
 		IsFirstTime = data.Inventory[best.Name] == 1,
@@ -364,6 +385,197 @@ RebirthRemote.OnServerInvoke = function(player)
 	return { Rebirths = data.Rebirths, Unlocked = unlocked }
 end
 
+
+---------------------------------------------------------------------
+-- PETS: hatch eggs by paying with auras, equip up to 3 for luck
+---------------------------------------------------------------------
+local hatchBusy = {}
+
+-- the egg stand the player is hatching from must be close by
+local function nearEgg(player, eggKey)
+	local character = player.Character
+	local root = character and character:FindFirstChild("HumanoidRootPart")
+	local hatcheries = workspace:FindFirstChild("PetHatcheries")
+	if not root or not hatcheries then
+		return false
+	end
+	for _, item in ipairs(hatcheries:GetDescendants()) do
+		if item:IsA("BasePart") and item:GetAttribute("EggKey") == eggKey then
+			if (item.Position - root.Position).Magnitude < 24 then
+				return true
+			end
+		end
+	end
+	return false
+end
+
+local function islandRebirths(islandKey)
+	for _, info in ipairs(Config.RebirthIslands) do
+		if info.Key == islandKey then
+			return info.Rebirths
+		end
+	end
+	return 0
+end
+
+local function removeAura(player, data, auraName, count)
+	data.Inventory[auraName] = (data.Inventory[auraName] or 0) - count
+	if data.Inventory[auraName] <= 0 then
+		data.Inventory[auraName] = nil
+		if data.Equipped == auraName then
+			data.Equipped = "" -- you just spent your last one
+			applyAuraToCharacter(player)
+		end
+	end
+end
+
+local function givePet(data, petName)
+	data.Pets = data.Pets or {}
+	data.Pets[petName] = (data.Pets[petName] or 0) + 1
+end
+
+HatchRemote.OnServerInvoke = function(player, eggKey)
+	local data = sessions[player]
+	local egg = type(eggKey) == "string" and PetData.EggByKey[eggKey]
+	if not data or not egg then
+		return { Error = "Unknown" }
+	end
+	if hatchBusy[player] then
+		return { Error = "Busy" }
+	end
+	if (data.Rebirths or 0) < islandRebirths(egg.Island) then
+		return { Error = "Locked" }
+	end
+	if not nearEgg(player, eggKey) then
+		return { Error = "TooFar" }
+	end
+	local have = data.Inventory[egg.Cost.Aura] or 0
+	if have < egg.Cost.Count then
+		return { Error = "NotEnough", Have = have }
+	end
+	hatchBusy[player] = true
+	removeAura(player, data, egg.Cost.Aura, egg.Cost.Count)
+	local petName = PetData.Hatch(egg, rng)
+	givePet(data, petName)
+	-- auto-equip if there's a free slot
+	data.EquippedPets = data.EquippedPets or {}
+	if #data.EquippedPets < PetData.MaxEquipped then
+		table.insert(data.EquippedPets, petName)
+	end
+	refreshStats(player)
+	DataUpdatedRemote:FireClient(player, snapshot(data))
+	local pet = PetData.Get(petName)
+	if pet and PetData.Rarities[pet.Rarity].Order >= 5 then
+		AnnounceRemote:FireAllClients({ Type = "Pet", PlayerName = player.DisplayName, UserId = player.UserId, Pet = petName })
+	end
+	task.delay(0.5, function()
+		hatchBusy[player] = nil
+	end)
+	return { Pet = petName, Pets = data.Pets, EquippedPets = data.EquippedPets }
+end
+
+local function ownedCount(data, petName)
+	return (data.Pets or {})[petName] or 0
+end
+
+local function equippedCount(data, petName)
+	local n = 0
+	for _, name in ipairs(data.EquippedPets) do
+		if name == petName then
+			n += 1
+		end
+	end
+	return n
+end
+
+PetRemote.OnServerInvoke = function(player, action, petName)
+	local data = sessions[player]
+	if not data or type(action) ~= "string" then
+		return nil
+	end
+	data.EquippedPets = data.EquippedPets or {}
+	if action == "Equip" and type(petName) == "string" and PetData.Get(petName) then
+		if #data.EquippedPets < PetData.MaxEquipped and equippedCount(data, petName) < ownedCount(data, petName) then
+			table.insert(data.EquippedPets, petName)
+		end
+	elseif action == "Unequip" and type(petName) == "string" then
+		local index = table.find(data.EquippedPets, petName)
+		if index then
+			table.remove(data.EquippedPets, index)
+		end
+	elseif action == "EquipBest" then
+		-- the luckiest pets you own
+		local owned = {}
+		for name, count in pairs(data.Pets or {}) do
+			if PetData.Get(name) then
+				for _ = 1, count do
+					table.insert(owned, name)
+				end
+			end
+		end
+		table.sort(owned, function(a, b)
+			return PetData.Get(a).Luck > PetData.Get(b).Luck
+		end)
+		data.EquippedPets = {}
+		for i = 1, math.min(PetData.MaxEquipped, #owned) do
+			table.insert(data.EquippedPets, owned[i])
+		end
+	elseif action == "UnequipAll" then
+		data.EquippedPets = {}
+	end
+	refreshStats(player)
+	return { Pets = data.Pets, EquippedPets = data.EquippedPets }
+end
+
+---------------------------------------------------------------------
+-- Cosmic Drop: the DropService tells us who grabbed the Cosmic Roll
+---------------------------------------------------------------------
+do
+	local events = ServerStorage:FindFirstChild("CosmicServerEvents")
+	if not events then
+		events = Instance.new("Folder")
+		events.Name = "CosmicServerEvents"
+		events.Parent = ServerStorage
+	end
+	local grant = events:FindFirstChild("GrantBoostRoll")
+	if not grant then
+		grant = Instance.new("BindableEvent")
+		grant.Name = "GrantBoostRoll"
+		grant.Parent = events
+	end
+	grant.Event:Connect(function(player, amount)
+		local data = sessions[player]
+		if data then
+			data.BoostRolls = (data.BoostRolls or 0) + (amount or 1)
+			refreshStats(player)
+		end
+	end)
+end
+
+---------------------------------------------------------------------
+-- LIMITED OFFER: when does the 7-day window end?
+---------------------------------------------------------------------
+task.spawn(function()
+	local offer = Config.LimitedOffer
+	local start = offer.StartTime
+	if not start or start <= 0 then
+		start = os.time()
+		if store and not RunService:IsStudio() then
+			-- the first live server ever remembers when the game launched
+			local ok, result = pcall(function()
+				local globalStore = DataStoreService:GetDataStore(Config.DataStoreName .. "_Global")
+				return globalStore:UpdateAsync("LimitedOfferStart", function(old)
+					return old or os.time()
+				end)
+			end)
+			if ok and type(result) == "number" then
+				start = result
+			end
+		end
+	end
+	ReplicatedStorage:SetAttribute("LimitedOfferEnds", start + offer.Days * 24 * 60 * 60)
+end)
+
 ---------------------------------------------------------------------
 -- Developer products (luck potions, server luck)
 ---------------------------------------------------------------------
@@ -389,6 +601,44 @@ local function grantProduct(player, data, key)
 			PlayerName = player.DisplayName,
 			UserId = player.UserId,
 		})
+		return true
+	elseif key == "LimitedAura" or key == "LimitedLuck" or key == "LimitedPet" then
+		local function addPotion(minutes)
+			local from = math.max(now, data.PersonalLuckEnd or 0)
+			data.PersonalLuckEnd = from + minutes * 60
+			player:SetAttribute("PersonalLuckEnd", data.PersonalLuckEnd)
+		end
+		if key == "LimitedAura" then
+			for _, auraName in ipairs({ "Cosmic Rift", "Black Hole" }) do
+				data.Inventory[auraName] = (data.Inventory[auraName] or 0) + 1
+				local aura = AuraData.Get(auraName)
+				if aura and aura.Chance > data.BestChance then
+					data.BestChance = aura.Chance
+				end
+			end
+			data.Equipped = "Cosmic Rift"
+			applyAuraToCharacter(player)
+			addPotion(120)
+		elseif key == "LimitedLuck" then
+			data.PermanentLuck = math.max(data.PermanentLuck or 1, 2)
+			data.BoostRolls = (data.BoostRolls or 0) + 5
+			addPotion(60)
+		else
+			givePet(data, "Cosmic Overlord")
+			givePet(data, "Void Wisp")
+			data.EquippedPets = data.EquippedPets or {}
+			-- the new pets go straight into your best slots
+			table.insert(data.EquippedPets, 1, "Void Wisp")
+			table.insert(data.EquippedPets, 1, "Cosmic Overlord")
+			while #data.EquippedPets > PetData.MaxEquipped do
+				table.remove(data.EquippedPets)
+			end
+			data.BoostRolls = (data.BoostRolls or 0) + 3
+		end
+		data.LimitedBought = key
+		refreshStats(player)
+		DataUpdatedRemote:FireClient(player, snapshot(data))
+		AnnounceRemote:FireAllClients({ Type = "Limited", PlayerName = player.DisplayName, UserId = player.UserId, Pack = key })
 		return true
 	end
 	return false
@@ -516,6 +766,7 @@ Players.PlayerRemoving:Connect(function(player)
 	lastRollTime[player] = nil
 	pendingReveal[player] = nil
 	rebirthBusy[player] = nil
+	hatchBusy[player] = nil
 end)
 
 game:BindToClose(function()

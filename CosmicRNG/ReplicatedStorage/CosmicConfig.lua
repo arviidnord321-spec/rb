@@ -37,10 +37,52 @@ Config.PassInfo = {
 Config.Products = {
 	PersonalLuck = 0, -- x2 luck for you
 	ServerLuck = 0, -- x2 luck for everyone in the server
+	-- LIMITED OFFER packs (set the price to 399 Robux or more on the dashboard)
+	LimitedAura = 0,
+	LimitedLuck = 0,
+	LimitedPet = 0,
 }
 Config.ProductInfo = {
 	{ Key = "PersonalLuck", Icon = "🧪", Name = "Luck Potion", Description = "x2 luck for 10 minutes. Stacks time if you buy more." },
 	{ Key = "ServerLuck", Icon = "🌌", Name = "Server Luck", Description = "x2 luck for EVERYONE in the server for 15 minutes." },
+}
+
+---------------------------------------------------------------------
+-- LIMITED OFFER: on sale for the first 7 days after the game goes live.
+-- The 7 days start automatically the first time a live server starts
+-- (saved in a DataStore). Each player can buy ONE pack.
+-- To pick the start yourself, set StartTime to a Unix time (e.g. from
+-- https://www.unixtimestamp.com), or leave it 0 for automatic.
+---------------------------------------------------------------------
+Config.LimitedOffer = {
+	Days = 7,
+	StartTime = 0,
+	PriceText = "399", -- shown on the button (the real price is set on the dashboard)
+	Packs = {
+		{
+			Key = "LimitedAura", Icon = "🌌", Name = "Legend Aura Pack", Color = Color3.fromRGB(255, 80, 140),
+			Gives = { "Cosmic Rift aura (1 in 500,000)", "Black Hole aura (1 in 100,000)", "x2 luck potion for 2 hours" },
+		},
+		{
+			Key = "LimitedLuck", Icon = "🍀", Name = "Infinite Luck Pack", Color = Color3.fromRGB(120, 255, 170),
+			Gives = { "x2 luck FOREVER", "5 Cosmic Rolls (x50 luck each)", "x2 luck potion for 1 hour" },
+		},
+		{
+			Key = "LimitedPet", Icon = "🐉", Name = "Overlord Pet Pack", Color = Color3.fromRGB(255, 200, 70),
+			Gives = { "Cosmic Overlord pet (+300% luck, only here)", "Void Wisp pet (+100% luck)", "3 Cosmic Rolls (x50 luck each)" },
+		},
+	},
+}
+
+---------------------------------------------------------------------
+-- COSMIC DROP: every few minutes a Cosmic Roll appears somewhere on the
+-- main island or Lucky Isle. The first player to grab it gets a huge luck
+-- boost on their next roll (one use).
+---------------------------------------------------------------------
+Config.Drop = {
+	IntervalMinutes = 15,
+	BoostMultiplier = 50,
+	LuckyIsleChance = 0.3, -- chance it lands on Lucky Isle instead of the main island
 }
 
 ---------------------------------------------------------------------
@@ -86,16 +128,18 @@ Config.LeaderboardRefresh = 90 -- seconds
 Config.RemoveDefaultBaseplate = true -- deletes the part named "Baseplate"
 
 -- Where things are on the main island (every script uses these)
+Config.MainIslandRadius = 115
 Config.Places = {
-	Core = Vector3.new(0, 0, -34), -- Cosmic Core altar
-	PortalPlaza = Vector3.new(34, 0, 30), -- portal to Lucky Isle
-	Board = Vector3.new(-34, 0, 12), -- Top Rollers board
-	Pond = Vector3.new(-30, 0, -26), -- cosmic pool
-	StarstepStart = Vector3.new(-60, 0, -4), -- easy parkour
-	VoidTowerStart = Vector3.new(44, 0, -46), -- hard parkour
-	DuelIsland = Vector3.new(0, 0, 140), -- center of the duel island
+	Core = Vector3.new(0, 0, -52), -- Cosmic Core altar
+	PortalPlaza = Vector3.new(54, 0, 46), -- portal to Lucky Isle
+	Board = Vector3.new(-52, 0, 18), -- Top Rollers board
+	Pond = Vector3.new(-46, 0, -42), -- cosmic pool
+	StarstepStart = Vector3.new(-104, 0, -6), -- medium parkour
+	VoidTowerStart = Vector3.new(72, 0, -80), -- hard parkour
+	DuelIsland = Vector3.new(0, 0, 215), -- center of the duel island
 	DuelIslandRadius = 46,
-	RebirthGate = Vector3.new(-40, 0, 34), -- 3 portals to the rebirth islands
+	RebirthGate = Vector3.new(-62, 0, 54), -- 3 portals to the rebirth islands
+	Hatchery = Vector3.new(62, 0, -18), -- the pet eggs of the main island
 }
 
 -- Lucky Isle: the island you reach through the portal
@@ -138,17 +182,20 @@ Config.Rebirth = {
 Config.RebirthIslands = {
 	{
 		Key = "Frostfall", Name = "Frostfall Isle", Icon = "❄️", Rebirths = 1,
-		Center = Vector3.new(-1000, 30, 0), Radius = 70, LuckMultiplier = 2.5,
+		Center = Vector3.new(-1000, 30, 0), Radius = 100, LuckMultiplier = 2.5,
+		Hatchery = Vector3.new(50, 0, 36), -- where the eggs stand (from the island center)
 		Color = Color3.fromRGB(140, 220, 255),
 	},
 	{
 		Key = "Ember", Name = "Ember Isle", Icon = "🔥", Rebirths = 2,
-		Center = Vector3.new(1000, 30, 0), Radius = 70, LuckMultiplier = 3,
+		Center = Vector3.new(1000, 30, 0), Radius = 100, LuckMultiplier = 3,
+		Hatchery = Vector3.new(46, 0, -34),
 		Color = Color3.fromRGB(255, 120, 40),
 	},
 	{
 		Key = "Nexus", Name = "Neon Nexus", Icon = "💠", Rebirths = 3,
-		Center = Vector3.new(0, 30, -1000), Radius = 70, LuckMultiplier = 4,
+		Center = Vector3.new(0, 30, -1000), Radius = 100, LuckMultiplier = 4,
+		Hatchery = Vector3.new(56, 0, -40),
 		Color = Color3.fromRGB(255, 70, 220),
 	},
 }

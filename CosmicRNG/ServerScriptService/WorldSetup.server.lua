@@ -9,7 +9,7 @@ local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
 
 local rand = Random.new(42) -- fixed seed = same island every time
 
-local ISLAND_RADIUS = 70
+local ISLAND_RADIUS = Config.MainIslandRadius
 local SPAWN_POSITION = Vector3.new(0, 3, 0)
 
 -- Where the bigger builds go (rocks/crystals keep out of these spots)
@@ -27,6 +27,7 @@ local RESERVED = {
 	{ P.StarstepStart, 8 },
 	{ P.VoidTowerStart, 8 },
 	{ P.RebirthGate, 14 },
+	{ P.Hatchery, 20 },
 }
 
 local function isReserved(position, margin)
@@ -156,11 +157,11 @@ disc("EdgeGlow", ISLAND_RADIUS + 0.6, 0.6, -0.2, Color3.fromRGB(140, 100, 255), 
 
 -- Stepped underside so it looks like a floating chunk of rock
 local layers = {
-	{ r = ISLAND_RADIUS - 6, y = -4, t = 6 },
-	{ r = ISLAND_RADIUS - 18, y = -10, t = 7 },
-	{ r = ISLAND_RADIUS - 32, y = -17, t = 8 },
-	{ r = ISLAND_RADIUS - 46, y = -25, t = 9 },
-	{ r = ISLAND_RADIUS - 58, y = -34, t = 10 },
+	{ r = ISLAND_RADIUS * 0.92, y = -4, t = 6 },
+	{ r = ISLAND_RADIUS * 0.76, y = -11, t = 8 },
+	{ r = ISLAND_RADIUS * 0.58, y = -20, t = 9 },
+	{ r = ISLAND_RADIUS * 0.4, y = -30, t = 10 },
+	{ r = ISLAND_RADIUS * 0.22, y = -42, t = 12 },
 }
 for i, layer in ipairs(layers) do
 	disc("Underside" .. i, layer.r, layer.t, layer.y, (i % 2 == 0) and ROCK_DARK or ROCK, Enum.Material.Slate,
@@ -168,9 +169,9 @@ for i, layer in ipairs(layers) do
 end
 
 -- Glowing veins running down the underside
-for i = 1, 10 do
-	local angle = (i / 10) * math.pi * 2 + rand:NextNumber(-0.2, 0.2)
-	local r = ISLAND_RADIUS - 20 - rand:NextNumber(0, 15)
+for i = 1, 16 do
+	local angle = (i / 16) * math.pi * 2 + rand:NextNumber(-0.2, 0.2)
+	local r = ISLAND_RADIUS * 0.6 - rand:NextNumber(0, 20)
 	part({
 		Name = "Vein",
 		Size = Vector3.new(0.6, rand:NextNumber(10, 22), 0.6),
@@ -257,8 +258,8 @@ local function crystalCluster(position, mainColor)
 	end
 end
 
-for i = 1, 12 do
-	local angle = (i / 12) * math.pi * 2 + rand:NextNumber(-0.15, 0.15)
+for i = 1, 20 do
+	local angle = (i / 20) * math.pi * 2 + rand:NextNumber(-0.15, 0.15)
 	local r = ISLAND_RADIUS - rand:NextNumber(6, 14)
 	local position = Vector3.new(math.cos(angle) * r, 0, math.sin(angle) * r)
 	if not isReserved(position, 3) then
@@ -267,7 +268,7 @@ for i = 1, 12 do
 end
 
 -- Small rocks scattered on the ground
-for _ = 1, 30 do
+for _ = 1, 70 do
 	local angle = rand:NextNumber(0, math.pi * 2)
 	local r = rand:NextNumber(14, ISLAND_RADIUS - 4)
 	local size = rand:NextNumber(1, 3)
@@ -363,7 +364,7 @@ local function rescue(character, player)
 		for _, info in ipairs(Config.RebirthIslands) do
 			local offset = Vector3.new(root.Position.X - info.Center.X, 0, root.Position.Z - info.Center.Z)
 			if offset.Magnitude < info.Radius * 3 then
-				character:PivotTo(CFrame.lookAt(info.Center + Vector3.new(0, 4, -44), info.Center + Vector3.new(0, 4, 0)))
+				character:PivotTo(CFrame.lookAt(info.Center + Vector3.new(0, 4, -(info.Radius - 26)), info.Center + Vector3.new(0, 4, 0)))
 				return
 			end
 		end
@@ -536,9 +537,12 @@ ringModel("CoreRing3", ORB_POSITION, 8, 38, 0.3, Color3.fromRGB(255, 110, 210), 
 ---------------------------------------------------------------------
 -- LANTERNS around the plaza (the gems spin, see WorldFX)
 ---------------------------------------------------------------------
-for i = 1, 10 do
-	local a = (i / 10) * math.pi * 2 + 0.3
-	local position = Vector3.new(math.cos(a) * 24, 0, math.sin(a) * 24)
+for i = 1, 26 do
+	-- an inner ring of 10 lanterns and an outer ring of 16
+	local inner = i <= 10
+	local a = inner and ((i / 10) * math.pi * 2 + 0.3) or (((i - 10) / 16) * math.pi * 2 + 0.1)
+	local radius = inner and 24 or 76
+	local position = Vector3.new(math.cos(a) * radius, 0, math.sin(a) * radius)
 	if not isReserved(position, 1) then
 		part({
 			Name = "LanternPost",
@@ -562,9 +566,9 @@ end
 ---------------------------------------------------------------------
 -- FLOATING CRYSTALS drifting above the island (bob + spin in WorldFX)
 ---------------------------------------------------------------------
-for i = 1, 12 do
-	local a = (i / 12) * math.pi * 2 + rand:NextNumber(-0.2, 0.2)
-	local r = rand:NextNumber(30, 55)
+for i = 1, 22 do
+	local a = (i / 22) * math.pi * 2 + rand:NextNumber(-0.2, 0.2)
+	local r = rand:NextNumber(30, 95)
 	local height = rand:NextNumber(10, 20)
 	local size = rand:NextNumber(1.6, 3)
 	local floatPosition = Vector3.new(math.cos(a) * r, 0, math.sin(a) * r)
@@ -804,7 +808,8 @@ path(toward(PLAZA_POSITION, -PATH_START + PLAZA_POSITION.Magnitude), toward(PLAZ
 path(toward(BOARD_POSITION, -PATH_START + BOARD_POSITION.Magnitude), toward(BOARD_POSITION, 4), 3.4)
 path(toward(P.StarstepStart, -PATH_START + P.StarstepStart.Magnitude), toward(P.StarstepStart, 4), 3.4)
 path(toward(P.VoidTowerStart, -PATH_START + P.VoidTowerStart.Magnitude), toward(P.VoidTowerStart, 4), 3.4)
-path(Vector3.new(0, 0, PATH_START), Vector3.new(0, 0, 66), 5) -- to the Duel Island bridge
+path(Vector3.new(0, 0, PATH_START), Vector3.new(0, 0, ISLAND_RADIUS - 4), 5) -- to the Duel Island bridge
+path(toward(P.Hatchery, -PATH_START + P.Hatchery.Magnitude), toward(P.Hatchery, 18), 4)
 path(toward(P.Pond, -PATH_START + P.Pond.Magnitude), toward(P.Pond, 9), 3)
 path(toward(P.RebirthGate, -PATH_START + P.RebirthGate.Magnitude), toward(P.RebirthGate, 12.5), 4)
 
@@ -826,10 +831,11 @@ local signTargets = {
 	{ "🏃 STARSTEP OBBY", P.StarstepStart, Color3.fromRGB(110, 230, 150) },
 	{ "🗼 VOID TOWER", P.VoidTowerStart, Color3.fromRGB(120, 200, 255) },
 	{ "🏆 TOP ROLLERS", BOARD_POSITION, Color3.fromRGB(255, 220, 120) },
+	{ "🥚 PET EGGS", P.Hatchery, Color3.fromRGB(255, 170, 120) },
 	{ "⭐ REBIRTH GATE", P.RebirthGate, Color3.fromRGB(140, 220, 255) },
 }
 for i, target in ipairs(signTargets) do
-	local height = 9.4 - i * 1.05
+	local height = 9.6 - i * 0.98
 	local postTop = SIGN_POST + Vector3.new(0, height, 0)
 	local dest = Vector3.new(target[2].X, height, target[2].Z)
 	local look = CFrame.lookAt(postTop, dest)
@@ -912,8 +918,8 @@ local function shroomCluster(position, color3)
 	end
 end
 local placedShrooms = 0
-for _ = 1, 60 do
-	if placedShrooms >= 16 then
+for _ = 1, 140 do
+	if placedShrooms >= 34 then
 		break
 	end
 	local a = rand:NextNumber(0, math.pi * 2)
@@ -980,7 +986,7 @@ local function ruins(center)
 	relic.Name = "SpinGem" -- WorldFX spins these
 	addLight(relic, relic.Color, 14, 1.2)
 end
-for _, spot in ipairs({ Vector3.new(-50, 0, -40), Vector3.new(54, 0, 4), Vector3.new(-22, 0, 50) }) do
+for _, spot in ipairs({ Vector3.new(-80, 0, -62), Vector3.new(88, 0, 22), Vector3.new(-30, 0, 82), Vector3.new(30, 0, -92) }) do
 	if not isReserved(spot, -4) then
 		ruins(spot)
 	end
@@ -1041,7 +1047,7 @@ part({
 local bridge = Instance.new("Model")
 bridge.Name = "DuelBridge"
 bridge.Parent = island
-local BRIDGE_START, BRIDGE_END = 64, P.DuelIsland.Z - P.DuelIslandRadius + 4
+local BRIDGE_START, BRIDGE_END = ISLAND_RADIUS - 6, P.DuelIsland.Z - P.DuelIslandRadius + 4
 local bridgeLength = BRIDGE_END - BRIDGE_START
 local bridgeMid = (BRIDGE_START + BRIDGE_END) / 2
 part({

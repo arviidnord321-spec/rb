@@ -14,6 +14,7 @@ local Config = require(ReplicatedStorage:WaitForChild("CosmicConfig"))
 local AuraData = require(ReplicatedStorage:WaitForChild("AuraData"))
 local Luck = require(ReplicatedStorage:WaitForChild("Luck"))
 local Rebirth = require(ReplicatedStorage:WaitForChild("Rebirth"))
+local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
 local SoundFX = require(ReplicatedStorage:WaitForChild("SoundFX"))
 local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
 
@@ -499,7 +500,7 @@ end
 ---------------------------------------------------------------------
 -- LUCK LINE + STATS
 ---------------------------------------------------------------------
-local BONUS_ICONS = { ["2x Luck"] = "🍀", VIP = "👑", Potion = "🧪", Server = "🌌", Event = "☄️", ["Lucky Isle"] = "🏝", Parkour = "🏃", Rebirth = "⭐" }
+local BONUS_ICONS = { ["2x Luck"] = "🍀", VIP = "👑", Potion = "🧪", Server = "🌌", Event = "☄️", ["Lucky Isle"] = "🏝", Parkour = "🏃", Rebirth = "⭐", Pets = "🐾", Forever = "♾", ["Cosmic Roll"] = "🎲" }
 
 local function updateInfo()
 	local total = Luck.Get(player)
@@ -707,7 +708,10 @@ local function playRollAnimation(result, fast)
 	popScale.Scale = 0.6
 	tween(popScale, 0.2, { Scale = 1 }, Enum.EasingStyle.Back)
 
-	if result.Lucky then
+	if result.Boosted then
+		UIKit.toast(("🎲 COSMIC ROLL! x%d luck on this roll!"):format(Config.Drop.BoostMultiplier), THEME.Gold)
+		SoundFX.Chime(1, 5)
+	elseif result.Lucky then
 		UIKit.toast("✨ LUCKY ROLL! x" .. Luck.Format(Config.LuckyRollMultiplier) .. " luck", THEME.Gold)
 	end
 
@@ -1211,6 +1215,28 @@ AnnounceRemote.OnClientEvent:Connect(function(info)
 			info.Winner, info.Loser, aura and (" with <font color='#" .. tierOf(aura).Color:ToHex() .. "'>" .. aura.Name .. "</font>") or ""),
 			Color3.fromRGB(255, 90, 100), aura and AuraData.GetImage(aura.Name) or nil)
 		SoundFX.Play("Pop", { Volume = 0.7 })
+		return
+	end
+	if info.Type == "DropSpawned" then
+		showBanner(("🎲 A <font color='#ffd76a'><b>COSMIC ROLL</b></font> landed on %s! First to grab it gets x%d luck!"):format(
+			tostring(info.Where or "the island"), Config.Drop.BoostMultiplier), THEME.Gold)
+		return
+	end
+	if info.Type == "DropGrabbed" then
+		showBanner(("🎲 <b>%s</b> grabbed the <font color='#ffd76a'><b>COSMIC ROLL</b></font>!"):format(info.PlayerName), THEME.Gold)
+		return
+	end
+	if info.Type == "Pet" then
+		local pet = PetData.Get(info.Pet or "")
+		if pet then
+			local color = PetData.Rarities[pet.Rarity].Color
+			showBanner(("🥚 <b>%s</b> hatched a <font color='#%s'><b>%s</b></font> pet (%s)!"):format(
+				info.PlayerName, color:ToHex(), pet.Name, pet.Rarity), color)
+		end
+		return
+	end
+	if info.Type == "Limited" then
+		showBanner(("🔥 <b>%s</b> grabbed the <font color='#ff8c5a'><b>LIMITED OFFER</b></font>!"):format(info.PlayerName), Color3.fromRGB(255, 140, 90))
 		return
 	end
 	if info.Type == "Rebirth" then

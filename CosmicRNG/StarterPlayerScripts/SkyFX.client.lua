@@ -5,7 +5,9 @@
 --   * every island has its own sky colors, and they blend smoothly
 --   * a secret roll can take over the sky for a few seconds (RollUI)
 --   * animates the sky scenery from SkyDecor: twinkling stars, turning
---     galaxies, bobbing islets, glowing suns and the swimming sky whale
+--     galaxies, bobbing islets and sky isles, glowing suns, and all the
+--     sky creatures (whales, mantas, jellyfish, fish, turtles, koi, stars,
+--     serpents), each with its own way of moving
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
@@ -173,8 +175,7 @@ if not decor then
 	return
 end
 
-local twinklers, spinners, bobbers, breathers = {}, {}, {}, {}
-local whale
+local twinklers, spinners, bobbers, breathers, creatures = {}, {}, {}, {}, {}
 for _, item in ipairs(decor:GetDescendants()) do
 	if item:IsA("BasePart") then
 		local twinkle = item:GetAttribute("FX_Twinkle")
@@ -186,8 +187,36 @@ for _, item in ipairs(decor:GetDescendants()) do
 			table.insert(breathers, { Part = item, Phase = breathe, Base = item.Size, BaseT = item.Transparency })
 		end
 	elseif item:IsA("Model") then
-		if item:GetAttribute("FX_Whale") then
-			whale = { Model = item, Radius = item:GetAttribute("OrbitRadius") or 190, Height = item:GetAttribute("OrbitHeight") or 105 }
+		if item:GetAttribute("FX_Creature") then
+			local entry = {
+				Model = item,
+				Motion = item:GetAttribute("Motion") or "Orbit",
+				Center = item:GetAttribute("Center") or Vector3.zero,
+				Radius = item:GetAttribute("Radius") or 0,
+				Height = item:GetAttribute("Height") or 0,
+				Speed = item:GetAttribute("Speed") or 0.05,
+				Phase = item:GetAttribute("Phase") or 0,
+				Bob = item:GetAttribute("Bob") or 4,
+				Spin = item:GetAttribute("Spin") or 0,
+			}
+			if entry.Motion == "Serpent" then
+				-- remember how every piece sits on its body segment
+				entry.Segments = {}
+				local count = item:GetAttribute("Segments") or 0
+				for i = 1, count do
+					entry.Segments[i] = { Part = item:FindFirstChild("Seg" .. i), Extras = {} }
+				end
+				for _, p in ipairs(item:GetChildren()) do
+					local index = p:GetAttribute("Segment")
+					if p:IsA("BasePart") and index and entry.Segments[index] and p ~= entry.Segments[index].Part then
+						table.insert(entry.Segments[index].Extras, { Part = p, Offset = entry.Segments[index].Part.CFrame:ToObjectSpace(p.CFrame) })
+					end
+				end
+				-- time gap between segments so they sit one body-length apart on the path
+				local spacing = item:GetAttribute("Spacing") or 4
+				entry.SegmentGap = spacing / math.max(math.abs(entry.Speed) * entry.Radius, 1)
+			end
+			table.insert(creatures, entry)
 		elseif item:GetAttribute("FX_SpinLocal") then
 			table.insert(spinners, { Model = item, Base = item:GetPivot(), Speed = item:GetAttribute("FX_SpinLocal") })
 		elseif item:GetAttribute("FX_Bob") then
@@ -200,6 +229,53 @@ for _, item in ipairs(decor:GetDescendants()) do
 			})
 		end
 	end
+end
+
+-- where a moving creature is at time t
+local function pathAt(c, t)
+	local a = c.Phase + t * c.Speed
+	if c.Motion == "Figure8" then
+		return c.Center + Vector3.new(math.sin(a) * c.Radius, c.Height + math.sin(t * 0.5 + c.Phase) * c.Bob, math.sin(a) * math.cos(a) * c.Radius * 1.2)
+	elseif c.Motion == "Wave" then
+		return c.Center + Vector3.new(math.cos(a) * c.Radius, c.Height + math.sin(a * 4) * c.Bob * 2.5, math.sin(a) * c.Radius)
+	elseif c.Motion == "Serpent" then
+		return c.Center + Vector3.new(math.cos(a) * c.Radius, c.Height + math.sin(a * 5) * 14 + math.sin(a * 2) * 10, math.sin(a) * (c.Radius * 0.75 + math.sin(a * 3) * 25))
+	end
+	return c.Center + Vector3.new(math.cos(a) * c.Radius, c.Height + math.sin(t * 0.4 + c.Phase) * c.Bob, math.sin(a) * c.Radius)
+end
+
+local function moveCreature(c, t)
+	if c.Motion == "Hover" then
+		local position = c.Center + Vector3.new(0, c.Height + math.sin(t * 0.7 + c.Phase) * c.Bob, 0)
+		c.Model:PivotTo(CFrame.new(position) * CFrame.Angles(math.sin(t * 0.5 + c.Phase) * 0.15, t * c.Spin + c.Phase, math.cos(t * 0.4 + c.Phase) * 0.15))
+		return
+	end
+	if c.Motion == "Serpent" then
+		local dt = c.SegmentGap or 0.3
+		for i, seg in ipairs(c.Segments) do
+			if seg.Part then
+				local here = pathAt(c, t - (i - 1) * dt)
+				local ahead = pathAt(c, t - (i - 1) * dt + 0.2)
+				local cf = CFrame.lookAt(here, ahead)
+				seg.Part.CFrame = cf
+				for _, extra in ipairs(seg.Extras) do
+					extra.Part.CFrame = cf * extra.Offset
+				end
+			end
+		end
+		return
+	end
+	local here = pathAt(c, t)
+	local ahead = pathAt(c, t + 0.5)
+	local cf = CFrame.lookAt(here, ahead)
+	-- lean into turns (and mantas sway their wings)
+	local bank = (c.Speed > 0 and -1 or 1) * 0.25
+	if c.Motion == "Wave" then
+		bank += math.sin(t * 1.6 + c.Phase) * 0.35
+	elseif c.Motion == "Figure8" then
+		bank = math.cos(c.Phase + t * c.Speed) * 0.4
+	end
+	c.Model:PivotTo(cf * CFrame.Angles(0, 0, bank))
 end
 
 local FAR = 1100 -- sky things are big, so animate them from further away
@@ -222,6 +298,13 @@ RunService.RenderStepped:Connect(function(dt)
 		b.Part.Transparency = math.clamp(b.BaseT + wave * 0.05, 0, 0.98)
 	end
 
+	-- creatures near you move every frame
+	for _, c in ipairs(creatures) do
+		if near(c.Center, 800) then
+			moveCreature(c, t)
+		end
+	end
+
 	-- slow things only need updating every other frame
 	if frame % 2 == 0 then
 		for _, s in ipairs(spinners) do
@@ -230,20 +313,9 @@ RunService.RenderStepped:Connect(function(dt)
 			end
 		end
 		for _, b in ipairs(bobbers) do
-			if near(b.Base.Position, 600) then
+			if near(b.Base.Position, 700) then
 				b.Model:PivotTo(b.Base * CFrame.new(0, math.sin(t * 0.5 + b.Phase) * b.Bob, 0) * CFrame.Angles(0, t * b.Spin, 0))
 			end
 		end
-	end
-
-	-- the sky whale glides around the main island, gently rising and falling
-	if whale and near(Vector3.new(0, whale.Height, 0), 900) then
-		local speed = (math.pi * 2) / 140
-		local angle = t * speed
-		local position = Vector3.new(math.cos(angle) * whale.Radius, whale.Height + math.sin(t * 0.35) * 10, math.sin(angle) * whale.Radius)
-		local ahead = Vector3.new(math.cos(angle + 0.05) * whale.Radius, whale.Height + math.sin((t + 0.4) * 0.35) * 10, math.sin(angle + 0.05) * whale.Radius)
-		local look = CFrame.lookAt(position, ahead)
-		-- leans into the turn and sways a little as it swims
-		whale.Model:PivotTo(look * CFrame.Angles(0, math.sin(t * 0.8) * 0.06, math.rad(-12) + math.sin(t * 0.6) * 0.05))
 	end
 end)

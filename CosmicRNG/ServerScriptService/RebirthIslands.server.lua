@@ -261,6 +261,7 @@ local function makeIsland(info, style)
 
 	local C = info.Center
 	local R = info.Radius
+	local D = R - 70 -- how much bigger than the original 70-stud island
 	local function at(x, y, z)
 		return C + Vector3.new(x, y, z)
 	end
@@ -273,11 +274,14 @@ local function makeIsland(info, style)
 		if flat.Magnitude < 13 + margin then
 			return false -- the core
 		end
-		if math.abs(x) < 10 + margin and z < -32 then
+		if math.abs(x) < 10 + margin and z < -12 then
 			return false -- portal + arrival path
 		end
-		if math.abs(x) < 10 + margin and z > 36 then
-			return false -- parkour start
+		if math.abs(x) < 10 + margin and z > 12 then
+			return false -- path to the parkour start
+		end
+		if info.Hatchery and (flat - Vector3.new(info.Hatchery.X, 0, info.Hatchery.Z)).Magnitude < 19 + margin then
+			return false -- pet eggs
 		end
 		for _, zone in ipairs(style.Reserved or {}) do
 			if (flat - zone[1]).Magnitude < zone[2] + margin then
@@ -314,8 +318,8 @@ local function makeIsland(info, style)
 	end
 
 	-- return portal (behind where you arrive)
-	local portalCF = CFrame.lookAt(at(0, 6, -56), at(0, 6, -80)) -- faces away from the island
-	disc("PortalStep", at(0, 0, -55), 8, 0.6, C.Y + 0.3, style.Accent2, style.TrimMaterial or Enum.Material.Slate)
+	local portalCF = CFrame.lookAt(at(0, 6, -56 - D), at(0, 6, -80 - D)) -- faces away from the island
+	disc("PortalStep", at(0, 0, -55 - D), 8, 0.6, C.Y + 0.3, style.Accent2, style.TrimMaterial or Enum.Material.Slate)
 	portalRing("ReturnPortalRing", portalCF, 4.6, 36, 0.7, style.Edge)
 	local outer = portalRing("ReturnPortalRingOuter", portalCF, 5.6, 40, 0.35, style.Accent)
 	fx(outer, { FX_Spin = Vector3.new(0, 0, 0.6) })
@@ -344,7 +348,7 @@ local function makeIsland(info, style)
 	local signPost = part({
 		Name = "WelcomeSign",
 		Size = Vector3.new(10, 4, 0.6),
-		CFrame = CFrame.lookAt(at(-11, 5, -40), at(-11, 5, -60)),
+		CFrame = CFrame.lookAt(at(-11, 5, -40 - D), at(-11, 5, -60 - D)),
 		Color = style.RockDark,
 		Material = style.RockMaterial,
 	})
@@ -381,7 +385,7 @@ local function makeIsland(info, style)
 		Free = free,
 		RandomSpot = randomSpot,
 		ReturnZone = zone,
-		Arrival = CFrame.lookAt(at(0, 4, -44), at(0, 4, 0)),
+		Arrival = CFrame.lookAt(at(0, 4, -44 - D), at(0, 4, 0)),
 	}
 end
 
@@ -433,7 +437,7 @@ end
 -- lantern posts along the arrival path
 local function pathLanterns(island, style)
 	for _, side in ipairs({ -1, 1 }) do
-		for _, z in ipairs({ -40, -28, -16 }) do
+		for z = -16, -(island.Radius - 30), -12 do
 			local p = island.At(side * 6.5, 0, z)
 			part({
 				Name = "LanternPost",
@@ -454,7 +458,7 @@ local function pathLanterns(island, style)
 		end
 	end
 	-- path tiles from the portal to the core
-	for z = -50, -12, 3 do
+	for z = -(island.Radius - 20), -12, 3 do
 		part({
 			Name = "PathTile",
 			Size = Vector3.new(5 + rand:NextNumber(-0.3, 0.3), 0.3, 2.8),
@@ -464,7 +468,7 @@ local function pathLanterns(island, style)
 		})
 	end
 	-- and from the core to the parkour start
-	for z = 13, 42, 3 do
+	for z = 13, island.Radius - 13, 3 do
 		part({
 			Name = "PathTile",
 			Size = Vector3.new(4.2 + rand:NextNumber(-0.3, 0.3), 0.3, 2.8),
@@ -663,8 +667,8 @@ do
 		addLight(star, ICE, 10, 0.8)
 	end
 	local pines = 0
-	for _ = 1, 80 do
-		if pines >= 18 then
+	for _ = 1, 160 do
+		if pines >= 32 then
 			break
 		end
 		local x, z = island.RandomSpot(18, info.Radius - 7, 3)
@@ -696,9 +700,11 @@ do
 	snowman(-14, -24, Vector3.new(0.5, 0, -1))
 	snowman(20, 22, Vector3.new(-1, 0, -0.3))
 	snowman(-44, 30, Vector3.new(1, 0, -0.5))
+	snowman(-62, -40, Vector3.new(1, 0, 0.4))
+	snowman(70, -10, Vector3.new(-1, 0, 0))
 
 	-- ice crystal spikes
-	for _ = 1, 9 do
+	for _ = 1, 15 do
 		local x, z = island.RandomSpot(20, info.Radius - 8, 2)
 		if x then
 			for k = 1, rand:NextInteger(3, 5) do
@@ -808,7 +814,7 @@ do
 	pathLanterns(island, style)
 
 	-- cracked lava patches in the ground
-	for _ = 1, 10 do
+	for _ = 1, 18 do
 		local x, z = island.RandomSpot(16, info.Radius - 8, 1)
 		if x then
 			disc("LavaCrack", at(x, 0, z), rand:NextNumber(2.5, 5), 0.2, C.Y + 0.1, Color3.fromRGB(200, 90, 40), Enum.Material.CrackedLava)
@@ -876,7 +882,7 @@ do
 	billboard(crater, "🌋 MOUNT EMBER", LAVA_HOT, Vector3.new(0, 12, 0), UDim2.fromOffset(300, 50))
 
 	-- lava pools with rock rims
-	for _ = 1, 3 do
+	for _ = 1, 5 do
 		local x, z = island.RandomSpot(22, info.Radius - 12, 5)
 		if x then
 			local p = at(x, 0, z)
@@ -889,7 +895,7 @@ do
 	end
 
 	-- geysers: vents that blast fire every few seconds (timed in IslandFX)
-	for g = 1, 4 do
+	for g = 1, 7 do
 		local x, z = island.RandomSpot(16, info.Radius - 9, 3)
 		if x then
 			local p = at(x, 0, z)
@@ -911,7 +917,7 @@ do
 	end
 
 	-- obsidian spikes
-	for _ = 1, 10 do
+	for _ = 1, 17 do
 		local x, z = island.RandomSpot(18, info.Radius - 7, 2)
 		if x then
 			for k = 1, rand:NextInteger(2, 4) do
@@ -922,7 +928,7 @@ do
 	end
 
 	-- burnt trees with glowing ember tips
-	for _ = 1, 9 do
+	for _ = 1, 15 do
 		local x, z = island.RandomSpot(18, info.Radius - 7, 3)
 		if x then
 			local base = at(x, 0, z)
@@ -990,7 +996,7 @@ do
 	local at = island.At
 
 	-- neon grid floor (lines clipped to the circle)
-	for i = -6, 6 do
+	for i = -9, 9 do
 		local d = i * 10
 		local half = math.sqrt(math.max(0, (info.Radius - 1) ^ 2 - d * d))
 		if half > 2 then
@@ -1022,7 +1028,7 @@ do
 	pathLanterns(island, style)
 
 	-- holo towers
-	local towerSpots = { { 30, -30 }, { 44, 8 }, { -44, -12 }, { -30, 30 }, { 22, 40 }, { -48, 16 } }
+	local towerSpots = { { 30, -30 }, { 44, 8 }, { -44, -12 }, { -30, 30 }, { 22, 40 }, { -48, 16 }, { -70, -45 }, { 75, 30 }, { -72, 50 }, { 40, 72 }, { -20, -70 } }
 	for i, spot in ipairs(towerSpots) do
 		local x, z = spot[1], spot[2]
 		if island.Free(x, z, 2) then
@@ -1052,7 +1058,7 @@ do
 	end
 
 	-- neon palm trees
-	for _ = 1, 8 do
+	for _ = 1, 15 do
 		local x, z = island.RandomSpot(16, info.Radius - 8, 3)
 		if x then
 			local base = at(x, 0, z)
@@ -1077,9 +1083,9 @@ do
 	end
 
 	-- floating cubes
-	for i = 1, 12 do
-		local a = (i / 12) * math.pi * 2
-		local r = rand:NextNumber(22, 55)
+	for i = 1, 20 do
+		local a = (i / 20) * math.pi * 2
+		local r = rand:NextNumber(22, 85)
 		local s = rand:NextNumber(1.5, 3)
 		local cube = decor({
 			Name = "FloatCube",

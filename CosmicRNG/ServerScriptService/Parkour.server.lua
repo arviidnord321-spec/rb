@@ -564,7 +564,7 @@ end
 -- start pad on the island edge + a little gateway behind it
 local function islandStart(course, model, info, color3)
 	local C = info.Center
-	local start = C + Vector3.new(0, 0, 62)
+	local start = C + Vector3.new(0, 0, info.Radius - 8)
 	startPad(course, model, start, color3)
 	course.OnGround = islandGround(info)
 	for _, side in ipairs({ -1, 1 }) do
@@ -955,7 +955,7 @@ end
 
 local function onMainIslandGround(position)
 	local flat = Vector3.new(position.X, 0, position.Z)
-	return flat.Magnitude < 64 and position.Y < 8 and position.Y > -2
+	return flat.Magnitude < Config.MainIslandRadius - 6 and position.Y < 8 and position.Y > -2
 end
 
 task.spawn(function()

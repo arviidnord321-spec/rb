@@ -29,4 +29,12 @@ return {
 	["Cosmic Rift"] = 0,
 	["Big Bang"] = 0,
 	["Void Sovereign"] = 0,
+	-- new auras (add pictures the same way)
+	["Stellar Phoenix"] = 0,
+	["Chronos"] = 0,
+	["Nebula Leviathan"] = 0,
+	["Astral Dragon"] = 0,
+	["Singularity"] = 0,
+	["Omniverse"] = 0,
+	["Genesis"] = 0,
 }

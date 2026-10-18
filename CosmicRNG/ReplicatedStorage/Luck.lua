@@ -62,6 +62,23 @@ function Luck.GetBonuses(player)
 		table.insert(bonuses, { Name = "Parkour", Multiplier = player:GetAttribute("ParkourLuckMultiplier") or 1.5, EndsAt = parkourEnd })
 	end
 
+	-- Equipped pets (the server works this out and sets it)
+	local petLuck = player:GetAttribute("PetLuck") or 1
+	if petLuck > 1 then
+		table.insert(bonuses, { Name = "Pets", Multiplier = petLuck, Show = true })
+	end
+
+	-- Permanent luck (Limited Offer)
+	local permanent = player:GetAttribute("PermanentLuck") or 1
+	if permanent > 1 then
+		table.insert(bonuses, { Name = "Forever", Multiplier = permanent })
+	end
+
+	-- Cosmic Roll from the Cosmic Drop: huge luck on the NEXT roll only
+	if (player:GetAttribute("BoostRolls") or 0) > 0 then
+		table.insert(bonuses, { Name = "Cosmic Roll", Multiplier = Config.Drop.BoostMultiplier, Show = true, NextRoll = true })
+	end
+
 	-- Reserved for events in a later part
 	local eventLuck = ReplicatedStorage:GetAttribute("EventLuck")
 	if eventLuck and eventLuck > 1 then

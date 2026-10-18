@@ -386,7 +386,7 @@ local function floatingName(root, aura)
 	Debris:AddItem(holder, 2.2)
 end
 
-local REVEAL_SOUNDS = { "Pop", "Pop", "RevealRare", "RevealEpic", "RevealLegendary", "RevealMythic", "RevealMythic" }
+local REVEAL_SOUNDS = { "Pop", "Pop", "RevealRare", "RevealEpic", "RevealLegendary", "RevealMythic", "RevealMythic", "RevealMythic", "RevealMythic" }
 
 local function revealFX(player, root, aura)
 	local order = AuraData.Tiers[aura.Tier].Order

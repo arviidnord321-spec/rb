@@ -30,11 +30,17 @@ local menu = new("Frame", {
 	Name = "SideMenu",
 	AnchorPoint = Vector2.new(0, 0.5),
 	Position = UDim2.new(0, 16, 0.5, 0),
-	Size = UDim2.fromOffset(84, 286), -- 3 buttons (the REBIRTH button is added by RebirthUI)
+	-- 2 columns: other scripts add DUEL, REBIRTH, PETS and LIMITED buttons here
+	Size = UDim2.fromOffset(178, 290),
 	BackgroundTransparency = 1,
 	Parent = gui,
 }, {
-	new("UIListLayout", { Padding = UDim.new(0, 12), SortOrder = Enum.SortOrder.LayoutOrder }),
+	new("UIGridLayout", {
+		CellSize = UDim2.fromOffset(84, 84),
+		CellPadding = UDim2.fromOffset(10, 10),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		VerticalAlignment = Enum.VerticalAlignment.Center,
+	}),
 })
 UIKit.addAutoScale(menu)
 
@@ -62,7 +68,7 @@ local function menuButton(order, icon, text, color)
 end
 
 local storeButton, storeIcon = menuButton(1, "🛒", "STORE", THEME.Gold)
-local soundButton, soundIcon, soundText = menuButton(3, "🔊", "SOUND", THEME.Accent2)
+local soundButton, soundIcon, soundText = menuButton(9, "🔊", "SOUND", THEME.Accent2)
 
 -- the store icon gently wiggles to draw attention
 task.spawn(function()
