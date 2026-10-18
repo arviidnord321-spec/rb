@@ -347,4 +347,17 @@ function UIKit.popIn(guiObject)
 	SoundFX.Play("Whoosh")
 end
 
+-- Waits until the join cutscene is over (or `timeout` seconds pass), so
+-- popups and the title card don't show up during it.
+function UIKit.waitForIntro(timeout)
+	local player = Players.LocalPlayer
+	if not player then
+		return
+	end
+	local deadline = os.clock() + (timeout or 25)
+	while not player:GetAttribute("IntroDone") and os.clock() < deadline do
+		task.wait(0.1)
+	end
+end
+
 return UIKit

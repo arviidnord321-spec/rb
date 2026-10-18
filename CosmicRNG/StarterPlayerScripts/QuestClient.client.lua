@@ -339,7 +339,9 @@ task.spawn(function()
 end)
 
 -- show the daily reward when you join (after the intro)
-task.delay(5, function()
+task.spawn(function()
+	UIKit.waitForIntro()
+	task.wait(4)
 	if state and state.Daily.CanClaim then
 		setOpen(true)
 	end

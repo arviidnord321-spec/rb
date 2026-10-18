@@ -1341,6 +1341,8 @@ updateStats()
 local function playIntro()
 	rollBar.Position = UDim2.new(0.5, 0, 1, 220)
 	statsPanel.Position = UDim2.new(0, -320, 0, 64)
+	-- the title card comes right after the join cutscene
+	UIKit.waitForIntro()
 
 	local holder = new("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.42), Size = UDim2.fromOffset(800, 200),

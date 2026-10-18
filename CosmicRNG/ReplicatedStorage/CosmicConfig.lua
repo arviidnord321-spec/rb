@@ -76,6 +76,17 @@ Config.LimitedOffer = {
 }
 
 ---------------------------------------------------------------------
+-- JOIN CUTSCENE: when you join, a beam comes down from the sky, YOU fall
+-- down it and land on one knee with a fist on the ground (the ground
+-- shakes). About 10 seconds; players can press SKIP.
+---------------------------------------------------------------------
+Config.IntroCutscene = {
+	Enabled = true,
+	FallHeight = 260, -- how high up you start falling (studs)
+	BeamColor = Color3.fromRGB(170, 130, 255),
+}
+
+---------------------------------------------------------------------
 -- COSMIC DROP: every few minutes a Cosmic Roll appears somewhere on the
 -- main island or Lucky Isle. The first player to grab it gets a huge luck
 -- boost on their next roll (one use).

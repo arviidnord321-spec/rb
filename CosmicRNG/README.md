@@ -15,6 +15,15 @@ game pass IDs in `CosmicConfig`).
 
 ## What's in the game
 
+### Join cutscene
+- When you join, the screen goes into movie mode for about 10 seconds:
+  1. A thin beam of light comes down from the sky and gets wider and wider.
+  2. **Your own avatar** falls down the beam, spinning, with a glowing comet trail. The camera flies next to you, then watches from the ground.
+  3. You smash into the ground in a **superhero landing**: one knee down, one fist on the ground, the other arm swept back. There's a white flash, shockwaves, glowing cracks, flying rocks and dust, and the camera shakes.
+  4. "✦ YOUR NAME HAS ARRIVED ✦" shows, you stand up, the camera swings behind you, and the title card and menus slide in.
+- Only the joining player sees it, and they can press **SKIP**. It plays once per join, not when you respawn.
+- Turn it off or change the fall height and beam color in `Config.IntroCutscene`.
+
 ### Rolling
 - Roll animation:
   - Names flick past on a glowing card that changes color with each one, with tick sounds rising in pitch.
@@ -339,7 +348,7 @@ All sounds are made from Roblox's built-in sound files, so they always work:
 |---|---|---|
 | ReplicatedStorage | ModuleScript | `CosmicConfig`, `AuraData`, `AuraImages`, `AuraEffects`, `CombatAnim`, `Luck`, `Rebirth`, `PetData`, `PetModels`, `QuestData`, `SoundFX`, `UIKit` |
 | ServerScriptService | Script | `RollService`, `WorldSetup`, `LuckyIsland`, `RebirthIslands`, `SkyDecor`, `WorldDetails`, `PetWorld`, `PetShapes`, `DropService`, `EventService`, `Parkour`, `DuelService`, `Movement`, `Leaderboard` |
-| StarterPlayer > StarterPlayerScripts | LocalScript | `AuraRenderer`, `RollUI`, `StoreUI`, `WorldFX`, `ParkourClient`, `DuelClient`, `DuelFX`, `Sprint`, `RebirthClient`, `IslandFX`, `SkyFX`, `PetClient`, `DropClient`, `LimitedOffer`, `NameplateStyler`, `QuestClient`, `VipIslandClient`, `TradeClient`, `EventClient`, `PerformanceTuner` |
+| StarterPlayer > StarterPlayerScripts | LocalScript | `AuraRenderer`, `RollUI`, `StoreUI`, `WorldFX`, `ParkourClient`, `DuelClient`, `DuelFX`, `Sprint`, `RebirthClient`, `IslandFX`, `SkyFX`, `PetClient`, `IntroCutscene`, `DropClient`, `LimitedOffer`, `NameplateStyler`, `QuestClient`, `VipIslandClient`, `TradeClient`, `EventClient`, `PerformanceTuner` |
 | ServerScriptService | ModuleScript | `TradeService` (started by RollService) |
 
 ## Adding the aura pictures

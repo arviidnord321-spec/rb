@@ -100,7 +100,7 @@ RunService.RenderStepped:Connect(function(dt)
 	for who, entry in pairs(followers) do
 		local character = who.Character
 		local root = character and character:FindFirstChild("HumanoidRootPart")
-		local hidden = not root or character:GetAttribute("InDuel")
+		local hidden = not root or character:GetAttribute("InDuel") or character:GetAttribute("InCutscene")
 			or (camera.CFrame.Position - root.Position).Magnitude > 250
 		local move, groundDrop = 0, 3
 		if not hidden then

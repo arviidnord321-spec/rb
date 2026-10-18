@@ -232,7 +232,8 @@ local function anyPanelOpen()
 	return false
 end
 task.spawn(function()
-	task.wait(9)
+	UIKit.waitForIntro()
+	task.wait(7)
 	for _ = 1, 120 do
 		if not available() then
 			return
