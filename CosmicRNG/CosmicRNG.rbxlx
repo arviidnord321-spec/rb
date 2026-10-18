@@ -17861,6 +17861,8 @@ local function run()
 		actorHumanoid.DisplayDistanceType = Enum.HumanoidDisplayDistanceType.None
 		actorHumanoid.HealthDisplayType = Enum.HumanoidHealthDisplayType.AlwaysOff
 		actorHumanoid.BreakJointsOnDeath = false
+		actorHumanoid.RequiresNeck = false -- we remove the joints below; don't "die" from that
+		actorHumanoid.EvaluateStateMachine = false -- no walking/falling logic, we move it ourselves
 		local animator = actorHumanoid:FindFirstChildOfClass("Animator")
 		if animator then
 			animator:Destroy() -- nothing may play over our poses
@@ -17871,29 +17873,113 @@ local function run()
 		actor:Destroy()
 		return
 	end
-	local motors, baseC0 = {}, {}
-	for joint, partName in pairs(JOINTS) do
-		local holder = actor:FindFirstChild(partName)
-		local motor = holder and holder:FindFirstChild(joint)
-		if motor and motor:IsA("Motor6D") then
-			motors[joint] = motor
-			baseC0[joint] = motor.C0
+	-- POSING: we place every body part ourselves (works for R15, R6 and
+	-- Roblox's newer joint types). First read the skeleton: which part
+	-- hangs off which, and where the joint sits in both parts...
+	local JOINT_ALIAS = {
+		RootJoint = "Root", ["Right Shoulder"] = "RightShoulder", ["Left Shoulder"] = "LeftShoulder",
+		["Right Hip"] = "RightHip", ["Left Hip"] = "LeftHip",
+	}
+	local bones = {}
+	local function addBone(name, parentPart, childPart, c0, c1)
+		if parentPart and childPart and parentPart:IsA("BasePart") and childPart:IsA("BasePart")
+			and parentPart:IsDescendantOf(actor) and childPart:IsDescendantOf(actor) and childPart ~= actorRoot then
+			table.insert(bones, { Name = JOINT_ALIAS[name] or name, Parent = parentPart, Child = childPart, C0 = c0, C1Inverse = c1:Inverse() })
 		end
 	end
-	local canPose = motors.Root ~= nil and motors.RightShoulder ~= nil
-	local function applyPose(pose)
-		if not canPose then
-			return
-		end
-		for joint, motor in pairs(motors) do
-			local v = pose[joint]
-			if v then
-				motor.C0 = baseC0[joint] * CFrame.new(v[4] * rigScale, v[5] * rigScale, v[6] * rigScale)
-					* CFrame.Angles(rad(v[1]), rad(v[2]), rad(v[3]))
-			else
-				motor.C0 = baseC0[joint]
+	for _, item in ipairs(actor:GetDescendants()) do
+		if item:IsA("Motor6D") then
+			addBone(item.Name, item.Part0, item.Part1, item.C0, item.C1)
+		elseif item:IsA("AnimationConstraint") then
+			local a0, a1 = item.Attachment0, item.Attachment1
+			if a0 and a1 then
+				addBone(item.Name, a0.Parent, a1.Parent, a0.CFrame, a1.CFrame)
 			end
 		end
+	end
+	-- ...then remove the joints (so nothing fights us) and pin the body parts
+	for _, item in ipairs(actor:GetDescendants()) do
+		if item:IsA("Motor6D") or item:IsA("AnimationConstraint") or item:IsA("BallSocketConstraint") or item:IsA("HingeConstraint") then
+			item:Destroy()
+		end
+	end
+	-- solve parents before children
+	local ordered, placed = {}, { [actorRoot] = true }
+	for _ = 1, #bones do
+		for _, bone in ipairs(bones) do
+			if not bone.Done and placed[bone.Parent] then
+				bone.Done = true
+				placed[bone.Child] = true
+				table.insert(ordered, bone)
+			end
+		end
+	end
+	local bodyParts = { actorRoot }
+	for _, bone in ipairs(ordered) do
+		bone.Child.Anchored = true
+		table.insert(bodyParts, bone.Child)
+	end
+	local hasWaist, hasElbows = false, false
+	for _, bone in ipairs(ordered) do
+		hasWaist = hasWaist or bone.Name == "Waist"
+		hasElbows = hasElbows or bone.Name == "RightElbow"
+	end
+
+	local currentPose = {}
+	local function applyPose(pose)
+		currentPose = pose
+	end
+	-- R6 bodies have no waist, elbows or knees: fold those bends into the
+	-- joints they do have
+	local function adapt(pose)
+		if hasWaist and hasElbows then
+			return pose
+		end
+		local out = table.clone(pose)
+		local function add(target, source, amount)
+			local t, src = out[target], pose[source]
+			if t and src then
+				out[target] = { t[1] + src[1] * amount, t[2] + src[2] * amount, t[3] + src[3] * amount, t[4], t[5], t[6] }
+			end
+		end
+		if not hasWaist then
+			add("Root", "Waist", 1)
+		end
+		if not hasElbows then
+			add("RightShoulder", "RightElbow", 0.4)
+			add("LeftShoulder", "LeftElbow", 0.4)
+			add("RightHip", "RightKnee", 0.5)
+			add("LeftHip", "LeftKnee", 0.5)
+		end
+		return out
+	end
+	local cframes = {}
+	local function placeActor(rootCF)
+		local pose = adapt(currentPose)
+		local world = { [actorRoot] = rootCF }
+		cframes[1] = rootCF
+		for index, bone in ipairs(ordered) do
+			local v = pose[bone.Name]
+			local c0 = bone.C0
+			if v then
+				-- rotate the child around the joint, in the parent's space
+				c0 = CFrame.new(c0.Position + Vector3.new(v[4], v[5], v[6]) * rigScale)
+					* CFrame.Angles(rad(v[1]), rad(v[2]), rad(v[3])) * c0.Rotation
+			end
+			local cf = world[bone.Parent] * c0 * bone.C1Inverse
+			world[bone.Child] = cf
+			cframes[index + 1] = cf
+		end
+		if actor:IsDescendantOf(workspace) then
+			workspace:BulkMoveTo(bodyParts, cframes, Enum.BulkMoveMode.FireCFrameChanged)
+		else
+			for index, bodyPart in ipairs(bodyParts) do
+				bodyPart.CFrame = cframes[index]
+			end
+		end
+	end
+	if #ordered == 0 then
+		warn("[IntroCutscene] couldn't read this avatar's joints; it won't be posed")
 	end
 	local fist = actor:FindFirstChild("RightHand") or actor:FindFirstChild("Right Arm") or actorRoot
 	local torso = actor:FindFirstChild("UpperTorso") or actor:FindFirstChild("Torso") or actorRoot
@@ -18504,7 +18590,7 @@ local function run()
 			actorCF = landCF
 			applyPose(blendPose(LAND_POSE, {}, smooth((t - T_STAND) / 0.8)))
 		end
-		actorRoot.CFrame = actorCF
+		placeActor(actorCF)
 		local actorPos = actorCF.Position
 
 		-- flying rocks
