@@ -614,6 +614,13 @@ endDuel = function(duel, winner, reason)
 		setBoard(duel.Arena, ("🏆 <font color='#ffd76a'>%s</font> WINS!"):format(winner.Name))
 		-- only player-vs-player wins count (and are announced)
 		local loser = winner.Opponent
+		-- quests count every win, bots included
+		if winner.Player then
+			local questEvent = serverEvents:FindFirstChild("QuestEvent")
+			if questEvent then
+				questEvent:Fire(winner.Player, "DuelWin", 1)
+			end
+		end
 		if winner.Player and loser.Kind == "Player" then
 			DuelWinEvent:Fire(winner.Player)
 			AnnounceRemote:FireAllClients({

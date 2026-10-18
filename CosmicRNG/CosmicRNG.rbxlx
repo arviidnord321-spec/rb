@@ -2171,6 +2171,130 @@ return PetData
     </Item>
     <Item class="ModuleScript" referent="8">
       <Properties>
+        <string name="Name">QuestData</string>
+        <string name="Source"><![CDATA[-- QuestData (ModuleScript in ReplicatedStorage)
+-- Daily login rewards + daily quests. Everything resets at midnight UTC.
+--   * DAILY REWARD: log in every day for a 7-day reward streak (miss a day
+--     and the streak starts over; after day 7 it loops back to day 1)
+--   * DAILY QUESTS: 3 new quests every day (everyone gets the same ones),
+--     each with its own reward, plus a bonus chest for finishing all 3
+--
+-- Reward fields (mix them as you like):
+--   Potion = minutes of x2 luck        BoostRolls = Cosmic Rolls (x50 next roll)
+--   Aura = "Name", Count = how many    (auras are used to buy pet eggs)
+
+local QuestData = {}
+
+QuestData.DailyRewards = {
+	{ Potion = 5 },
+	{ Aura = "Comet", Count = 3 },
+	{ BoostRolls = 1 },
+	{ Potion = 15 },
+	{ Aura = "Nebula", Count = 2 },
+	{ BoostRolls = 2 },
+	{ BoostRolls = 3, Potion = 30, Aura = "Solar Flare", Count = 1 }, -- the big one
+}
+
+-- Kinds of quests (what counts):
+--   Rolls      = rolls anywhere
+--   LuckyRolls = rolls while standing on Lucky Isle or a rebirth island
+--   Rarity     = roll an aura at least this rare (Threshold), Goal = how many
+--   Parkour    = finish any parkour course
+--   DuelWin    = win duels (players or bots)
+--   Hatch      = hatch eggs
+--   Merge      = merge pets
+QuestData.Pool = {
+	-- slot 1 is always a rolling quest
+	{ Id = "Roll150", Slot = 1, Kind = "Rolls", Goal = 150, Text = "Roll 150 times", Reward = { Potion = 10 } },
+	{ Id = "Roll400", Slot = 1, Kind = "Rolls", Goal = 400, Text = "Roll 400 times", Reward = { BoostRolls = 1, Potion = 5 } },
+	{ Id = "IslandRolls", Slot = 1, Kind = "LuckyRolls", Goal = 75, Text = "Roll 75 times on a luck island", Reward = { BoostRolls = 1 } },
+	-- slots 2 and 3: everything else
+	{ Id = "Rare500", Kind = "Rarity", Threshold = 500, Goal = 1, Text = "Roll a 1 in 500 aura or rarer", Reward = { Aura = "Comet", Count = 3 } },
+	{ Id = "Rare2500", Kind = "Rarity", Threshold = 2500, Goal = 1, Text = "Roll a 1 in 2,500 aura or rarer", Reward = { BoostRolls = 2 } },
+	{ Id = "Rare128x3", Kind = "Rarity", Threshold = 128, Goal = 3, Text = "Roll 3 auras of 1 in 128 or rarer", Reward = { Potion = 15 } },
+	{ Id = "Parkour1", Kind = "Parkour", Goal = 1, Text = "Finish a parkour course", Reward = { Potion = 10 } },
+	{ Id = "Parkour2", Kind = "Parkour", Goal = 2, Text = "Finish 2 parkour courses", Reward = { BoostRolls = 1, Aura = "Pulsar", Count = 1 } },
+	{ Id = "Duel2", Kind = "DuelWin", Goal = 2, Text = "Win 2 duels (players or bots)", Reward = { Aura = "Nebula", Count = 1 } },
+	{ Id = "Duel5", Kind = "DuelWin", Goal = 5, Text = "Win 5 duels (players or bots)", Reward = { BoostRolls = 2 } },
+	{ Id = "Hatch3", Kind = "Hatch", Goal = 3, Text = "Hatch 3 pet eggs", Reward = { Potion = 10, Aura = "Stardust", Count = 6 } },
+	{ Id = "Hatch8", Kind = "Hatch", Goal = 8, Text = "Hatch 8 pet eggs", Reward = { BoostRolls = 1, Aura = "Comet", Count = 2 } },
+	{ Id = "Merge1", Kind = "Merge", Goal = 1, Text = "Merge 3 pets into a Golden pet", Reward = { BoostRolls = 1 } },
+}
+QuestData.ById = {}
+for _, quest in ipairs(QuestData.Pool) do
+	QuestData.ById[quest.Id] = quest
+end
+
+-- finishing all 3 quests of the day
+QuestData.Bonus = { BoostRolls = 2, Potion = 15 }
+
+-- Today's number (changes at midnight UTC)
+function QuestData.Today(now)
+	return math.floor((now or os.time()) / 86400)
+end
+
+-- seconds until the next reset
+function QuestData.SecondsToReset(now)
+	now = now or os.time()
+	return 86400 - (now % 86400)
+end
+
+-- The 3 quests for a day: the same for everybody on that day
+function QuestData.QuestsFor(day)
+	local rng = Random.new(day * 7919 + 13)
+	local slotOne, others = {}, {}
+	for _, quest in ipairs(QuestData.Pool) do
+		table.insert(quest.Slot == 1 and slotOne or others, quest)
+	end
+	local picked = { slotOne[rng:NextInteger(1, #slotOne)].Id }
+	while #picked < 3 do
+		local quest = others[rng:NextInteger(1, #others)]
+		local kindTaken = false
+		for _, id in ipairs(picked) do
+			if QuestData.ById[id].Kind == quest.Kind then
+				kindTaken = true
+			end
+		end
+		if not kindTaken then
+			table.insert(picked, quest.Id)
+		end
+	end
+	return picked
+end
+
+-- "x2 luck 10 min + 1 Cosmic Roll + 3x Comet"
+function QuestData.RewardText(reward)
+	local parts = {}
+	if reward.Potion then
+		table.insert(parts, ("🧪 %d min x2 luck"):format(reward.Potion))
+	end
+	if reward.BoostRolls then
+		table.insert(parts, ("🎲 %d Cosmic Roll%s"):format(reward.BoostRolls, reward.BoostRolls == 1 and "" or "s"))
+	end
+	if reward.Aura then
+		table.insert(parts, ("✨ %dx %s"):format(reward.Count or 1, reward.Aura))
+	end
+	return table.concat(parts, " + ")
+end
+
+-- the main icon for a reward tile
+function QuestData.RewardIcon(reward)
+	if reward.BoostRolls and reward.Potion then
+		return "🎁"
+	elseif reward.BoostRolls then
+		return "🎲"
+	elseif reward.Aura then
+		return "✨"
+	end
+	return "🧪"
+end
+
+return QuestData
+]]></string>
+      </Properties>
+    </Item>
+    <Item class="ModuleScript" referent="9">
+      <Properties>
         <string name="Name">Rebirth</string>
         <string name="Source"><![CDATA[-- Rebirth (ModuleScript in ReplicatedStorage)
 -- The rebirth rules in one place, used by the server (to check and grant
@@ -2267,7 +2391,7 @@ return Rebirth
 ]]></string>
       </Properties>
     </Item>
-    <Item class="ModuleScript" referent="9">
+    <Item class="ModuleScript" referent="10">
       <Properties>
         <string name="Name">SoundFX</string>
         <string name="Source"><![CDATA[-- SoundFX (ModuleScript in ReplicatedStorage) - used by LocalScripts only
@@ -2721,7 +2845,7 @@ return SoundFX
 ]]></string>
       </Properties>
     </Item>
-    <Item class="ModuleScript" referent="10">
+    <Item class="ModuleScript" referent="11">
       <Properties>
         <string name="Name">UIKit</string>
         <string name="Source"><![CDATA[-- UIKit (ModuleScript in ReplicatedStorage) - used by LocalScripts only
@@ -3078,11 +3202,11 @@ return UIKit
       </Properties>
     </Item>
   </Item>
-  <Item class="ServerScriptService" referent="11">
+  <Item class="ServerScriptService" referent="12">
     <Properties>
       <string name="Name">ServerScriptService</string>
     </Properties>
-    <Item class="Script" referent="12">
+    <Item class="Script" referent="13">
       <Properties>
         <string name="Name">DropService</string>
         <token name="RunContext">0</token>
@@ -3336,7 +3460,7 @@ end)
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="13">
+    <Item class="Script" referent="14">
       <Properties>
         <string name="Name">DuelService</string>
         <token name="RunContext">0</token>
@@ -3956,6 +4080,13 @@ endDuel = function(duel, winner, reason)
 		setBoard(duel.Arena, ("🏆 <font color='#ffd76a'>%s</font> WINS!"):format(winner.Name))
 		-- only player-vs-player wins count (and are announced)
 		local loser = winner.Opponent
+		-- quests count every win, bots included
+		if winner.Player then
+			local questEvent = serverEvents:FindFirstChild("QuestEvent")
+			if questEvent then
+				questEvent:Fire(winner.Player, "DuelWin", 1)
+			end
+		end
 		if winner.Player and loser.Kind == "Player" then
 			DuelWinEvent:Fire(winner.Player)
 			AnnounceRemote:FireAllClients({
@@ -4874,7 +5005,7 @@ end)
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="14">
+    <Item class="Script" referent="15">
       <Properties>
         <string name="Name">Leaderboard</string>
         <token name="RunContext">0</token>
@@ -5028,7 +5159,7 @@ end
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="15">
+    <Item class="Script" referent="16">
       <Properties>
         <string name="Name">LuckyIsland</string>
         <token name="RunContext">0</token>
@@ -5754,7 +5885,7 @@ end)
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="16">
+    <Item class="Script" referent="17">
       <Properties>
         <string name="Name">Movement</string>
         <token name="RunContext">0</token>
@@ -5824,7 +5955,7 @@ end
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="17">
+    <Item class="Script" referent="18">
       <Properties>
         <string name="Name">Parkour</string>
         <token name="RunContext">0</token>
@@ -5840,8 +5971,9 @@ end
 --   GLACIER CLIMB (Frostfall)  - slippery ice floes + a spiral up an ice spire
 --   MAGMA RUN     (Ember)      - over a lava sea: sinking rocks, fire bars
 --   PULSE GRID    (Neon Nexus) - a square spiral of platforms blinking in a wave
--- Step on the start pad to begin. Checkpoints save your spot (falling puts
--- you back there). Reaching the finish gives a luck boost (with a cooldown).
+-- Step on the start pad to begin. There are NO checkpoints: falling, a laser
+-- or a red pad sends you back to the start. Reaching the finish gives a luck
+-- boost (with a cooldown).
 -- Vanishing/moving platforms, spinners and jump pads are animated by the
 -- ParkourClient script. Spinners are timed by the server clock, so the
 -- server knows exactly where every laser bar is.
@@ -5870,6 +6002,21 @@ if not ParkourEvent then
 	ParkourEvent = Instance.new("RemoteEvent")
 	ParkourEvent.Name = "ParkourEvent"
 	ParkourEvent.Parent = remotes
+end
+
+-- Quests count finished courses (RollService listens)
+local ServerStorage = game:GetService("ServerStorage")
+local serverEvents = ServerStorage:FindFirstChild("CosmicServerEvents")
+if not serverEvents then
+	serverEvents = Instance.new("Folder")
+	serverEvents.Name = "CosmicServerEvents"
+	serverEvents.Parent = ServerStorage
+end
+local questEvent = serverEvents:FindFirstChild("QuestEvent")
+if not questEvent then
+	questEvent = Instance.new("BindableEvent")
+	questEvent.Name = "QuestEvent"
+	questEvent.Parent = serverEvents
 end
 
 ---------------------------------------------------------------------
@@ -6111,36 +6258,11 @@ local function icePlatform(model, cf, size)
 	return p
 end
 
-local function checkpointPad(course, model, cf, number, color3)
-	local pad = part({
-		Name = "CheckpointPad",
-		Size = Vector3.new(6, 1, 6),
-		CFrame = cf,
-		Color = Color3.fromRGB(60, 200, 120),
-		Material = Enum.Material.Neon,
-		Parent = model,
-	})
-	local pole = part({
-		Name = "FlagPole",
-		Size = Vector3.new(0.3, 6, 0.3),
-		CFrame = cf * CFrame.new(2.4, 3.5, 2.4),
-		Color = Color3.fromRGB(230, 230, 240),
-		Material = Enum.Material.Metal,
-		CanCollide = false,
-		Parent = model,
-	})
-	part({
-		Name = "Flag",
-		Size = Vector3.new(0.1, 1.4, 2.2),
-		CFrame = pole.CFrame * CFrame.new(0, 2.2, -1.1),
-		Color = color3,
-		Material = Enum.Material.Neon,
-		CanCollide = false,
-		Parent = model,
-	})
-	addLight(pad, Color3.fromRGB(80, 255, 150), 14, 1.2)
-	billboard(pad, "CHECKPOINT " .. number, nil, Color3.fromRGB(120, 255, 170), Vector3.new(0, 4, 0))
-	table.insert(course.Checkpoints, pad)
+-- There are no checkpoints any more: these spots are just wider "rest"
+-- platforms. Falling (or a laser / red pad) always sends you back to the START.
+local function checkpointPad(_course, model, cf, _number, color3)
+	local pad = platform(model, cf, Vector3.new(5, 1, 5), Color3.fromRGB(40, 34, 64), color3)
+	pad.Name = "RestPlatform"
 	return pad
 end
 
@@ -6772,6 +6894,7 @@ local function finishRun(player, course)
 	player:SetAttribute("Checkpoint", nil)
 	player:SetAttribute("ParkourCourse", nil)
 	player:SetAttribute("ParkourStart", nil)
+	questEvent:Fire(player, "Parkour", 1)
 	ParkourEvent:FireClient(player, {
 		Type = "Finish",
 		Course = course.Settings.Name,
@@ -6869,7 +6992,7 @@ end)
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="18">
+    <Item class="Script" referent="19">
       <Properties>
         <string name="Name">PetWorld</string>
         <token name="RunContext">0</token>
@@ -7103,7 +7226,7 @@ root.Parent = workspace
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="19">
+    <Item class="Script" referent="20">
       <Properties>
         <string name="Name">RebirthIslands</string>
         <token name="RunContext">0</token>
@@ -8497,7 +8620,7 @@ end)
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="20">
+    <Item class="Script" referent="21">
       <Properties>
         <string name="Name">RollService</string>
         <token name="RunContext">0</token>
@@ -8518,6 +8641,7 @@ local AuraData = require(ReplicatedStorage:WaitForChild("AuraData"))
 local Luck = require(ReplicatedStorage:WaitForChild("Luck"))
 local Rebirth = require(ReplicatedStorage:WaitForChild("Rebirth"))
 local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
+local QuestData = require(ReplicatedStorage:WaitForChild("QuestData"))
 
 ---------------------------------------------------------------------
 -- Remotes (created here so you don't have to make them by hand)
@@ -8549,6 +8673,8 @@ local RevealRemote = getRemote("RemoteEvent", "Reveal") -- roller -> server: "my
 local RebirthRemote = getRemote("RemoteFunction", "Rebirth") -- player asks to rebirth
 local HatchRemote = getRemote("RemoteFunction", "HatchEgg") -- player hatches an egg
 local PetRemote = getRemote("RemoteFunction", "PetAction") -- equip / unequip pets
+local QuestRemote = getRemote("RemoteFunction", "Quest") -- daily reward + quests
+local QuestUpdatedRemote = getRemote("RemoteEvent", "QuestUpdated") -- server -> player: quest progress
 
 ---------------------------------------------------------------------
 -- Data saving
@@ -8588,6 +8714,8 @@ local function newData()
 		BoostRolls = 0, -- Cosmic Rolls waiting (x50 luck on the next roll)
 		PermanentLuck = 1, -- from the Limited Offer
 		LimitedBought = "", -- which Limited Offer pack this player bought
+		Daily = { Streak = 0, LastClaimDay = -1 }, -- daily login reward
+		Quests = { Day = -1, List = {}, Bonus = false }, -- today's quests
 		Receipts = {}, -- recent purchase IDs, so nothing is granted twice
 	}
 end
@@ -8732,6 +8860,9 @@ local function refreshStats(player)
 	player:SetAttribute("BestChance", data.BestChance)
 end
 
+-- quests are filled in further down (rolling, hatching... report progress)
+local addQuestProgress = function(_player, _kind, _amount, _extra) end
+
 ---------------------------------------------------------------------
 -- Rolling
 ---------------------------------------------------------------------
@@ -8796,6 +8927,15 @@ RollRemote.OnServerInvoke = function(player)
 		data.BestChance = best.Chance
 	end
 	refreshStats(player)
+
+	-- quest progress
+	addQuestProgress(player, "Rolls", 1)
+	if player:GetAttribute("OnLuckyIsland") or player:GetAttribute("OnRebirthIsland") then
+		addQuestProgress(player, "LuckyRolls", 1)
+	end
+	for _, name in ipairs(results) do
+		addQuestProgress(player, "Rarity", 1, AuraData.Get(name).Chance)
+	end
 
 	-- Everyone sees this player "charging up"; the reveal comes when the
 	-- roller's animation finishes (see RevealRemote below).
@@ -8889,6 +9029,192 @@ RebirthRemote.OnServerInvoke = function(player)
 end
 
 
+
+---------------------------------------------------------------------
+-- QUESTS + DAILY REWARD
+---------------------------------------------------------------------
+local function grantReward(player, data, reward)
+	if reward.Potion then
+		local from = math.max(Luck.Now(), data.PersonalLuckEnd or 0)
+		data.PersonalLuckEnd = from + reward.Potion * 60
+		player:SetAttribute("PersonalLuckEnd", data.PersonalLuckEnd)
+	end
+	if reward.BoostRolls then
+		data.BoostRolls = (data.BoostRolls or 0) + reward.BoostRolls
+	end
+	if reward.Aura and AuraData.Get(reward.Aura) then
+		data.Inventory[reward.Aura] = (data.Inventory[reward.Aura] or 0) + (reward.Count or 1)
+		local aura = AuraData.Get(reward.Aura)
+		if aura.Chance > data.BestChance then
+			data.BestChance = aura.Chance
+		end
+	end
+	refreshStats(player)
+	DataUpdatedRemote:FireClient(player, snapshot(data))
+end
+
+-- make sure the player has today's quests (new ones after midnight UTC)
+local function ensureQuests(data)
+	local today = QuestData.Today()
+	data.Quests = data.Quests or { Day = -1, List = {}, Bonus = false }
+	data.Daily = data.Daily or { Streak = 0, LastClaimDay = -1 }
+	if data.Quests.Day ~= today then
+		local list = {}
+		for _, id in ipairs(QuestData.QuestsFor(today)) do
+			table.insert(list, { Id = id, Progress = 0, Claimed = false })
+		end
+		data.Quests = { Day = today, List = list, Bonus = false }
+	end
+	return today
+end
+
+local function dailyInfo(data, today)
+	local daily = data.Daily
+	local canClaim = daily.LastClaimDay ~= today
+	local nextStreak = (daily.LastClaimDay == today - 1) and (daily.Streak + 1) or 1
+	if not canClaim then
+		nextStreak = daily.Streak -- already claimed today: show today's tile
+	end
+	return {
+		CanClaim = canClaim,
+		Streak = daily.Streak,
+		DayIndex = ((nextStreak - 1) % #QuestData.DailyRewards) + 1,
+	}
+end
+
+local function questState(data)
+	local today = ensureQuests(data)
+	local quests = {}
+	local allDone = true
+	for _, q in ipairs(data.Quests.List) do
+		local def = QuestData.ById[q.Id]
+		if def then
+			local done = q.Progress >= def.Goal
+			allDone = allDone and done and q.Claimed
+			table.insert(quests, { Id = q.Id, Progress = q.Progress, Goal = def.Goal, Claimed = q.Claimed, Done = done })
+		end
+	end
+	return {
+		Daily = dailyInfo(data, today),
+		Quests = quests,
+		BonusReady = allDone and not data.Quests.Bonus,
+		BonusClaimed = data.Quests.Bonus,
+		ResetIn = QuestData.SecondsToReset(),
+	}
+end
+
+-- how many things are waiting to be claimed (the red dot on the menu button)
+local function pushQuests(player)
+	local data = sessions[player]
+	if not data then
+		return
+	end
+	local state = questState(data)
+	local ready = state.Daily.CanClaim and 1 or 0
+	for _, q in ipairs(state.Quests) do
+		if q.Done and not q.Claimed then
+			ready += 1
+		end
+	end
+	if state.BonusReady then
+		ready += 1
+	end
+	player:SetAttribute("QuestsReady", ready)
+	QuestUpdatedRemote:FireClient(player, state)
+end
+
+addQuestProgress = function(player, kind, amount, extra)
+	local data = sessions[player]
+	if not data then
+		return
+	end
+	ensureQuests(data)
+	local changed = false
+	for _, q in ipairs(data.Quests.List) do
+		local def = QuestData.ById[q.Id]
+		if def and def.Kind == kind and not q.Claimed and q.Progress < def.Goal then
+			if kind ~= "Rarity" or (extra or 0) >= def.Threshold then
+				q.Progress = math.min(def.Goal, q.Progress + (amount or 1))
+				changed = true
+			end
+		end
+	end
+	if changed then
+		pushQuests(player)
+	end
+end
+
+QuestRemote.OnServerInvoke = function(player, action, index)
+	local data = sessions[player]
+	if not data then
+		return nil
+	end
+	local today = ensureQuests(data)
+	local granted
+	if action == "ClaimDaily" then
+		local info = dailyInfo(data, today)
+		if info.CanClaim then
+			local streak = (data.Daily.LastClaimDay == today - 1) and (data.Daily.Streak + 1) or 1
+			data.Daily = { Streak = streak, LastClaimDay = today }
+			granted = QuestData.DailyRewards[((streak - 1) % #QuestData.DailyRewards) + 1]
+		end
+	elseif action == "ClaimQuest" and type(index) == "number" then
+		local q = data.Quests.List[index]
+		local def = q and QuestData.ById[q.Id]
+		if def and not q.Claimed and q.Progress >= def.Goal then
+			q.Claimed = true
+			granted = def.Reward
+		end
+	elseif action == "ClaimBonus" then
+		local state = questState(data)
+		if state.BonusReady then
+			data.Quests.Bonus = true
+			granted = QuestData.Bonus
+		end
+	end
+	if granted then
+		grantReward(player, data, granted)
+	end
+	pushQuests(player)
+	return { State = questState(data), Granted = granted }
+end
+
+-- other scripts report progress here (parkour finishes, duel wins)
+do
+	local events = ServerStorage:FindFirstChild("CosmicServerEvents")
+	if not events then
+		events = Instance.new("Folder")
+		events.Name = "CosmicServerEvents"
+		events.Parent = ServerStorage
+	end
+	local questEvent = events:FindFirstChild("QuestEvent")
+	if not questEvent then
+		questEvent = Instance.new("BindableEvent")
+		questEvent.Name = "QuestEvent"
+		questEvent.Parent = events
+	end
+	questEvent.Event:Connect(function(player, kind, amount)
+		if typeof(player) == "Instance" and player:IsA("Player") and type(kind) == "string" then
+			addQuestProgress(player, kind, amount or 1)
+		end
+	end)
+end
+
+-- new day while you're playing: new quests + a new daily reward
+task.spawn(function()
+	local lastDay = QuestData.Today()
+	while true do
+		task.wait(20)
+		local today = QuestData.Today()
+		if today ~= lastDay then
+			lastDay = today
+			for _, player in ipairs(Players:GetPlayers()) do
+				pushQuests(player)
+			end
+		end
+	end
+end)
+
 ---------------------------------------------------------------------
 -- PETS: hatch eggs by paying with auras, equip up to 3 for luck
 ---------------------------------------------------------------------
@@ -8967,6 +9293,7 @@ HatchRemote.OnServerInvoke = function(player, eggKey)
 	end
 	refreshStats(player)
 	DataUpdatedRemote:FireClient(player, snapshot(data))
+	addQuestProgress(player, "Hatch", 1)
 	local pet = PetData.Get(petName)
 	if pet and PetData.Rarities[pet.Rarity].Order >= 5 then
 		AnnounceRemote:FireAllClients({ Type = "Pet", PlayerName = player.DisplayName, UserId = player.UserId, Pet = petName })
@@ -9049,6 +9376,7 @@ PetRemote.OnServerInvoke = function(player, action, petName)
 		givePet(data, result)
 		refreshStats(player)
 		DataUpdatedRemote:FireClient(player, snapshot(data))
+		addQuestProgress(player, "Merge", 1)
 		return { Merged = result, Pets = data.Pets, EquippedPets = data.EquippedPets }
 	end
 	refreshStats(player)
@@ -9280,6 +9608,7 @@ local function onPlayerAdded(player)
 	refreshStats(player)
 	applyAuraToCharacter(player)
 	DataUpdatedRemote:FireClient(player, snapshot(data))
+	pushQuests(player)
 end
 
 Players.PlayerAdded:Connect(onPlayerAdded)
@@ -9329,7 +9658,7 @@ end)
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="21">
+    <Item class="Script" referent="22">
       <Properties>
         <string name="Name">SkyDecor</string>
         <token name="RunContext">0</token>
@@ -10215,7 +10544,7 @@ root.Parent = workspace
 ]]></string>
       </Properties>
     </Item>
-    <Item class="Script" referent="22">
+    <Item class="Script" referent="23">
       <Properties>
         <string name="Name">WorldSetup</string>
         <token name="RunContext">0</token>
@@ -10577,7 +10906,7 @@ local function rescue(character, player)
 	local lucky = Config.LuckyIsland
 	local flat = Vector3.new(root.Position.X - lucky.Center.X, 0, root.Position.Z - lucky.Center.Z)
 	if typeof(checkpoint) == "CFrame" then
-		character:PivotTo(checkpoint) -- fell off a parkour course
+		character:PivotTo(checkpoint) -- fell off a parkour course: back to its start
 	elseif flat.Magnitude < lucky.Radius * 3 then
 		character:PivotTo(CFrame.new(lucky.Center + Vector3.new(0, 4, -45))) -- fell off Lucky Isle
 	else
@@ -11500,16 +11829,16 @@ island.Parent = workspace
       </Properties>
     </Item>
   </Item>
-  <Item class="StarterPlayer" referent="23">
+  <Item class="StarterPlayer" referent="24">
     <Properties>
       <string name="Name">StarterPlayer</string>
       <bool name="EnableMouseLockOption">false</bool>
     </Properties>
-    <Item class="StarterPlayerScripts" referent="24">
+    <Item class="StarterPlayerScripts" referent="25">
       <Properties>
         <string name="Name">StarterPlayerScripts</string>
       </Properties>
-      <Item class="LocalScript" referent="25">
+      <Item class="LocalScript" referent="26">
         <Properties>
           <string name="Name">AuraRenderer</string>
           <string name="Source"><![CDATA[-- AuraRenderer (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -12021,7 +12350,7 @@ end
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="26">
+      <Item class="LocalScript" referent="27">
         <Properties>
           <string name="Name">DropClient</string>
           <string name="Source"><![CDATA[-- DropClient (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -12222,7 +12551,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="27">
+      <Item class="LocalScript" referent="28">
         <Properties>
           <string name="Name">DuelClient</string>
           <string name="Source"><![CDATA[-- DuelClient (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -13291,7 +13620,7 @@ end
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="28">
+      <Item class="LocalScript" referent="29">
         <Properties>
           <string name="Name">DuelFX</string>
           <string name="Source"><![CDATA[-- DuelFX (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -14489,7 +14818,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="29">
+      <Item class="LocalScript" referent="30">
         <Properties>
           <string name="Name">IslandFX</string>
           <string name="Source"><![CDATA[-- IslandFX (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -14723,7 +15052,7 @@ end
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="30">
+      <Item class="LocalScript" referent="31">
         <Properties>
           <string name="Name">LimitedOffer</string>
           <string name="Source"><![CDATA[-- LimitedOffer (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -14931,10 +15260,36 @@ RunService.RenderStepped:Connect(function()
 	end
 end)
 
--- show it once, a little after joining
-task.delay(9, function()
-	if available() then
-		setOpen(true)
+-- show it once, a little after joining (waits until other windows, like the
+-- daily reward, are closed)
+local function anyPanelOpen()
+	local playerGui = player:FindFirstChild("PlayerGui")
+	for _, name in ipairs({ "CosmicQuests", "CosmicPets", "CosmicRebirth", "CosmicMenu" }) do
+		local screen = playerGui and playerGui:FindFirstChild(name)
+		if screen then
+			for _, child in ipairs(screen:GetChildren()) do
+				if child:IsA("Frame") and child.Name ~= "SideMenu" and child.Visible then
+					return true
+				end
+			end
+		end
+	end
+	return false
+end
+task.spawn(function()
+	task.wait(9)
+	for _ = 1, 120 do
+		if not available() then
+			return
+		end
+		if not anyPanelOpen() then
+			task.wait(1.5)
+			if not anyPanelOpen() then
+				setOpen(true)
+				return
+			end
+		end
+		task.wait(1)
 	end
 end)
 
@@ -14949,7 +15304,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="31">
+      <Item class="LocalScript" referent="32">
         <Properties>
           <string name="Name">NameplateStyler</string>
           <string name="Source"><![CDATA[-- NameplateStyler (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -15093,7 +15448,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="32">
+      <Item class="LocalScript" referent="33">
         <Properties>
           <string name="Name">ParkourClient</string>
           <string name="Source"><![CDATA[-- ParkourClient (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -15294,14 +15649,14 @@ if ParkourEvent then
 	ParkourEvent.OnClientEvent:Connect(function(info)
 		if info.Type == "Start" then
 			checkpointText = ""
-			UIKit.toast("🏁 " .. info.Course .. " - GO!", Color3.fromRGB(120, 255, 170))
+			UIKit.toast("🏁 " .. info.Course .. " - GO! No checkpoints: fall and you start over", Color3.fromRGB(120, 255, 170))
 			SoundFX.Play("Pop", { Speed = 1.3 })
 		elseif info.Type == "Checkpoint" then
 			checkpointText = ("   <font color='#78ffaa'>✔ %d/%d</font>"):format(info.Number, info.Total)
 			UIKit.toast(("✔ Checkpoint %d/%d saved!"):format(info.Number, info.Total), Color3.fromRGB(120, 255, 170))
 			SoundFX.Chime(1.2, 3)
 		elseif info.Type == "Ouch" then
-			UIKit.toast("💥 Ouch! Back to your checkpoint", THEME.Bad)
+			UIKit.toast("💥 Ouch! Back to the start", THEME.Bad)
 			SoundFX.Play("Thud")
 		elseif info.Type == "Left" then
 			checkpointText = ""
@@ -15326,7 +15681,7 @@ end
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="33">
+      <Item class="LocalScript" referent="34">
         <Properties>
           <string name="Name">PetClient</string>
           <string name="Source"><![CDATA[-- PetClient (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -16343,7 +16698,359 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="34">
+      <Item class="LocalScript" referent="35">
+        <Properties>
+          <string name="Name">QuestClient</string>
+          <string name="Source"><![CDATA[-- QuestClient (LocalScript in StarterPlayer > StarterPlayerScripts)
+-- The 📜 QUESTS button + panel:
+--   * DAILY REWARD: a 7-day streak calendar with a CLAIM button
+--   * 3 DAILY QUESTS with progress bars and CLAIM buttons
+--   * a bonus chest for finishing all 3
+-- A red number on the button shows how many rewards are waiting. The panel
+-- opens by itself when you join if today's daily reward is ready.
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+
+local QuestData = require(ReplicatedStorage:WaitForChild("QuestData"))
+local SoundFX = require(ReplicatedStorage:WaitForChild("SoundFX"))
+local UIKit = require(ReplicatedStorage:WaitForChild("UIKit"))
+
+local player = Players.LocalPlayer
+local THEME = UIKit.Theme
+local TITLE_FONT = UIKit.TitleFont
+local new, corner, stroke, textStroke, tween, label =
+	UIKit.new, UIKit.corner, UIKit.stroke, UIKit.textStroke, UIKit.tween, UIKit.label
+
+local remotes = ReplicatedStorage:WaitForChild("CosmicRemotes")
+local QuestRemote = remotes:WaitForChild("Quest")
+local QuestUpdatedRemote = remotes:WaitForChild("QuestUpdated")
+
+local PARCHMENT = Color3.fromRGB(255, 205, 120)
+local state -- latest quest state from the server
+local stateReceivedAt = os.clock()
+
+---------------------------------------------------------------------
+-- Menu button with a "rewards waiting" badge
+---------------------------------------------------------------------
+local menuGui = player:WaitForChild("PlayerGui"):WaitForChild("CosmicMenu", 30)
+local sideMenu = menuGui and menuGui:WaitForChild("SideMenu", 10)
+local menuButton, badge, badgeText
+if sideMenu then
+	menuButton = new("TextButton", {
+		Name = "QUESTS", LayoutOrder = 4, Size = UDim2.fromOffset(84, 84), BackgroundColor3 = THEME.Panel,
+		BackgroundTransparency = 0.1, AutoButtonColor = false, Text = "", Parent = sideMenu,
+	}, { corner(UDim.new(0, 18)), stroke(PARCHMENT, 2.5, 0) })
+	label({ Size = UDim2.new(1, 0, 0, 50), Position = UDim2.fromOffset(0, 6), Text = "📜", TextSize = 38, Parent = menuButton })
+	local text = label({
+		AnchorPoint = Vector2.new(0, 1), Position = UDim2.new(0, 0, 1, -6), Size = UDim2.new(1, 0, 0, 20),
+		Text = "QUESTS", Font = TITLE_FONT, TextSize = 16, Parent = menuButton,
+	})
+	textStroke(1.2).Parent = text
+	badge = new("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.new(1, -8, 0, 8), Size = UDim2.fromOffset(24, 24),
+		BackgroundColor3 = THEME.Bad, Visible = false, Parent = menuButton,
+	}, { corner(UDim.new(1, 0)), stroke(Color3.new(1, 1, 1), 2, 0) })
+	badgeText = label({ Size = UDim2.fromScale(1, 1), Text = "", Font = TITLE_FONT, TextSize = 15, Parent = badge })
+	UIKit.addButtonFeel(menuButton)
+end
+
+local function updateBadge()
+	local ready = player:GetAttribute("QuestsReady") or 0
+	if badge then
+		badge.Visible = ready > 0
+		badgeText.Text = tostring(ready)
+	end
+end
+player:GetAttributeChangedSignal("QuestsReady"):Connect(updateBadge)
+updateBadge()
+task.spawn(function()
+	while true do
+		task.wait(0.6)
+		if badge and badge.Visible then
+			tween(badge, 0.3, { Size = UDim2.fromOffset(29, 29) }, Enum.EasingStyle.Sine)
+			task.wait(0.3)
+			tween(badge, 0.3, { Size = UDim2.fromOffset(24, 24) }, Enum.EasingStyle.Sine)
+		end
+	end
+end)
+
+---------------------------------------------------------------------
+-- Panel
+---------------------------------------------------------------------
+local gui = UIKit.screen("CosmicQuests", 2)
+local holder = new("Frame", {
+	AnchorPoint = Vector2.new(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.48), Size = UDim2.fromOffset(680, 560),
+	BackgroundTransparency = 1, Visible = false, Parent = gui,
+})
+UIKit.addAutoScale(holder, 820)
+local panel = new("Frame", {
+	Size = UDim2.fromScale(1, 1), BackgroundColor3 = THEME.Panel, BackgroundTransparency = 0.05, Parent = holder,
+}, { corner(UDim.new(0, 18)), stroke(PARCHMENT, 2.5, 0) })
+local title = label({
+	Position = UDim2.fromOffset(22, 12), Size = UDim2.new(1, -80, 0, 40), Text = "📜 QUESTS & DAILY REWARDS", Font = TITLE_FONT,
+	TextSize = 30, TextXAlignment = Enum.TextXAlignment.Left, Parent = panel,
+})
+UIKit.gradient(Color3.fromRGB(255, 230, 160), Color3.fromRGB(255, 160, 90), 0).Parent = title
+local resetLabel = label({
+	Position = UDim2.fromOffset(22, 50), Size = UDim2.new(1, -44, 0, 20), Text = "", TextSize = 15, RichText = true,
+	TextColor3 = THEME.SubText, TextXAlignment = Enum.TextXAlignment.Left, Parent = panel,
+})
+local closeButton = new("TextButton", {
+	AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -14, 0, 14), Size = UDim2.fromOffset(42, 42),
+	BackgroundColor3 = THEME.Bad, Text = "X", Font = TITLE_FONT, TextSize = 24, TextColor3 = THEME.Text, AutoButtonColor = false, Parent = panel,
+}, { corner(UDim.new(0, 10)), textStroke(1.5) })
+UIKit.addButtonFeel(closeButton)
+
+local function sectionTitle(text, y)
+	local t = label({
+		Position = UDim2.fromOffset(22, y), Size = UDim2.new(1, -44, 0, 26), Text = text, Font = TITLE_FONT, TextSize = 21,
+		TextColor3 = PARCHMENT, TextXAlignment = Enum.TextXAlignment.Left, Parent = panel,
+	})
+	textStroke(1.3).Parent = t
+	return t
+end
+
+local function claimButton(parent, position, size)
+	local b = new("TextButton", {
+		AnchorPoint = Vector2.new(1, 0.5), Position = position, Size = size, BackgroundColor3 = THEME.Good,
+		Text = "CLAIM", Font = TITLE_FONT, TextSize = 18, TextColor3 = THEME.Text, AutoButtonColor = false, Parent = parent,
+	}, { corner(UDim.new(0, 10)), textStroke(1.3) })
+	UIKit.addButtonFeel(b)
+	return b
+end
+
+-- DAILY REWARD calendar --------------------------------------------
+local dailyTitle = sectionTitle("🎁 DAILY REWARD", 80)
+local tilesRow = new("Frame", {
+	Position = UDim2.fromOffset(18, 110), Size = UDim2.new(1, -36, 0, 104), BackgroundTransparency = 1, Parent = panel,
+}, { new("UIListLayout", { FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 8), HorizontalAlignment = Enum.HorizontalAlignment.Center }) })
+local tiles = {}
+for day, reward in ipairs(QuestData.DailyRewards) do
+	local big = day == #QuestData.DailyRewards
+	local tile = new("Frame", {
+		LayoutOrder = day, Size = UDim2.fromOffset(big and 110 or 78, 104), BackgroundColor3 = THEME.PanelLight, Parent = tilesRow,
+	}, { corner(UDim.new(0, 12)) })
+	local tileStroke = stroke(PARCHMENT, 1.5, 0.6)
+	tileStroke.Parent = tile
+	label({ Position = UDim2.fromOffset(0, 4), Size = UDim2.new(1, 0, 0, 18), Text = "DAY " .. day, Font = TITLE_FONT, TextSize = 14, TextColor3 = THEME.SubText, Parent = tile })
+	label({ Position = UDim2.fromOffset(0, 22), Size = UDim2.new(1, 0, 0, 34), Text = QuestData.RewardIcon(reward), TextSize = 28, Parent = tile })
+	label({ Position = UDim2.fromOffset(4, 56), Size = UDim2.new(1, -8, 0, 44), Text = QuestData.RewardText(reward):gsub(" %+ ", "\n"), TextSize = 10, TextWrapped = true,
+		TextYAlignment = Enum.TextYAlignment.Top, Parent = tile })
+	local check = label({ AnchorPoint = Vector2.new(1, 0), Position = UDim2.new(1, -2, 0, 2), Size = UDim2.fromOffset(22, 22), Text = "", TextSize = 16, Parent = tile })
+	tiles[day] = { Frame = tile, Stroke = tileStroke, Check = check }
+end
+local dailyButton = claimButton(panel, UDim2.new(1, -22, 0, 94), UDim2.fromOffset(150, 30))
+dailyButton.AnchorPoint = Vector2.new(1, 0.5)
+
+-- DAILY QUESTS -----------------------------------------------------
+sectionTitle("📜 TODAY'S QUESTS", 226)
+local questRows = {}
+for i = 1, 3 do
+	local row = new("Frame", {
+		Position = UDim2.fromOffset(18, 256 + (i - 1) * 74), Size = UDim2.new(1, -36, 0, 66), BackgroundColor3 = THEME.PanelLight, Parent = panel,
+	}, { corner(UDim.new(0, 12)) })
+	local text = label({ Position = UDim2.fromOffset(14, 6), Size = UDim2.new(1, -180, 0, 22), Text = "", Font = TITLE_FONT, TextSize = 17, TextXAlignment = Enum.TextXAlignment.Left, Parent = row })
+	local reward = label({ Position = UDim2.fromOffset(14, 28), Size = UDim2.new(1, -180, 0, 16), Text = "", TextSize = 13, TextColor3 = PARCHMENT, TextXAlignment = Enum.TextXAlignment.Left, Parent = row })
+	local barBack = new("Frame", { Position = UDim2.fromOffset(14, 48), Size = UDim2.new(1, -180, 0, 10), BackgroundColor3 = Color3.fromRGB(14, 10, 26), Parent = row }, { corner(UDim.new(1, 0)) })
+	local fill = new("Frame", { Size = UDim2.fromScale(0, 1), BackgroundColor3 = Color3.new(1, 1, 1), Parent = barBack }, {
+		corner(UDim.new(1, 0)), UIKit.gradient(Color3.fromRGB(255, 220, 120), Color3.fromRGB(120, 255, 170), 0),
+	})
+	local count = label({ AnchorPoint = Vector2.new(1, 0.5), Position = UDim2.new(1, -150, 0.5, 0), Size = UDim2.fromOffset(70, 24), Text = "", Font = TITLE_FONT, TextSize = 15, Parent = row })
+	local button = claimButton(row, UDim2.new(1, -12, 0.5, 0), UDim2.fromOffset(110, 38))
+	questRows[i] = { Row = row, Text = text, Reward = reward, Fill = fill, Count = count, Button = button }
+end
+
+-- BONUS chest ------------------------------------------------------
+local bonusRow = new("Frame", {
+	Position = UDim2.fromOffset(18, 484), Size = UDim2.new(1, -36, 0, 60), BackgroundColor3 = Color3.fromRGB(60, 44, 20), Parent = panel,
+}, { corner(UDim.new(0, 12)), stroke(PARCHMENT, 1.5, 0.3) })
+label({ Position = UDim2.fromOffset(12, 0), Size = UDim2.fromOffset(44, 60), Text = "🎁", TextSize = 32, Parent = bonusRow })
+label({ Position = UDim2.fromOffset(62, 8), Size = UDim2.new(1, -200, 0, 22), Text = "Finish all 3 quests", Font = TITLE_FONT, TextSize = 17, TextXAlignment = Enum.TextXAlignment.Left, Parent = bonusRow })
+label({ Position = UDim2.fromOffset(62, 30), Size = UDim2.new(1, -200, 0, 18), Text = QuestData.RewardText(QuestData.Bonus), TextSize = 13, TextColor3 = PARCHMENT, TextXAlignment = Enum.TextXAlignment.Left, Parent = bonusRow })
+local bonusButton = claimButton(bonusRow, UDim2.new(1, -12, 0.5, 0), UDim2.fromOffset(110, 38))
+
+---------------------------------------------------------------------
+-- Filling it in
+---------------------------------------------------------------------
+local function setButton(button, mode)
+	-- mode: "ready", "done" or "locked"
+	if mode == "ready" then
+		button.Text = "CLAIM"
+		button.BackgroundColor3 = THEME.Good
+	elseif mode == "done" then
+		button.Text = "✅ DONE"
+		button.BackgroundColor3 = Color3.fromRGB(50, 90, 70)
+	else
+		button.Text = "..."
+		button.BackgroundColor3 = Color3.fromRGB(70, 66, 90)
+	end
+end
+
+local function render()
+	if not state then
+		return
+	end
+	-- daily calendar
+	local daily = state.Daily
+	for day, tile in ipairs(tiles) do
+		local isToday = day == daily.DayIndex
+		local claimedToday = isToday and not daily.CanClaim
+		tile.Check.Text = (day < daily.DayIndex or claimedToday) and "✅" or ""
+		tile.Frame.BackgroundColor3 = isToday and (daily.CanClaim and Color3.fromRGB(80, 60, 30) or Color3.fromRGB(40, 60, 50)) or THEME.PanelLight
+		tile.Stroke.Transparency = isToday and 0 or 0.6
+		tile.Stroke.Thickness = isToday and 3 or 1.5
+	end
+	dailyTitle.Text = ("🎁 DAILY REWARD  <font color='#bfb4e1' size='15'>streak: %d day%s</font>"):format(daily.Streak, daily.Streak == 1 and "" or "s")
+	dailyTitle.RichText = true
+	setButton(dailyButton, daily.CanClaim and "ready" or "done")
+	if not daily.CanClaim then
+		dailyButton.Text = "COME BACK TOMORROW"
+		dailyButton.TextSize = 12
+	else
+		dailyButton.TextSize = 18
+	end
+	-- quests
+	for i, rowUi in ipairs(questRows) do
+		local q = state.Quests[i]
+		local def = q and QuestData.ById[q.Id]
+		rowUi.Row.Visible = def ~= nil
+		if def then
+			rowUi.Text.Text = def.Text
+			rowUi.Reward.Text = "Reward: " .. QuestData.RewardText(def.Reward)
+			rowUi.Count.Text = ("%d/%d"):format(q.Progress, q.Goal)
+			tween(rowUi.Fill, 0.3, { Size = UDim2.fromScale(math.clamp(q.Progress / q.Goal, 0, 1), 1) })
+			setButton(rowUi.Button, q.Claimed and "done" or (q.Done and "ready" or "locked"))
+		end
+	end
+	setButton(bonusButton, state.BonusClaimed and "done" or (state.BonusReady and "ready" or "locked"))
+end
+
+local function claimed(granted)
+	if granted then
+		SoundFX.Chime(1, 5)
+		UIKit.burst({ PARCHMENT, THEME.Good, Color3.new(1, 1, 1) }, 30, 1, Vector2.new(0.5, 0.45))
+		UIKit.toast("🎁 " .. QuestData.RewardText(granted), PARCHMENT)
+	end
+end
+
+local function call(action, index)
+	local ok, result = pcall(function()
+		return QuestRemote:InvokeServer(action, index)
+	end)
+	if ok and type(result) == "table" then
+		state = result.State or state
+		stateReceivedAt = os.clock()
+		render()
+		claimed(result.Granted)
+	end
+end
+
+dailyButton.Activated:Connect(function()
+	if state and state.Daily.CanClaim then
+		call("ClaimDaily")
+	end
+end)
+for i, rowUi in ipairs(questRows) do
+	rowUi.Button.Activated:Connect(function()
+		local q = state and state.Quests[i]
+		if q and q.Done and not q.Claimed then
+			call("ClaimQuest", i)
+		end
+	end)
+end
+bonusButton.Activated:Connect(function()
+	if state and state.BonusReady then
+		call("ClaimBonus")
+	end
+end)
+
+QuestUpdatedRemote.OnClientEvent:Connect(function(newState)
+	local hadDaily = state and state.Daily.CanClaim
+	state = newState
+	stateReceivedAt = os.clock()
+	render()
+	-- a quest just finished: let the player know
+	for i, q in ipairs(newState.Quests or {}) do
+		local def = QuestData.ById[q.Id]
+		if def and q.Done and not q.Claimed and not (questRows[i].Announced == q.Id) then
+			questRows[i].Announced = q.Id
+			UIKit.toast("📜 Quest done: " .. def.Text .. " - claim it in QUESTS!", PARCHMENT)
+			SoundFX.Chime(1.2, 4)
+		end
+	end
+	if newState.Daily and newState.Daily.CanClaim and hadDaily == false then
+		UIKit.toast("🎁 A new daily reward is ready!", PARCHMENT)
+	end
+end)
+
+---------------------------------------------------------------------
+-- Open / close
+---------------------------------------------------------------------
+local open = false
+local function setOpen(value)
+	if value == open then
+		return
+	end
+	open = value
+	if open then
+		UIKit.announcePanel("Quests")
+		render()
+		holder.Visible = true
+		UIKit.popIn(panel)
+	else
+		holder.Visible = false
+	end
+end
+if menuButton then
+	menuButton.Activated:Connect(function()
+		setOpen(not open)
+	end)
+end
+closeButton.Activated:Connect(function()
+	setOpen(false)
+end)
+UIKit.PanelOpened:Connect(function(name)
+	if name ~= "Quests" then
+		setOpen(false)
+	end
+end)
+
+-- the reset countdown
+RunService.Heartbeat:Connect(function()
+	if open and state then
+		local left = math.max(0, (state.ResetIn or 0) - (os.clock() - stateReceivedAt))
+		resetLabel.Text = ("New quests and daily reward in <b>%d:%02d:%02d</b>"):format(left // 3600, (left % 3600) // 60, left % 60)
+	end
+end)
+
+-- get the quests when we start (the server also sends updates by itself)
+task.spawn(function()
+	for _ = 1, 20 do
+		local ok, result = pcall(function()
+			return QuestRemote:InvokeServer("Get")
+		end)
+		if ok and type(result) == "table" and result.State then
+			state = result.State
+			stateReceivedAt = os.clock()
+			render()
+			return
+		end
+		task.wait(1)
+	end
+end)
+
+-- show the daily reward when you join (after the intro)
+task.delay(5, function()
+	if state and state.Daily.CanClaim then
+		setOpen(true)
+	end
+end)
+]]></string>
+        </Properties>
+      </Item>
+      <Item class="LocalScript" referent="36">
         <Properties>
           <string name="Name">RebirthClient</string>
           <string name="Source"><![CDATA[-- RebirthClient (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -17136,7 +17843,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="35">
+      <Item class="LocalScript" referent="37">
         <Properties>
           <string name="Name">RollUI</string>
           <string name="Source"><![CDATA[-- RollUI (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -18502,7 +19209,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="36">
+      <Item class="LocalScript" referent="38">
         <Properties>
           <string name="Name">SkyFX</string>
           <string name="Source"><![CDATA[-- SkyFX (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -18829,7 +19536,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="37">
+      <Item class="LocalScript" referent="39">
         <Properties>
           <string name="Name">Sprint</string>
           <string name="Source"><![CDATA[-- Sprint (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -19071,7 +19778,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="38">
+      <Item class="LocalScript" referent="40">
         <Properties>
           <string name="Name">StoreUI</string>
           <string name="Source"><![CDATA[-- StoreUI (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -19107,7 +19814,7 @@ local menu = new("Frame", {
 	AnchorPoint = Vector2.new(0, 0.5),
 	Position = UDim2.new(0, 16, 0.5, 0),
 	-- 2 columns: other scripts add DUEL, REBIRTH, PETS and LIMITED buttons here
-	Size = UDim2.fromOffset(178, 290),
+	Size = UDim2.fromOffset(178, 384),
 	BackgroundTransparency = 1,
 	Parent = gui,
 }, {
@@ -19428,7 +20135,7 @@ end)
 ]]></string>
         </Properties>
       </Item>
-      <Item class="LocalScript" referent="39">
+      <Item class="LocalScript" referent="41">
         <Properties>
           <string name="Name">WorldFX</string>
           <string name="Source"><![CDATA[-- WorldFX (LocalScript in StarterPlayer > StarterPlayerScripts)
@@ -19740,7 +20447,7 @@ end
       </Item>
     </Item>
   </Item>
-  <Item class="Workspace" referent="40">
+  <Item class="Workspace" referent="42">
     <Properties>
       <string name="Name">Workspace</string>
       <bool name="NeedsPivotMigration">false</bool>

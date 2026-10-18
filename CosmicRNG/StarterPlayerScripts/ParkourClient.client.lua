@@ -196,14 +196,14 @@ if ParkourEvent then
 	ParkourEvent.OnClientEvent:Connect(function(info)
 		if info.Type == "Start" then
 			checkpointText = ""
-			UIKit.toast("🏁 " .. info.Course .. " - GO!", Color3.fromRGB(120, 255, 170))
+			UIKit.toast("🏁 " .. info.Course .. " - GO! No checkpoints: fall and you start over", Color3.fromRGB(120, 255, 170))
 			SoundFX.Play("Pop", { Speed = 1.3 })
 		elseif info.Type == "Checkpoint" then
 			checkpointText = ("   <font color='#78ffaa'>✔ %d/%d</font>"):format(info.Number, info.Total)
 			UIKit.toast(("✔ Checkpoint %d/%d saved!"):format(info.Number, info.Total), Color3.fromRGB(120, 255, 170))
 			SoundFX.Chime(1.2, 3)
 		elseif info.Type == "Ouch" then
-			UIKit.toast("💥 Ouch! Back to your checkpoint", THEME.Bad)
+			UIKit.toast("💥 Ouch! Back to the start", THEME.Bad)
 			SoundFX.Play("Thud")
 		elseif info.Type == "Left" then
 			checkpointText = ""

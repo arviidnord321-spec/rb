@@ -203,10 +203,36 @@ RunService.RenderStepped:Connect(function()
 	end
 end)
 
--- show it once, a little after joining
-task.delay(9, function()
-	if available() then
-		setOpen(true)
+-- show it once, a little after joining (waits until other windows, like the
+-- daily reward, are closed)
+local function anyPanelOpen()
+	local playerGui = player:FindFirstChild("PlayerGui")
+	for _, name in ipairs({ "CosmicQuests", "CosmicPets", "CosmicRebirth", "CosmicMenu" }) do
+		local screen = playerGui and playerGui:FindFirstChild(name)
+		if screen then
+			for _, child in ipairs(screen:GetChildren()) do
+				if child:IsA("Frame") and child.Name ~= "SideMenu" and child.Visible then
+					return true
+				end
+			end
+		end
+	end
+	return false
+end
+task.spawn(function()
+	task.wait(9)
+	for _ = 1, 120 do
+		if not available() then
+			return
+		end
+		if not anyPanelOpen() then
+			task.wait(1.5)
+			if not anyPanelOpen() then
+				setOpen(true)
+				return
+			end
+		end
+		task.wait(1)
 	end
 end)
 

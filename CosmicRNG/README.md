@@ -38,6 +38,23 @@ game pass IDs in `CosmicConfig`).
 - Chat tags: `[VIP]` and your equipped aura in its tier color.
 - Server-wide banners and chat messages for rolls of 1 in 1,000 or rarer. Secret rolls change the sky for everyone.
 
+### Quests & daily rewards
+Open **📜 QUESTS** in the side menu. A red number shows how many rewards are waiting.
+- **Daily reward:** log in every day for a 7-day streak (the window opens by itself when it's ready). Missing a day starts the streak over, and after day 7 it loops:
+
+  | Day | Reward |
+  |---|---|
+  | 1 | 5 min x2 luck |
+  | 2 | 3x Comet aura |
+  | 3 | 1 Cosmic Roll (x50) |
+  | 4 | 15 min x2 luck |
+  | 5 | 2x Nebula aura |
+  | 6 | 2 Cosmic Rolls |
+  | 7 | 30 min x2 luck + 3 Cosmic Rolls + 1 Solar Flare aura |
+- **3 daily quests:** a rolling quest plus 2 others, the same for everyone that day. Examples: roll 150 times, roll on a luck island, roll a 1 in 500 aura, finish a parkour course, win duels (bots count), hatch eggs, merge pets. Each has a progress bar and a reward (potions, Cosmic Rolls or auras for eggs).
+- **Bonus chest:** finish all 3 quests for 2 Cosmic Rolls + 15 min x2 luck.
+- Everything resets at midnight UTC, with a countdown in the panel. Edit the rewards and quests in the `QuestData` module.
+
 ### Cosmic Drop
 - A small timer under your stats (top-left) counts down **15 minutes**.
 - At 0:00 a glowing **Cosmic Roll** die lands somewhere on the main island or Lucky Isle, under a tall beam of light. Everyone gets a banner, and the timer turns into an arrow pointing at it, with the distance.
@@ -73,7 +90,7 @@ game pass IDs in `CosmicConfig`).
 - The 7 days start automatically the first time a live server starts. You can also set `Config.LimitedOffer.StartTime` yourself.
 
 ### Store
-Side menu (2 columns) with **LIMITED**, **DUEL**, **STORE**, **REBIRTH**, **PETS** and **SOUND** buttons.
+Side menu (2 columns) with **LIMITED**, **DUEL**, **STORE**, **REBIRTH**, **PETS**, **QUESTS** and **SOUND** buttons.
 
 | Game pass | What it does |
 |---|---|
@@ -118,9 +135,10 @@ Side menu (2 columns) with **LIMITED**, **DUEL**, **STORE**, **REBIRTH**, **PETS
 - **Lucky Isle portal**: walk into the portal (or press **E**) to travel to **Lucky Isle**. It's white marble, gold, rose and teal, and gives **x2 luck** while you stand on it. The sky turns pink and gold while you're there, and a return portal takes you back.
   - Open to everyone. Set `Config.LuckyIsland.RequireVIP = true` to make it VIP-only.
 - **Parkour** (step on the start pad to begin; the timer shows at the top):
-  - **Starstep Trail** (medium): 26 small platforms with moving platforms (they carry you), spinning laser bars to jump over, vanishing platforms, a jump pad and 2 checkpoints. Finishing gives **x1.75 luck for 5 min**.
-  - **Void Tower** (hard): a 42-step spiral with thin beams, fast-blinking platforms, spinning lasers, moving platforms, half-deadly platforms, a jump pad and 2 checkpoints. Finishing gives **x2.5 luck for 6 min**.
-  - Each reward has a 10-minute cooldown. Lasers and red pads send you back to your checkpoint, and so does falling.
+  - **Starstep Trail** (medium): 26 small platforms with moving platforms (they carry you), spinning laser bars to jump over, vanishing platforms and a jump pad. Finishing gives **x1.75 luck for 5 min**.
+  - **Void Tower** (hard): a 42-step spiral with thin beams, fast-blinking platforms, spinning lasers, moving platforms, half-deadly platforms and a jump pad. Finishing gives **x2.5 luck for 6 min**.
+  - Each reward has a 10-minute cooldown.
+  - **No checkpoints on any course** (the rebirth island courses too): falling, a laser or a red pad sends you back to the **start**. The old checkpoint spots are now plain rest platforms.
 - **Rebirth Gate** (west of the spawn): 3 portals to the rebirth islands, and the **Rebirth Altar** (press **E** to open the rebirth menu). A locked portal shows a force field until you have enough rebirths.
 - **Duel Island** (over the bridge south of the spawn): 2 arenas with force-field walls, spectator stands, braziers and live scoreboards.
 
@@ -251,9 +269,9 @@ All sounds are made from Roblox's built-in sound files, so they always work:
 
 | Where in Studio | Type | Name |
 |---|---|---|
-| ReplicatedStorage | ModuleScript | `CosmicConfig`, `AuraData`, `AuraImages`, `AuraEffects`, `CombatAnim`, `Luck`, `Rebirth`, `PetData`, `SoundFX`, `UIKit` |
+| ReplicatedStorage | ModuleScript | `CosmicConfig`, `AuraData`, `AuraImages`, `AuraEffects`, `CombatAnim`, `Luck`, `Rebirth`, `PetData`, `QuestData`, `SoundFX`, `UIKit` |
 | ServerScriptService | Script | `RollService`, `WorldSetup`, `LuckyIsland`, `RebirthIslands`, `SkyDecor`, `PetWorld`, `DropService`, `Parkour`, `DuelService`, `Movement`, `Leaderboard` |
-| StarterPlayer > StarterPlayerScripts | LocalScript | `AuraRenderer`, `RollUI`, `StoreUI`, `WorldFX`, `ParkourClient`, `DuelClient`, `DuelFX`, `Sprint`, `RebirthClient`, `IslandFX`, `SkyFX`, `PetClient`, `DropClient`, `LimitedOffer`, `NameplateStyler` |
+| StarterPlayer > StarterPlayerScripts | LocalScript | `AuraRenderer`, `RollUI`, `StoreUI`, `WorldFX`, `ParkourClient`, `DuelClient`, `DuelFX`, `Sprint`, `RebirthClient`, `IslandFX`, `SkyFX`, `PetClient`, `DropClient`, `LimitedOffer`, `NameplateStyler`, `QuestClient` |
 
 ## Adding the aura pictures
 Roblox can only show pictures that are uploaded to Roblox, so this is a one-time step:

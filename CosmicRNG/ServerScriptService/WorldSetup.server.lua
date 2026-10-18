@@ -356,7 +356,7 @@ local function rescue(character, player)
 	local lucky = Config.LuckyIsland
 	local flat = Vector3.new(root.Position.X - lucky.Center.X, 0, root.Position.Z - lucky.Center.Z)
 	if typeof(checkpoint) == "CFrame" then
-		character:PivotTo(checkpoint) -- fell off a parkour course
+		character:PivotTo(checkpoint) -- fell off a parkour course: back to its start
 	elseif flat.Magnitude < lucky.Radius * 3 then
 		character:PivotTo(CFrame.new(lucky.Center + Vector3.new(0, 4, -45))) -- fell off Lucky Isle
 	else

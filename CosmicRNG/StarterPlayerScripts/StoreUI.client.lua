@@ -31,7 +31,7 @@ local menu = new("Frame", {
 	AnchorPoint = Vector2.new(0, 0.5),
 	Position = UDim2.new(0, 16, 0.5, 0),
 	-- 2 columns: other scripts add DUEL, REBIRTH, PETS and LIMITED buttons here
-	Size = UDim2.fromOffset(178, 290),
+	Size = UDim2.fromOffset(178, 384),
 	BackgroundTransparency = 1,
 	Parent = gui,
 }, {

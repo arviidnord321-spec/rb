@@ -10,8 +10,9 @@
 --   GLACIER CLIMB (Frostfall)  - slippery ice floes + a spiral up an ice spire
 --   MAGMA RUN     (Ember)      - over a lava sea: sinking rocks, fire bars
 --   PULSE GRID    (Neon Nexus) - a square spiral of platforms blinking in a wave
--- Step on the start pad to begin. Checkpoints save your spot (falling puts
--- you back there). Reaching the finish gives a luck boost (with a cooldown).
+-- Step on the start pad to begin. There are NO checkpoints: falling, a laser
+-- or a red pad sends you back to the start. Reaching the finish gives a luck
+-- boost (with a cooldown).
 -- Vanishing/moving platforms, spinners and jump pads are animated by the
 -- ParkourClient script. Spinners are timed by the server clock, so the
 -- server knows exactly where every laser bar is.
@@ -40,6 +41,21 @@ if not ParkourEvent then
 	ParkourEvent = Instance.new("RemoteEvent")
 	ParkourEvent.Name = "ParkourEvent"
 	ParkourEvent.Parent = remotes
+end
+
+-- Quests count finished courses (RollService listens)
+local ServerStorage = game:GetService("ServerStorage")
+local serverEvents = ServerStorage:FindFirstChild("CosmicServerEvents")
+if not serverEvents then
+	serverEvents = Instance.new("Folder")
+	serverEvents.Name = "CosmicServerEvents"
+	serverEvents.Parent = ServerStorage
+end
+local questEvent = serverEvents:FindFirstChild("QuestEvent")
+if not questEvent then
+	questEvent = Instance.new("BindableEvent")
+	questEvent.Name = "QuestEvent"
+	questEvent.Parent = serverEvents
 end
 
 ---------------------------------------------------------------------
@@ -281,36 +297,11 @@ local function icePlatform(model, cf, size)
 	return p
 end
 
-local function checkpointPad(course, model, cf, number, color3)
-	local pad = part({
-		Name = "CheckpointPad",
-		Size = Vector3.new(6, 1, 6),
-		CFrame = cf,
-		Color = Color3.fromRGB(60, 200, 120),
-		Material = Enum.Material.Neon,
-		Parent = model,
-	})
-	local pole = part({
-		Name = "FlagPole",
-		Size = Vector3.new(0.3, 6, 0.3),
-		CFrame = cf * CFrame.new(2.4, 3.5, 2.4),
-		Color = Color3.fromRGB(230, 230, 240),
-		Material = Enum.Material.Metal,
-		CanCollide = false,
-		Parent = model,
-	})
-	part({
-		Name = "Flag",
-		Size = Vector3.new(0.1, 1.4, 2.2),
-		CFrame = pole.CFrame * CFrame.new(0, 2.2, -1.1),
-		Color = color3,
-		Material = Enum.Material.Neon,
-		CanCollide = false,
-		Parent = model,
-	})
-	addLight(pad, Color3.fromRGB(80, 255, 150), 14, 1.2)
-	billboard(pad, "CHECKPOINT " .. number, nil, Color3.fromRGB(120, 255, 170), Vector3.new(0, 4, 0))
-	table.insert(course.Checkpoints, pad)
+-- There are no checkpoints any more: these spots are just wider "rest"
+-- platforms. Falling (or a laser / red pad) always sends you back to the START.
+local function checkpointPad(_course, model, cf, _number, color3)
+	local pad = platform(model, cf, Vector3.new(5, 1, 5), Color3.fromRGB(40, 34, 64), color3)
+	pad.Name = "RestPlatform"
 	return pad
 end
 
@@ -942,6 +933,7 @@ local function finishRun(player, course)
 	player:SetAttribute("Checkpoint", nil)
 	player:SetAttribute("ParkourCourse", nil)
 	player:SetAttribute("ParkourStart", nil)
+	questEvent:Fire(player, "Parkour", 1)
 	ParkourEvent:FireClient(player, {
 		Type = "Finish",
 		Course = course.Settings.Name,

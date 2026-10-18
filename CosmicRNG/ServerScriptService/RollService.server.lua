@@ -15,6 +15,7 @@ local AuraData = require(ReplicatedStorage:WaitForChild("AuraData"))
 local Luck = require(ReplicatedStorage:WaitForChild("Luck"))
 local Rebirth = require(ReplicatedStorage:WaitForChild("Rebirth"))
 local PetData = require(ReplicatedStorage:WaitForChild("PetData"))
+local QuestData = require(ReplicatedStorage:WaitForChild("QuestData"))
 
 ---------------------------------------------------------------------
 -- Remotes (created here so you don't have to make them by hand)
@@ -46,6 +47,8 @@ local RevealRemote = getRemote("RemoteEvent", "Reveal") -- roller -> server: "my
 local RebirthRemote = getRemote("RemoteFunction", "Rebirth") -- player asks to rebirth
 local HatchRemote = getRemote("RemoteFunction", "HatchEgg") -- player hatches an egg
 local PetRemote = getRemote("RemoteFunction", "PetAction") -- equip / unequip pets
+local QuestRemote = getRemote("RemoteFunction", "Quest") -- daily reward + quests
+local QuestUpdatedRemote = getRemote("RemoteEvent", "QuestUpdated") -- server -> player: quest progress
 
 ---------------------------------------------------------------------
 -- Data saving
@@ -85,6 +88,8 @@ local function newData()
 		BoostRolls = 0, -- Cosmic Rolls waiting (x50 luck on the next roll)
 		PermanentLuck = 1, -- from the Limited Offer
 		LimitedBought = "", -- which Limited Offer pack this player bought
+		Daily = { Streak = 0, LastClaimDay = -1 }, -- daily login reward
+		Quests = { Day = -1, List = {}, Bonus = false }, -- today's quests
 		Receipts = {}, -- recent purchase IDs, so nothing is granted twice
 	}
 end
@@ -229,6 +234,9 @@ local function refreshStats(player)
 	player:SetAttribute("BestChance", data.BestChance)
 end
 
+-- quests are filled in further down (rolling, hatching... report progress)
+local addQuestProgress = function(_player, _kind, _amount, _extra) end
+
 ---------------------------------------------------------------------
 -- Rolling
 ---------------------------------------------------------------------
@@ -293,6 +301,15 @@ RollRemote.OnServerInvoke = function(player)
 		data.BestChance = best.Chance
 	end
 	refreshStats(player)
+
+	-- quest progress
+	addQuestProgress(player, "Rolls", 1)
+	if player:GetAttribute("OnLuckyIsland") or player:GetAttribute("OnRebirthIsland") then
+		addQuestProgress(player, "LuckyRolls", 1)
+	end
+	for _, name in ipairs(results) do
+		addQuestProgress(player, "Rarity", 1, AuraData.Get(name).Chance)
+	end
 
 	-- Everyone sees this player "charging up"; the reveal comes when the
 	-- roller's animation finishes (see RevealRemote below).
@@ -386,6 +403,192 @@ RebirthRemote.OnServerInvoke = function(player)
 end
 
 
+
+---------------------------------------------------------------------
+-- QUESTS + DAILY REWARD
+---------------------------------------------------------------------
+local function grantReward(player, data, reward)
+	if reward.Potion then
+		local from = math.max(Luck.Now(), data.PersonalLuckEnd or 0)
+		data.PersonalLuckEnd = from + reward.Potion * 60
+		player:SetAttribute("PersonalLuckEnd", data.PersonalLuckEnd)
+	end
+	if reward.BoostRolls then
+		data.BoostRolls = (data.BoostRolls or 0) + reward.BoostRolls
+	end
+	if reward.Aura and AuraData.Get(reward.Aura) then
+		data.Inventory[reward.Aura] = (data.Inventory[reward.Aura] or 0) + (reward.Count or 1)
+		local aura = AuraData.Get(reward.Aura)
+		if aura.Chance > data.BestChance then
+			data.BestChance = aura.Chance
+		end
+	end
+	refreshStats(player)
+	DataUpdatedRemote:FireClient(player, snapshot(data))
+end
+
+-- make sure the player has today's quests (new ones after midnight UTC)
+local function ensureQuests(data)
+	local today = QuestData.Today()
+	data.Quests = data.Quests or { Day = -1, List = {}, Bonus = false }
+	data.Daily = data.Daily or { Streak = 0, LastClaimDay = -1 }
+	if data.Quests.Day ~= today then
+		local list = {}
+		for _, id in ipairs(QuestData.QuestsFor(today)) do
+			table.insert(list, { Id = id, Progress = 0, Claimed = false })
+		end
+		data.Quests = { Day = today, List = list, Bonus = false }
+	end
+	return today
+end
+
+local function dailyInfo(data, today)
+	local daily = data.Daily
+	local canClaim = daily.LastClaimDay ~= today
+	local nextStreak = (daily.LastClaimDay == today - 1) and (daily.Streak + 1) or 1
+	if not canClaim then
+		nextStreak = daily.Streak -- already claimed today: show today's tile
+	end
+	return {
+		CanClaim = canClaim,
+		Streak = daily.Streak,
+		DayIndex = ((nextStreak - 1) % #QuestData.DailyRewards) + 1,
+	}
+end
+
+local function questState(data)
+	local today = ensureQuests(data)
+	local quests = {}
+	local allDone = true
+	for _, q in ipairs(data.Quests.List) do
+		local def = QuestData.ById[q.Id]
+		if def then
+			local done = q.Progress >= def.Goal
+			allDone = allDone and done and q.Claimed
+			table.insert(quests, { Id = q.Id, Progress = q.Progress, Goal = def.Goal, Claimed = q.Claimed, Done = done })
+		end
+	end
+	return {
+		Daily = dailyInfo(data, today),
+		Quests = quests,
+		BonusReady = allDone and not data.Quests.Bonus,
+		BonusClaimed = data.Quests.Bonus,
+		ResetIn = QuestData.SecondsToReset(),
+	}
+end
+
+-- how many things are waiting to be claimed (the red dot on the menu button)
+local function pushQuests(player)
+	local data = sessions[player]
+	if not data then
+		return
+	end
+	local state = questState(data)
+	local ready = state.Daily.CanClaim and 1 or 0
+	for _, q in ipairs(state.Quests) do
+		if q.Done and not q.Claimed then
+			ready += 1
+		end
+	end
+	if state.BonusReady then
+		ready += 1
+	end
+	player:SetAttribute("QuestsReady", ready)
+	QuestUpdatedRemote:FireClient(player, state)
+end
+
+addQuestProgress = function(player, kind, amount, extra)
+	local data = sessions[player]
+	if not data then
+		return
+	end
+	ensureQuests(data)
+	local changed = false
+	for _, q in ipairs(data.Quests.List) do
+		local def = QuestData.ById[q.Id]
+		if def and def.Kind == kind and not q.Claimed and q.Progress < def.Goal then
+			if kind ~= "Rarity" or (extra or 0) >= def.Threshold then
+				q.Progress = math.min(def.Goal, q.Progress + (amount or 1))
+				changed = true
+			end
+		end
+	end
+	if changed then
+		pushQuests(player)
+	end
+end
+
+QuestRemote.OnServerInvoke = function(player, action, index)
+	local data = sessions[player]
+	if not data then
+		return nil
+	end
+	local today = ensureQuests(data)
+	local granted
+	if action == "ClaimDaily" then
+		local info = dailyInfo(data, today)
+		if info.CanClaim then
+			local streak = (data.Daily.LastClaimDay == today - 1) and (data.Daily.Streak + 1) or 1
+			data.Daily = { Streak = streak, LastClaimDay = today }
+			granted = QuestData.DailyRewards[((streak - 1) % #QuestData.DailyRewards) + 1]
+		end
+	elseif action == "ClaimQuest" and type(index) == "number" then
+		local q = data.Quests.List[index]
+		local def = q and QuestData.ById[q.Id]
+		if def and not q.Claimed and q.Progress >= def.Goal then
+			q.Claimed = true
+			granted = def.Reward
+		end
+	elseif action == "ClaimBonus" then
+		local state = questState(data)
+		if state.BonusReady then
+			data.Quests.Bonus = true
+			granted = QuestData.Bonus
+		end
+	end
+	if granted then
+		grantReward(player, data, granted)
+	end
+	pushQuests(player)
+	return { State = questState(data), Granted = granted }
+end
+
+-- other scripts report progress here (parkour finishes, duel wins)
+do
+	local events = ServerStorage:FindFirstChild("CosmicServerEvents")
+	if not events then
+		events = Instance.new("Folder")
+		events.Name = "CosmicServerEvents"
+		events.Parent = ServerStorage
+	end
+	local questEvent = events:FindFirstChild("QuestEvent")
+	if not questEvent then
+		questEvent = Instance.new("BindableEvent")
+		questEvent.Name = "QuestEvent"
+		questEvent.Parent = events
+	end
+	questEvent.Event:Connect(function(player, kind, amount)
+		if typeof(player) == "Instance" and player:IsA("Player") and type(kind) == "string" then
+			addQuestProgress(player, kind, amount or 1)
+		end
+	end)
+end
+
+-- new day while you're playing: new quests + a new daily reward
+task.spawn(function()
+	local lastDay = QuestData.Today()
+	while true do
+		task.wait(20)
+		local today = QuestData.Today()
+		if today ~= lastDay then
+			lastDay = today
+			for _, player in ipairs(Players:GetPlayers()) do
+				pushQuests(player)
+			end
+		end
+	end
+end)
+
 ---------------------------------------------------------------------
 -- PETS: hatch eggs by paying with auras, equip up to 3 for luck
 ---------------------------------------------------------------------
@@ -464,6 +667,7 @@ HatchRemote.OnServerInvoke = function(player, eggKey)
 	end
 	refreshStats(player)
 	DataUpdatedRemote:FireClient(player, snapshot(data))
+	addQuestProgress(player, "Hatch", 1)
 	local pet = PetData.Get(petName)
 	if pet and PetData.Rarities[pet.Rarity].Order >= 5 then
 		AnnounceRemote:FireAllClients({ Type = "Pet", PlayerName = player.DisplayName, UserId = player.UserId, Pet = petName })
@@ -546,6 +750,7 @@ PetRemote.OnServerInvoke = function(player, action, petName)
 		givePet(data, result)
 		refreshStats(player)
 		DataUpdatedRemote:FireClient(player, snapshot(data))
+		addQuestProgress(player, "Merge", 1)
 		return { Merged = result, Pets = data.Pets, EquippedPets = data.EquippedPets }
 	end
 	refreshStats(player)
@@ -777,6 +982,7 @@ local function onPlayerAdded(player)
 	refreshStats(player)
 	applyAuraToCharacter(player)
 	DataUpdatedRemote:FireClient(player, snapshot(data))
+	pushQuests(player)
 end
 
 Players.PlayerAdded:Connect(onPlayerAdded)
